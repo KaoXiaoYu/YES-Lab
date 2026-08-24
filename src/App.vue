@@ -14,13 +14,14 @@ import {
   Users,
   X,
 } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { fetchPublicHome } from './services/publicApi'
 
 const menuOpen = ref(false)
 const activeRanking = ref('总榜')
 const selectedProject = ref(null)
 
-const projects = [
+const defaultProjects = [
   {
     number: '01', category: '智能交互', title: '低成本多模态\n实验工作台',
     summary: '让视觉、语言与传感器数据在同一套轻量系统中协同工作。', status: '进行中',
@@ -41,14 +42,14 @@ const projects = [
   },
 ]
 
-const members = [
+const defaultMembers = [
   { initials: 'FZ', name: '范桌轩大王', role: '2023 · 计算机科学', tags: ['全栈开发', '产品设计'], points: 2480, rank: 1 },
   { initials: 'YX', name: '范桌轩大王', role: '2022 · 人工智能', tags: ['算法研究', '计算机视觉'], points: 2210, rank: 2 },
   { initials: 'LC', name: '范桌轩大王', role: '2024 · 电子信息', tags: ['嵌入式', '开放硬件'], points: 1980, rank: 3 },
   { initials: 'WQ', name: '范桌轩大王', role: '2023 · 数字媒体', tags: ['交互设计', '内容创作'], points: 1750, rank: 4 },
 ]
 
-const rankingData = {
+const defaultRankingData = {
   总榜: [2480, 2210, 1980, 1750],
   月榜: [380, 350, 290, 265],
   年榜: [1240, 1180, 960, 845],
@@ -56,13 +57,40 @@ const rankingData = {
   工程实现: [880, 810, 790, 650],
 }
 
-const rankings = computed(() => members.map((member, index) => ({ ...member, points: rankingData[activeRanking.value][index] })).sort((a, b) => b.points - a.points))
-
-const updates = [
+const defaultUpdates = [
   { date: '08.18', type: '项目动态', title: '低成本多模态实验工作台完成第一轮设备联调' },
   { date: '08.06', type: '竞赛成果', title: '范桌轩大王团队获得范桌轩大王创新挑战赛一等奖' },
   { date: '07.24', type: '开源发布', title: '城市环境感知节点数据处理工具正式开放' },
 ]
+
+const profile = ref({
+  name: 'YES Lab',
+  displayName: '范桌轩大王实验室',
+  slogan: '让想法被验证',
+  description: '我们是一群持续发问、快速行动的人。在技术与真实世界相遇的地方，创造值得发生的答案。',
+})
+const statistics = ref({ activeProjects: 12, members: 28, achievements: 36 })
+const projects = ref(defaultProjects)
+const members = ref(defaultMembers)
+const rankingData = ref(defaultRankingData)
+const updates = ref(defaultUpdates)
+
+const rankings = computed(() => members.value.map((member, index) => ({
+  ...member,
+  points: rankingData.value[activeRanking.value]?.[index] ?? member.points,
+})).sort((a, b) => b.points - a.points))
+
+onMounted(async () => {
+  const home = await fetchPublicHome()
+  if (!home) return
+
+  profile.value = home.profile
+  statistics.value = home.statistics
+  projects.value = home.projects
+  members.value = home.members
+  rankingData.value = home.rankingData
+  updates.value = home.updates
+})
 
 const scrollTo = (id) => {
   menuOpen.value = false
@@ -88,12 +116,12 @@ const scrollTo = (id) => {
     <section id="top" class="hero">
       <div class="hero-noise"></div><div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div>
       <div class="hero-content">
-        <p class="eyebrow"><Sparkles :size="15" /> YES LAB · 范桌轩大王实验室</p>
+        <p class="eyebrow"><Sparkles :size="15" /> {{ profile.name.toUpperCase() }} · {{ profile.displayName }}</p>
         <h1>让想法<br /><em>被验证</em></h1>
         <p class="hero-description">我们是一群持续发问、快速行动的人。<br />在技术与真实世界相遇的地方，创造值得发生的答案。</p>
         <div class="hero-actions"><button class="primary-action" @click="scrollTo('#projects')">探索我们的工作 <ArrowRight :size="18" /></button><button class="text-action" @click="scrollTo('#about')">认识 YES Lab <ArrowDownRight :size="18" /></button></div>
       </div>
-      <div class="hero-data" aria-label="实验室概览"><div><strong>12</strong><span>在研项目</span></div><div><strong>28</strong><span>实验室成员</span></div><div><strong>36</strong><span>公开成果</span></div></div>
+      <div class="hero-data" aria-label="实验室概览"><div><strong>{{ statistics.activeProjects }}</strong><span>在研项目</span></div><div><strong>{{ statistics.members }}</strong><span>实验室成员</span></div><div><strong>{{ statistics.achievements }}</strong><span>公开成果</span></div></div>
       <div class="signal-card"><span class="signal-dot"></span><div><small>LAB STATUS</small><strong>持续探索中</strong></div><ExternalLink :size="16" /></div>
     </section>
 
