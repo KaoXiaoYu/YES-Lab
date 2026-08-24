@@ -23,7 +23,7 @@ function normalizeHome(home) {
     statistics: home.statistics,
     projects: home.projects.map((project) => ({
       ...project,
-      members: `${project.memberCount} 人`,
+      members: project.memberCount > 0 ? `${project.memberCount} 人` : '待补充',
     })),
     members: home.members.map((member) => ({
       ...member,
@@ -34,7 +34,8 @@ function normalizeHome(home) {
     ),
     updates: home.updates.map((item) => ({
       ...item,
-      date: item.publishedAt.slice(5).replace('-', '.'),
+      date: item.publishedAt || '最新',
     })),
+    sponsors: home.sponsors || [],
   }
 }

@@ -15,6 +15,7 @@ public final class PublicShowcase {
             List<Member> members,
             Map<String, List<RankingEntry>> rankings,
             List<Update> updates,
+            List<Sponsor> sponsors,
             List<ExternalLink> externalLinks
     ) {
     }
@@ -70,6 +71,9 @@ public final class PublicShowcase {
     }
 
     public record Update(String publishedAt, String type, String title, String slug) {
+    }
+
+    public record Sponsor(String name, String type, String description, List<String> focus) {
     }
 
     public record ExternalLink(String platform, String label, String url, boolean enabled) {

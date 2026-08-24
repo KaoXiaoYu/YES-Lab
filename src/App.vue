@@ -3,12 +3,12 @@ import {
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
-  Award,
-  Code2,
   ExternalLink,
   Github,
+  GraduationCap,
+  Handshake,
   Menu,
-  Play,
+  Orbit,
   Sparkles,
   Trophy,
   Users,
@@ -23,57 +23,69 @@ const selectedProject = ref(null)
 
 const defaultProjects = [
   {
-    number: '01', category: '智能交互', title: '低成本多模态\n实验工作台',
-    summary: '让视觉、语言与传感器数据在同一套轻量系统中协同工作。', status: '进行中',
-    lead: '范桌轩大王', members: '6 人', tech: ['Vue 3', 'Java', 'Edge AI'],
-    result: '已完成原型验证与第一轮设备联调，计划开放核心工具链。',
+    number: '01', category: '无人机', title: '无人机自主飞行\n与环境感知',
+    summary: '面向复杂环境，探索飞行平台的自主感知、定位、规划与控制。', status: '研究中',
+    lead: '范桌轩大王', members: '待补充', tech: ['自主飞行', '环境感知', '运动规划'],
+    result: '研究方向建设中，后续将公开阶段性原型、比赛记录与技术文档。',
   },
   {
-    number: '02', category: '教育科技', title: '自适应学习\n反馈引擎',
-    summary: '把学习过程转化为可理解、可调整、可持续的成长反馈。', status: '已发布',
-    lead: '范桌轩大王', members: '4 人', tech: ['Spring Boot', 'NLP', 'Data Viz'],
-    result: '完成校内测试，形成 1 项软件著作权与公开演示版本。',
+    number: '02', category: '空地协同', title: '无人机 × 机器狗\n空地协同系统',
+    summary: '连接空中视野与地面行动能力，研究多智能体协同感知和任务执行。', status: '重点方向',
+    lead: '范桌轩大王', members: '待补充', tech: ['协同感知', '任务分配', '异构机器人'],
+    result: '围绕无人机与机器狗协同开展系统设计、算法验证与工程实践。',
   },
   {
-    number: '03', category: '开放硬件', title: '城市环境\n感知节点',
-    summary: '用开放硬件和低功耗网络观察校园与城市的微小变化。', status: '内测中',
-    lead: '范桌轩大王', members: '8 人', tech: ['IoT', 'LoRa', 'Open Data'],
-    result: '完成 12 个节点布设，累计采集环境数据 240 万条。',
+    number: '03', category: '具身智能', title: '具身智能\n学习与实践平台',
+    summary: '让智能体在真实环境中感知、理解并行动，推动算法走出屏幕。', status: '方向建设',
+    lead: '范桌轩大王', members: '待补充', tech: ['多模态感知', '智能决策', '机器人学习'],
+    result: '面向校内学生建设从基础训练到项目实战的人才培养路径。',
   },
 ]
 
 const defaultMembers = [
-  { initials: 'FZ', name: '范桌轩大王', role: '2023 · 计算机科学', tags: ['全栈开发', '产品设计'], points: 2480, rank: 1 },
-  { initials: 'YX', name: '范桌轩大王', role: '2022 · 人工智能', tags: ['算法研究', '计算机视觉'], points: 2210, rank: 2 },
-  { initials: 'LC', name: '范桌轩大王', role: '2024 · 电子信息', tags: ['嵌入式', '开放硬件'], points: 1980, rank: 3 },
-  { initials: 'WQ', name: '范桌轩大王', role: '2023 · 数字媒体', tags: ['交互设计', '内容创作'], points: 1750, rank: 4 },
+  { initials: 'FZ', name: '范桌轩大王', role: '2023 · 计算机科学', tags: ['无人机系统', '工程实现'], points: 2480, rank: 1 },
+  { initials: 'YX', name: '范桌轩大王', role: '2022 · 人工智能', tags: ['计算机视觉', '具身智能'], points: 2210, rank: 2 },
+  { initials: 'LC', name: '范桌轩大王', role: '2024 · 电子信息', tags: ['嵌入式', '机器人控制'], points: 1980, rank: 3 },
+  { initials: 'WQ', name: '范桌轩大王', role: '2023 · 自动化', tags: ['多智能体', '系统设计'], points: 1750, rank: 4 },
 ]
 
 const defaultRankingData = {
   总榜: [2480, 2210, 1980, 1750],
   月榜: [380, 350, 290, 265],
   年榜: [1240, 1180, 960, 845],
-  'AI 应用': [920, 860, 740, 620],
-  工程实现: [880, 810, 790, 650],
+  无人机: [920, 860, 740, 620],
+  空地协同: [880, 810, 790, 650],
+  具身智能: [850, 820, 760, 690],
 }
 
 const defaultUpdates = [
-  { date: '08.18', type: '项目动态', title: '低成本多模态实验工作台完成第一轮设备联调' },
-  { date: '08.06', type: '竞赛成果', title: '范桌轩大王团队获得范桌轩大王创新挑战赛一等奖' },
-  { date: '07.24', type: '开源发布', title: '城市环境感知节点数据处理工具正式开放' },
+  { date: '荣誉', type: '竞赛成果', title: 'YES Lab 获得计算机设计大赛全国二等奖' },
+  { date: '方向', type: '研究动态', title: '推进无人机与机器狗空地协同系统研究' },
+  { date: '伙伴', type: '企业支持', title: 'CUAV 成为 YES Lab 企业赞助伙伴' },
+]
+
+const defaultSponsors = [
+  {
+    name: 'CUAV',
+    type: '企业赞助伙伴',
+    description: '感谢 CUAV 对 YES Lab 无人系统研究、工程实践与人才培养的支持。',
+    focus: ['无人机系统', '工程实践', '人才培养'],
+  },
 ]
 
 const profile = ref({
   name: 'YES Lab',
-  displayName: '范桌轩大王实验室',
-  slogan: '让想法被验证',
-  description: '我们是一群持续发问、快速行动的人。在技术与真实世界相遇的地方，创造值得发生的答案。',
+  displayName: 'YES Lab 实验室',
+  slogan: '探索空地协同，培养未来工程人才',
+  description: '一个面向无人系统与具身智能的初创实验室，以真实项目连接科研、竞赛与人才培养。',
+  researchDirections: ['无人机', '空地协同', '具身智能'],
 })
-const statistics = ref({ activeProjects: 12, members: 28, achievements: 36 })
+const statistics = ref({ activeProjects: 3, members: 0, achievements: 1 })
 const projects = ref(defaultProjects)
 const members = ref(defaultMembers)
 const rankingData = ref(defaultRankingData)
 const updates = ref(defaultUpdates)
+const sponsors = ref(defaultSponsors)
 
 const rankings = computed(() => members.value.map((member, index) => ({
   ...member,
@@ -90,6 +102,7 @@ onMounted(async () => {
   members.value = home.members
   rankingData.value = home.rankingData
   updates.value = home.updates
+  sponsors.value = home.sponsors?.length ? home.sponsors : defaultSponsors
 })
 
 const scrollTo = (id) => {
@@ -101,11 +114,12 @@ const scrollTo = (id) => {
 <template>
   <main>
     <header class="site-header">
-      <a class="brand" href="#top" aria-label="YES Lab 首页"><span class="brand-mark">Y</span><span>YES LAB</span></a>
+      <a class="brand" href="#top" aria-label="YES Lab 首页"><span>YES LAB</span><small>PUBLIC / 01</small></a>
       <nav :class="['top-nav', { open: menuOpen }]" aria-label="主导航">
         <button class="active" @click="scrollTo('#top')">公开展示</button>
         <button @click="scrollTo('#projects')">项目与成果</button>
         <button @click="scrollTo('#members')">成员社区</button>
+        <button @click="scrollTo('#partners')">赞助伙伴</button>
         <span class="nav-divider"></span>
         <a href="#" @click.prevent>协作平台 <span>即将开放</span></a>
         <a href="#" @click.prevent>管理中心 <span>即将开放</span></a>
@@ -117,24 +131,24 @@ const scrollTo = (id) => {
       <div class="hero-noise"></div><div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div>
       <div class="hero-content">
         <p class="eyebrow"><Sparkles :size="15" /> {{ profile.name.toUpperCase() }} · {{ profile.displayName }}</p>
-        <h1>让想法<br /><em>被验证</em></h1>
-        <p class="hero-description">我们是一群持续发问、快速行动的人。<br />在技术与真实世界相遇的地方，创造值得发生的答案。</p>
+        <h1>探索空地<br /><em>协同未来</em></h1>
+        <p class="hero-description">{{ profile.description }}<br />从无人机到机器狗，让智能体在真实世界中感知、协作与行动。</p>
         <div class="hero-actions"><button class="primary-action" @click="scrollTo('#projects')">探索我们的工作 <ArrowRight :size="18" /></button><button class="text-action" @click="scrollTo('#about')">认识 YES Lab <ArrowDownRight :size="18" /></button></div>
       </div>
-      <div class="hero-data" aria-label="实验室概览"><div><strong>{{ statistics.activeProjects }}</strong><span>在研项目</span></div><div><strong>{{ statistics.members }}</strong><span>实验室成员</span></div><div><strong>{{ statistics.achievements }}</strong><span>公开成果</span></div></div>
+      <div class="hero-data" aria-label="实验室概览"><div><strong>NATIONAL</strong><span>计算机设计大赛全国二等奖</span></div><div><strong>3</strong><span>核心研究方向</span></div><div><strong>CUAV</strong><span>企业赞助伙伴</span></div></div>
       <div class="signal-card"><span class="signal-dot"></span><div><small>LAB STATUS</small><strong>持续探索中</strong></div><ExternalLink :size="16" /></div>
     </section>
 
-    <section class="preview-band"><p>YES / THINK / BUILD / SHARE</p><span>公开 · 协作 · 成长</span></section>
+    <section class="preview-band"><p>FLY / PERCEIVE / COLLABORATE / ACT</p><span>无人机 · 空地协同 · 具身智能</span></section>
 
     <section id="about" class="about section-pad">
       <div class="section-index">01 — ABOUT</div>
-      <div class="about-copy"><p class="overline">关于我们</p><h2>不只做“正确”的题，<br />也寻找<em>值得回答</em>的问题。</h2></div>
-      <div class="about-detail"><p>YES Lab 聚焦智能交互、教育科技与开放硬件。我们用真实项目连接研究、工程与表达，让每位成员都能在动手创造中找到自己的方向。</p><div class="principles"><span>01 先做出来</span><span>02 保持公开</span><span>03 彼此成就</span></div></div>
+      <div class="about-copy"><p class="overline">关于我们</p><h2>让智能体<br />真正走进<em>物理世界</em>。</h2></div>
+      <div class="about-detail"><p>YES Lab 是一个处于起步阶段的实验室，主要研究无人机、无人机与机器狗空地协同、具身智能等方向。我们以竞赛与真实工程项目为牵引，为学校培养具备算法、硬件和系统能力的复合型人才。</p><div class="principles"><span>01 面向真实场景</span><span>02 强调系统协同</span><span>03 培养工程人才</span></div></div>
     </section>
 
     <section id="projects" class="projects section-pad">
-      <div class="section-heading"><div><p class="section-index">02 — PROJECTS</p><h2>正在发生的<br /><em>项目与成果</em></h2></div><p>从一张草图到真实世界中的产品，记录每一次验证、迭代与开放。</p></div>
+      <div class="section-heading"><div><p class="section-index">02 — RESEARCH</p><h2>面向真实世界的<br /><em>研究与工程</em></h2></div><p>围绕空中、地面与智能体之间的协同关系，持续完成从算法到系统的验证。</p></div>
       <div class="project-grid">
         <article v-for="project in projects" :key="project.number" class="project-card" @click="selectedProject = project">
           <div class="project-meta"><span>{{ project.number }}</span><span>{{ project.category }}</span></div>
@@ -144,7 +158,7 @@ const scrollTo = (id) => {
           <div class="project-footer"><span><i></i>{{ project.status }}</span><button aria-label="查看项目详情"><ArrowUpRight :size="20" /></button></div>
         </article>
       </div>
-      <div class="outcomes"><div><Award :size="24" /><strong>18</strong><span>竞赛奖项</span></div><div><Code2 :size="24" /><strong>9</strong><span>开源项目</span></div><div><Trophy :size="24" /><strong>5</strong><span>论文 / 专利</span></div><div><Play :size="24" /><strong>4</strong><span>视频作品</span></div></div>
+      <div class="outcomes"><div><Trophy :size="24" /><strong>全国二等奖</strong><span>计算机设计大赛</span></div><div><Orbit :size="24" /><strong>空地协同</strong><span>异构无人系统</span></div><div><GraduationCap :size="24" /><strong>人才培养</strong><span>项目驱动成长</span></div><div><Handshake :size="24" /><strong>CUAV</strong><span>企业赞助伙伴</span></div></div>
     </section>
 
     <section id="members" class="members section-pad">
@@ -164,14 +178,26 @@ const scrollTo = (id) => {
       </div>
     </section>
 
+    <section id="partners" class="partners section-pad">
+      <div class="section-heading light"><div><p class="section-index">04 — PARTNERS</p><h2>一起把探索<br /><em>推向真实世界</em></h2></div><p>感谢企业伙伴为实验室的研究实践与人才培养提供支持。</p></div>
+      <div class="sponsor-list">
+        <article v-for="sponsor in sponsors" :key="sponsor.name" class="sponsor-card">
+          <div class="sponsor-code">PARTNER / {{ String(sponsors.indexOf(sponsor) + 1).padStart(2, '0') }}</div>
+          <strong>{{ sponsor.name }}</strong>
+          <div><p>{{ sponsor.type }}</p><span>{{ sponsor.description }}</span></div>
+          <ul><li v-for="item in sponsor.focus" :key="item">{{ item }}</li></ul>
+        </article>
+      </div>
+    </section>
+
     <section id="updates" class="updates section-pad">
-      <div class="section-heading"><div><p class="section-index">04 — UPDATES</p><h2>实验室<br /><em>最新动态</em></h2></div><p>公开每一个值得记住的节点。这里将由后台统一发布并自动同步到首页。</p></div>
-      <div class="update-list"><article v-for="item in updates" :key="item.date"><time>2026.{{ item.date }}</time><span>{{ item.type }}</span><h3>{{ item.title }}</h3><button aria-label="查看动态"><ArrowUpRight :size="20" /></button></article></div>
+      <div class="section-heading"><div><p class="section-index">05 — UPDATES</p><h2>实验室<br /><em>最新动态</em></h2></div><p>公开每一个值得记住的节点，持续记录研究、竞赛与合作进展。</p></div>
+      <div class="update-list"><article v-for="item in updates" :key="item.title"><time>{{ item.date }}</time><span>{{ item.type }}</span><h3>{{ item.title }}</h3><button aria-label="查看动态"><ArrowUpRight :size="20" /></button></article></div>
     </section>
 
     <section class="connect"><div><p class="section-index">CONNECT WITH US</p><h2>保持好奇，<br />欢迎来找我们。</h2></div><div class="connect-links"><a href="https://github.com" target="_blank" rel="noreferrer"><Github :size="20" /> 开源仓库 <ArrowUpRight :size="18" /></a><a href="#" @click.prevent>哔哩哔哩 <ArrowUpRight :size="18" /></a><a href="#" @click.prevent>微信公众号 <ArrowUpRight :size="18" /></a><a href="#" @click.prevent>抖音 <ArrowUpRight :size="18" /></a></div></section>
 
-    <footer><a class="brand" href="#top"><span class="brand-mark">Y</span><span>YES LAB</span></a><p>© 2026 范桌轩大王实验室 · BUILD WITH CURIOSITY</p></footer>
+    <footer><a class="brand" href="#top"><span>YES LAB</span><small>PUBLIC / 01</small></a><p>© 2026 YES Lab · INTELLIGENCE IN MOTION</p></footer>
 
     <div v-if="selectedProject" class="modal-backdrop" @click.self="selectedProject = null">
       <section class="project-modal" role="dialog" aria-modal="true" :aria-label="`${selectedProject.title}项目详情`">
