@@ -36,3 +36,16 @@
 - 返回页面为 `Attention Required! / Sorry, you have been blocked`，请求尚未到达站点 Worker。
 - 结论：故障发生在托管域名的 Cloudflare/WAF 访问层，不是 Vue、Spring Boot 或站点权限问题。
 - 建议：绑定独立域名后复测，或改用目标访问地区稳定可达的静态托管平台。
+
+## 2026-08-24：VS Code 本地一键启动
+
+- 新增 `.vscode/tasks.json`，可并行启动 Vue 前端和 Spring Boot 后端。
+- 启动任务会显式选用本机 Java 21，避免系统默认 Java 版本不匹配。
+- 新增 Vue 与 Java 的 VS Code 扩展建议，并在根目录 README 中补充操作说明。
+- Spring Boot 使用内嵌 Tomcat，本地开发不依赖单独安装或配置的 Tomcat 服务器。
+
+### 验证结果
+
+- Spring Boot 以 Java 21 启动成功，内嵌 Tomcat 11 监听 `127.0.0.1:8080`。
+- `/actuator/health` 返回 `UP`，`/api/v1/public/home` 正常返回公开展示数据。
+- Vite 开发服务器监听 `127.0.0.1:5173`，首页返回 HTTP 200。
