@@ -70,7 +70,8 @@ public class InMemoryPublicShowcaseRepository implements PublicShowcaseRepositor
                         new PublicShowcase.Sponsor(
                                 "CUAV", "企业赞助伙伴",
                                 "感谢 CUAV 对 YES Lab 无人系统研究、工程实践与人才培养的支持。",
-                                List.of("无人机系统", "工程实践", "人才培养")
+                                List.of("无人机系统", "工程实践", "人才培养"),
+                                "/sponsors/cuav-logo.jpg", "https://www.cuav.net/"
                         )
                 ),
                 List.of(

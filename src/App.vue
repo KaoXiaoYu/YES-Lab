@@ -70,6 +70,8 @@ const defaultSponsors = [
     type: '企业赞助伙伴',
     description: '感谢 CUAV 对 YES Lab 无人系统研究、工程实践与人才培养的支持。',
     focus: ['无人机系统', '工程实践', '人才培养'],
+    logoUrl: '/sponsors/cuav-logo.jpg',
+    websiteUrl: 'https://www.cuav.net/',
   },
 ]
 
@@ -182,10 +184,18 @@ const scrollTo = (id) => {
       <div class="section-heading light"><div><p class="section-index">04 — PARTNERS</p><h2>一起把探索<br /><em>推向真实世界</em></h2></div><p>感谢企业伙伴为实验室的研究实践与人才培养提供支持。</p></div>
       <div class="sponsor-list">
         <article v-for="sponsor in sponsors" :key="sponsor.name" class="sponsor-card">
-          <div class="sponsor-code">PARTNER / {{ String(sponsors.indexOf(sponsor) + 1).padStart(2, '0') }}</div>
-          <strong>{{ sponsor.name }}</strong>
-          <div><p>{{ sponsor.type }}</p><span>{{ sponsor.description }}</span></div>
-          <ul><li v-for="item in sponsor.focus" :key="item">{{ item }}</li></ul>
+          <div class="sponsor-brand-panel">
+            <a class="sponsor-brand-link" :href="sponsor.websiteUrl" target="_blank" rel="noreferrer" :aria-label="`访问 ${sponsor.name} 官网`">
+              <img :src="sponsor.logoUrl" :alt="`${sponsor.name} Logo`" width="512" height="512" />
+            </a>
+            <span>OFFICIAL SPONSOR / {{ String(sponsors.indexOf(sponsor) + 1).padStart(2, '0') }}</span>
+          </div>
+          <div class="sponsor-info">
+            <div><p class="sponsor-code">SPONSORSHIP PARTNER</p><h3>{{ sponsor.type }}</h3></div>
+            <p>{{ sponsor.description }}</p>
+            <ul><li v-for="item in sponsor.focus" :key="item">{{ item }}</li></ul>
+            <a :href="sponsor.websiteUrl" target="_blank" rel="noreferrer">访问 {{ sponsor.name }} 官网 <ArrowUpRight :size="18" /></a>
+          </div>
         </article>
       </div>
     </section>
