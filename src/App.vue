@@ -114,7 +114,7 @@ const scrollTo = (id) => {
 <template>
   <main>
     <header class="site-header">
-      <a class="brand" href="#top" aria-label="YES Lab 首页"><span>YES LAB</span><small>PUBLIC / 01</small></a>
+      <a class="brand" href="#top" aria-label="YES Lab 首页"><span class="brand-logo"><img src="/yes-lab-logo.png" alt="YES Lab" width="900" height="506" /></span><small>PUBLIC / 01</small></a>
       <nav :class="['top-nav', { open: menuOpen }]" aria-label="主导航">
         <button class="active" @click="scrollTo('#top')">公开展示</button>
         <button @click="scrollTo('#projects')">项目与成果</button>
@@ -197,7 +197,7 @@ const scrollTo = (id) => {
 
     <section class="connect"><div><p class="section-index">CONNECT WITH US</p><h2>保持好奇，<br />欢迎来找我们。</h2></div><div class="connect-links"><a href="https://github.com" target="_blank" rel="noreferrer"><Github :size="20" /> 开源仓库 <ArrowUpRight :size="18" /></a><a href="#" @click.prevent>哔哩哔哩 <ArrowUpRight :size="18" /></a><a href="#" @click.prevent>微信公众号 <ArrowUpRight :size="18" /></a><a href="#" @click.prevent>抖音 <ArrowUpRight :size="18" /></a></div></section>
 
-    <footer><a class="brand" href="#top"><span>YES LAB</span><small>PUBLIC / 01</small></a><p>© 2026 YES Lab · INTELLIGENCE IN MOTION</p></footer>
+    <footer><a class="brand" href="#top" aria-label="返回 YES Lab 首页"><span class="brand-logo"><img src="/yes-lab-logo.png" alt="YES Lab" width="900" height="506" /></span><small>PUBLIC / 01</small></a><p>© 2026 YES Lab · INTELLIGENCE IN MOTION</p></footer>
 
     <div v-if="selectedProject" class="modal-backdrop" @click.self="selectedProject = null">
       <section class="project-modal" role="dialog" aria-modal="true" :aria-label="`${selectedProject.title}项目详情`">
