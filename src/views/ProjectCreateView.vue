@@ -1,8 +1,9 @@
 <script setup>
-import { ArrowLeft, Check, Save, UsersRound } from 'lucide-vue-next'
+import { ArrowLeft, Check, Save, Search, UsersRound } from 'lucide-vue-next'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
+import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
 import { createProject, listProjectMemberOptions } from '../services/authApi'
 
 const router = useRouter()
@@ -10,6 +11,8 @@ const members = ref([])
 const loading = ref(true)
 const saving = ref(false)
 const errorMessage = ref('')
+const memberSearch = ref('')
+const administratorSearch = ref('')
 const form = reactive({
   projectName: '', teamName: '', description: '', type: 'RESEARCH', status: 'PLANNING',
   leaderProfileId: '', advisorProfileId: '', memberProfileIds: [], administratorProfileIds: [],
@@ -19,6 +22,8 @@ const form = reactive({
 
 const teachers = computed(() => members.value.filter((member) => member.role === 'TEACHER'))
 const selectedMemberIds = computed(() => new Set(form.memberProfileIds))
+const filteredMembers = computed(() => filterMembers(members.value, memberSearch.value))
+const filteredAdministrators = computed(() => filterMembers(members.value.filter((item) => selectedMemberIds.value.has(item.id)), administratorSearch.value))
 
 watch(() => form.leaderProfileId, (leaderId) => {
   if (leaderId && !form.memberProfileIds.includes(leaderId)) form.memberProfileIds.push(leaderId)
@@ -50,6 +55,11 @@ function lines(value) {
 
 function tags(value) {
   return value.split(/[,，\n]/).map((item) => item.trim()).filter(Boolean)
+}
+
+function filterMembers(options, keyword) {
+  const normalized = keyword.trim().toLocaleLowerCase()
+  return normalized ? options.filter((item) => `${item.name} ${item.memberCode || ''}`.toLocaleLowerCase().includes(normalized)) : options
 }
 
 async function submit() {
@@ -101,10 +111,9 @@ async function submit() {
       <section class="project-form-section">
         <header><span>02</span><div><p>OWNERSHIP & TEAM</p><h2>负责人和成员</h2></div></header>
         <div class="project-form-grid">
-          <label>项目负责人<select v-model="form.leaderProfileId" required><option value="" disabled>请选择负责人</option><option v-for="member in members" :key="member.id" :value="member.id">{{ member.name }}</option></select><small>负责人自动加入团队，可维护团队名称、成员和项目管理员。</small></label>
-          <label>指导老师（可选）<select v-model="form.advisorProfileId"><option value="">暂不关联</option><option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">{{ teacher.name }}</option></select><small>指导老师独立于项目成员和项目管理员。</small></label>
-          <fieldset class="full member-picker"><legend>团队成员</legend><div><label v-for="member in members" :key="member.id" class="member-pick"><input type="checkbox" :checked="selectedMemberIds.has(member.id)" :disabled="member.id === form.leaderProfileId" @change="toggle(form.memberProfileIds, member.id, $event.target.checked)" /><span class="mini-avatar"><img v-if="member.avatarUrl" :src="member.avatarUrl" alt="" /><b v-else>{{ member.name.slice(0, 1) }}</b></span><span><strong>{{ member.name }}</strong><small>{{ member.skillTags.join(' · ') || '暂未设置标签' }}</small></span><Check v-if="selectedMemberIds.has(member.id)" :size="16" aria-hidden="true" /></label></div></fieldset>
-          <fieldset class="full member-picker"><legend>项目管理员</legend><p>只能从已加入团队的成员中选择；项目管理员可编辑项目资料，但不能更换负责人或管理团队成员。</p><div><label v-for="member in members.filter((item) => selectedMemberIds.has(item.id))" :key="member.id" class="member-pick"><input type="checkbox" :checked="form.administratorProfileIds.includes(member.id)" @change="toggle(form.administratorProfileIds, member.id, $event.target.checked)" /><span class="mini-avatar"><img v-if="member.avatarUrl" :src="member.avatarUrl" alt="" /><b v-else>{{ member.name.slice(0, 1) }}</b></span><span><strong>{{ member.name }}</strong><small>项目管理员</small></span></label></div></fieldset>
+          <SearchableMemberSelect v-model="form.leaderProfileId" :options="members" label="项目负责人" empty-label="请选择负责人" required /><SearchableMemberSelect v-model="form.advisorProfileId" :options="teachers" label="指导老师（可选）" empty-label="暂不关联" />
+          <fieldset class="full member-picker"><legend>团队成员</legend><label class="member-picker-search"><Search :size="16" aria-hidden="true" /><span class="sr-only">搜索团队成员</span><input v-model.trim="memberSearch" type="search" placeholder="按姓名或学号搜索团队成员" /></label><div><label v-for="member in filteredMembers" :key="member.id" class="member-pick"><input type="checkbox" :checked="selectedMemberIds.has(member.id)" :disabled="member.id === form.leaderProfileId" @change="toggle(form.memberProfileIds, member.id, $event.target.checked)" /><span class="mini-avatar"><img v-if="member.avatarUrl" :src="member.avatarUrl" alt="" /><b v-else>{{ member.name.slice(0, 1) }}</b></span><span><strong>{{ member.name }}</strong><small>{{ member.memberCode }} · {{ member.skillTags.join(' · ') || '暂未设置标签' }}</small></span><Check v-if="selectedMemberIds.has(member.id)" :size="16" aria-hidden="true" /></label><p v-if="!filteredMembers.length" class="empty-note">没有匹配姓名或学号的成员。</p></div></fieldset>
+          <fieldset class="full member-picker"><legend>项目管理员</legend><p>只能从已加入团队的成员中选择；项目管理员可编辑项目资料，但不能更换负责人或管理团队成员。</p><label class="member-picker-search"><Search :size="16" aria-hidden="true" /><span class="sr-only">搜索项目管理员</span><input v-model.trim="administratorSearch" type="search" placeholder="按姓名或学号搜索已选成员" /></label><div><label v-for="member in filteredAdministrators" :key="member.id" class="member-pick"><input type="checkbox" :checked="form.administratorProfileIds.includes(member.id)" @change="toggle(form.administratorProfileIds, member.id, $event.target.checked)" /><span class="mini-avatar"><img v-if="member.avatarUrl" :src="member.avatarUrl" alt="" /><b v-else>{{ member.name.slice(0, 1) }}</b></span><span><strong>{{ member.name }}</strong><small>{{ member.memberCode }} · 项目管理员</small></span></label><p v-if="!filteredAdministrators.length" class="empty-note">没有匹配的已选成员。</p></div></fieldset>
         </div>
       </section>
 

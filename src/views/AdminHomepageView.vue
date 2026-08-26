@@ -1,10 +1,11 @@
 <script setup>
 import {
   ArrowDown, ArrowUp, Award, Building2, Check, ExternalLink, Eye, FileText,
-  FolderKanban, LayoutTemplate, Link2, Plus, Save, Trash2, UsersRound,
+  FolderKanban, LayoutTemplate, Link2, Plus, Save, Search, Trash2, UsersRound,
 } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
+import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
 import {
   getHomepageContent, listMembers, listProjects, updateHomepageContent,
 } from '../services/authApi'
@@ -29,11 +30,16 @@ const message = ref('')
 const errorMessage = ref('')
 const updatedAt = ref(null)
 const updatedBy = ref('')
+const featuredMemberSearch = ref('')
 
 const teacherOptions = computed(() => members.value.filter((member) => member.role === 'TEACHER'))
 const memberOptions = computed(() => members.value.filter((member) => member.role !== 'TEACHER' && ['OFFICIAL', 'TRIAL'].includes(member.status)))
 const selectedMembers = computed(() => orderedOptions(content.value?.featuredMemberProfileIds, memberOptions.value))
 const selectedProjects = computed(() => orderedOptions(content.value?.featuredProjectIds, projects.value))
+const filteredMemberOptions = computed(() => {
+  const keyword = featuredMemberSearch.value.trim().toLocaleLowerCase()
+  return keyword ? memberOptions.value.filter((item) => `${item.name} ${item.memberCode || ''}`.toLocaleLowerCase().includes(keyword)) : memberOptions.value
+})
 
 onMounted(async () => {
   try {
@@ -202,8 +208,8 @@ function formatTime(value) {
 
         <section v-show="activeTab === 'display'" class="homepage-editor-section">
           <header><p>03 / FEATURED CONTENT</p><h2>展示选择</h2><span>选择首页固定展示的指导老师、核心成员和项目，并通过顺序按钮调整排列。</span></header>
-          <article class="homepage-selection-card"><header><div><h3>指导老师</h3><p>详细资料请前往成员管理修改。</p></div><RouterLink to="/admin/members">成员管理 <ExternalLink :size="15" aria-hidden="true" /></RouterLink></header><select v-model="content.advisorProfileId"><option :value="null">自动选择第一位教师</option><option v-for="member in teacherOptions" :key="member.id" :value="member.id">{{ member.name }}</option></select></article>
-          <article class="homepage-selection-card"><header><div><h3>核心成员</h3><p>勾选后按选择顺序展示；未选择时自动使用核心学生账号。</p></div></header><div class="homepage-option-grid"><label v-for="member in memberOptions" :key="member.id"><input type="checkbox" :checked="content.featuredMemberProfileIds.includes(member.id)" @change="toggleSelection(content.featuredMemberProfileIds, member.id, $event.target.checked)" /><span><strong>{{ member.name }}</strong><small>{{ member.role }} · {{ member.status }}</small></span></label></div><ol class="homepage-order-list"><li v-for="(member, index) in selectedMembers" :key="member.id"><span>{{ index + 1 }}</span><strong>{{ member.name }}</strong><button type="button" :disabled="index === 0" aria-label="上移成员" @click="move(content.featuredMemberProfileIds, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === selectedMembers.length - 1" aria-label="下移成员" @click="move(content.featuredMemberProfileIds, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button></li></ol></article>
+          <article class="homepage-selection-card"><header><div><h3>指导老师</h3><p>详细资料请前往成员管理修改。</p></div><RouterLink to="/admin/members">成员管理 <ExternalLink :size="15" aria-hidden="true" /></RouterLink></header><SearchableMemberSelect v-model="content.advisorProfileId" :options="teacherOptions" label="首页指导老师" empty-label="自动选择第一位教师" null-on-empty /></article>
+          <article class="homepage-selection-card"><header><div><h3>核心成员</h3><p>勾选后按选择顺序展示；未选择时自动使用核心学生账号。</p></div></header><label class="member-picker-search"><Search :size="16" aria-hidden="true" /><span class="sr-only">搜索首页展示成员</span><input v-model.trim="featuredMemberSearch" type="search" placeholder="按姓名或学号搜索成员" /></label><div class="homepage-option-grid"><label v-for="member in filteredMemberOptions" :key="member.id"><input type="checkbox" :checked="content.featuredMemberProfileIds.includes(member.id)" @change="toggleSelection(content.featuredMemberProfileIds, member.id, $event.target.checked)" /><span><strong>{{ member.name }}</strong><small>{{ member.memberCode }} · {{ member.role }} · {{ member.status }}</small></span></label><p v-if="!filteredMemberOptions.length" class="empty-note">没有匹配姓名或学号的成员。</p></div><ol class="homepage-order-list"><li v-for="(member, index) in selectedMembers" :key="member.id"><span>{{ index + 1 }}</span><strong>{{ member.name }}</strong><button type="button" :disabled="index === 0" aria-label="上移成员" @click="move(content.featuredMemberProfileIds, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === selectedMembers.length - 1" aria-label="下移成员" @click="move(content.featuredMemberProfileIds, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button></li></ol></article>
           <article class="homepage-selection-card"><header><div><h3>首页项目</h3><p>项目还必须在项目资料中开启“允许公开展示”；未选择时展示全部公开项目。</p></div><RouterLink to="/projects">项目团队 <ExternalLink :size="15" aria-hidden="true" /></RouterLink></header><div class="homepage-option-grid"><label v-for="project in projects" :key="project.id"><input type="checkbox" :checked="content.featuredProjectIds.includes(project.id)" @change="toggleSelection(content.featuredProjectIds, project.id, $event.target.checked)" /><span><strong>{{ project.projectName }}</strong><small>{{ project.externallyVisible ? '已公开' : '尚未开启公开展示' }}</small></span></label></div><ol class="homepage-order-list"><li v-for="(project, index) in selectedProjects" :key="project.id"><span>{{ index + 1 }}</span><strong>{{ project.projectName }}</strong><button type="button" :disabled="index === 0" aria-label="上移项目" @click="move(content.featuredProjectIds, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === selectedProjects.length - 1" aria-label="下移项目" @click="move(content.featuredProjectIds, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button></li></ol></article>
         </section>
 

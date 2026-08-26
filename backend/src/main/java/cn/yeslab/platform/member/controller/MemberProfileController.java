@@ -38,6 +38,19 @@ public class MemberProfileController {
         return ApiResponse.ok(service.updateOwnProfile(authentication, request));
     }
 
+    @GetMapping("/showcase")
+    public ApiResponse<MemberProfileModels.ShowcaseSettings> showcase(Authentication authentication) {
+        return ApiResponse.ok(service.getOwnShowcase(authentication));
+    }
+
+    @PutMapping("/showcase")
+    public ApiResponse<MemberProfileModels.ShowcaseSettings> updateShowcase(
+            Authentication authentication,
+            @Valid @RequestBody MemberProfileModels.UpdateShowcaseRequest request
+    ) {
+        return ApiResponse.ok(service.updateOwnShowcase(authentication, request));
+    }
+
     @PutMapping(value = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<MemberProfileModels.ProfileView> replaceAvatar(
             Authentication authentication,

@@ -11,10 +11,13 @@
 - `GET /api/v1/public/project-teams/{id}/cover`：读取公开项目已上传的主图；无上传时由前端使用默认图。
 - `GET /api/v1/public/competitions`：读取管理员选入首页的已认证比赛，按管理员排序值排列。
 - `GET /api/v1/public/competitions/{id}`：读取任意已认证比赛的图文详情。
+- `GET /api/v1/public/competitions/{id}/certificate`：内联读取已认证比赛的证书；未认证记录返回 404。
 - `GET /api/v1/public/competitions/{competitionId}/images/{imageId}`：读取已认证比赛的公开图片。
 - `GET /api/v1/public/news`：读取公开的外部新闻引用，按发布日期倒序。
 
 `GET /api/v1/public/home` 同时返回可维护的 `homepageContent`，公开前端据此渲染首屏、带跳转地址的研究方向、栏目文案、概览、关于我们特色卡片、备用比赛成果、赞助伙伴和外部入口，并应用管理员选择的指导老师、核心成员与项目顺序。
+
+前端会将一次完整的公开响应保存为仅含公开字段的浏览器快照。刷新时先同步使用该快照，再向数据库接口更新；当前浏览器从未成功取得数据且 API 不可用时才使用源码内置兜底。快照不是另一套业务数据源，也不会把数据库内容写回 Git 仓库。
 
 ## 公开主页内容管理
 
@@ -44,6 +47,8 @@ JWT 使用 HS256 签名，API 保持无状态；生产环境必须替换 `YESLAB
 
 - `GET /api/v1/member/profile`：读取自己的规范成员资料和成长数据占位。
 - `PUT /api/v1/member/profile`：本人编辑内部联系方式、主页标语和富文本内容。
+- `GET /api/v1/member/profile/showcase`：读取本人可展示的公开项目、已认证奖项及当前选择顺序。
+- `PUT /api/v1/member/profile/showcase`：保存本人项目和奖项的展示选择与顺序。
 - `PUT /api/v1/member/profile/avatar`、`DELETE /api/v1/member/profile/avatar`：本人上传、替换或移除头像。
 
 姓名、编号、专业、班级、年级、成员状态和能力标签仍由管理员维护。富文本在后端通过 OWASP HTML Sanitizer 白名单清洗。
@@ -97,7 +102,7 @@ JWT 使用 HS256 签名，API 保持无状态；生产环境必须替换 `YESLAB
 - `PATCH /api/v1/admin/achievements/competitions/{id}/display`：系统管理员维护首页开关和手动排序。
 - `/api/v1/admin/achievements/news`：系统管理员创建、读取和修改外部新闻引用。
 
-已结束比赛必须填写获奖结果和比赛日期并上传 PDF/JPG/PNG 证书；未结束比赛必须填写省赛、国赛时间和指导老师。队员与指导老师可关联成员系统账号，也可只保留展示姓名；关联项目仅允许队长选择自己参与的项目。证书不进入公开响应，公开图集仅在比赛认证通过后可访问。
+已结束比赛必须填写获奖结果和比赛日期并上传 PDF/JPG/PNG 证书；文件类型按内容签名识别，兼容常见 JPG MIME 差异。未结束比赛必须填写省赛、国赛时间和指导老师。队员与指导老师可关联成员系统账号，也可只保留展示姓名；关联项目仅允许队长选择自己参与的项目。认证通过后公开详情返回证书查看地址和公开图集，认证前两者均不可公开访问。
 
 ## 暂不实现
 

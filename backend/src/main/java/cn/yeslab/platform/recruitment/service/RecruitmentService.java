@@ -103,9 +103,11 @@ public class RecruitmentService {
     @Transactional(readOnly = true)
     public List<RecruitmentModels.InterviewerView> listInterviewers() {
         return accounts.findByRoleInAndEnabledTrue(List.of(Role.TEACHER, Role.CORE_STUDENT)).stream()
-                .map(account -> new RecruitmentModels.InterviewerView(
-                        account.getId(), account.getUsername(), account.getRole().name()
-                ))
+                .map(account -> profiles.findByAccountId(account.getId())
+                        .map(profile -> new RecruitmentModels.InterviewerView(
+                                account.getId(), account.getUsername(), profile.getName(), profile.getMemberCode(), account.getRole().name()
+                        )).orElse(null))
+                .filter(java.util.Objects::nonNull)
                 .toList();
     }
 

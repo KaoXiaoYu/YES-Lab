@@ -1,9 +1,10 @@
 <script setup>
-import { CalendarDays, ExternalLink, FileText, GitBranch, ImageUp, Pencil, Save, Settings2, ShieldCheck, Target, UserRound, UsersRound, X } from 'lucide-vue-next'
+import { CalendarDays, ExternalLink, FileText, GitBranch, ImageUp, Pencil, Save, Search, Settings2, ShieldCheck, Target, UserRound, UsersRound, X } from 'lucide-vue-next'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
 import ProjectCoverImage from '../components/ProjectCoverImage.vue'
+import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
 import { authState, getProject, listProjectMemberOptions, replaceProjectCover, updateProject, updateProjectTeam } from '../services/authApi'
 
 const route = useRoute()
@@ -20,6 +21,8 @@ const editMode = ref(null)
 const editorClose = ref(null)
 const errorMessage = ref('')
 const message = ref('')
+const teamMemberSearch = ref('')
+const teamAdministratorSearch = ref('')
 const detailForm = reactive({})
 const teamForm = reactive({})
 
@@ -29,6 +32,8 @@ const roleLabels = { TEACHER: '指导教师', CORE_STUDENT: '核心成员', MEMB
 const teachers = computed(() => memberOptions.value.filter((member) => member.role === 'TEACHER'))
 const selectedMemberIds = computed(() => new Set(teamForm.memberProfileIds || []))
 const administratorIds = computed(() => new Set(project.value?.administrators.map((member) => member.id) || []))
+const filteredTeamMembers = computed(() => filterMembers(memberOptions.value, teamMemberSearch.value))
+const filteredTeamAdministrators = computed(() => filterMembers(memberOptions.value.filter((item) => selectedMemberIds.value.has(item.id)), teamAdministratorSearch.value))
 
 onMounted(load)
 
@@ -97,6 +102,7 @@ function closeOnEscape(event) {
 
 function splitTags(value) { return value.split(/[,，\n]/).map((item) => item.trim()).filter(Boolean) }
 function splitLines(value) { return value.split(/\n/).map((item) => item.trim()).filter(Boolean) }
+function filterMembers(options, keyword) { const normalized = keyword.trim().toLocaleLowerCase(); return normalized ? options.filter((item) => `${item.name} ${item.memberCode || ''}`.toLocaleLowerCase().includes(normalized)) : options }
 
 function selectCover(event) {
   const file = event.target.files?.[0]
@@ -214,15 +220,15 @@ async function saveTeam() {
             </section>
             <label class="full">项目名称<input v-model.trim="detailForm.projectName" required maxlength="160" /></label><label>类型<select v-model="detailForm.type"><option v-for="(label, value) in typeLabels" :key="value" :value="value">{{ label }}</option></select></label><label>状态<select v-model="detailForm.status"><option v-for="(label, value) in statusLabels" :key="value" :value="value">{{ label }}</option></select></label>
             <label class="full">项目简介<textarea v-model.trim="detailForm.description" required rows="5" maxlength="5000"></textarea></label>
-            <label>指导老师（可选）<select v-model="detailForm.advisorProfileId"><option value="">暂不关联</option><option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">{{ teacher.name }}</option></select></label><label>所需能力标签<input v-model.trim="detailForm.requiredSkillTagsText" placeholder="使用逗号分隔" /></label>
+            <SearchableMemberSelect v-model="detailForm.advisorProfileId" :options="teachers" label="指导老师（可选）" empty-label="暂不关联" /><label>所需能力标签<input v-model.trim="detailForm.requiredSkillTagsText" placeholder="使用逗号分隔" /></label>
             <label>开始时间<input v-model="detailForm.startDate" type="date" /></label><label>结束时间<input v-model="detailForm.endDate" type="date" /></label><label class="full">阶段目标<textarea v-model="detailForm.stageGoalsText" rows="5" placeholder="每行一个目标"></textarea></label><label class="full">进度说明<textarea v-model="detailForm.progressDescription" rows="5"></textarea></label><label class="full">项目成果<textarea v-model="detailForm.outcomes" rows="5"></textarea></label>
             <label>Git 仓库<input v-model.trim="detailForm.gitRepositoryUrl" type="url" /></label><label>文档链接<input v-model.trim="detailForm.documentUrl" type="url" /></label><label class="project-switch full"><input v-model="detailForm.externallyVisible" type="checkbox" /><span><strong>允许公开展示</strong><small>访客将能看到项目和团队公开资料。</small></span></label>
             <footer class="project-editor-submit full"><button class="portal-primary" type="submit" :disabled="saving"><Save :size="17" aria-hidden="true" />{{ saving ? '保存中…' : '保存项目资料' }}</button></footer>
           </form>
           <form v-else class="project-form-grid" @submit.prevent="saveTeam">
-            <label class="full">团队名称<input v-model.trim="teamForm.teamName" required maxlength="120" /></label><label class="full">项目负责人<select v-model="teamForm.leaderProfileId" :disabled="!authState.account?.systemAdmin"><option v-for="member in memberOptions" :key="member.id" :value="member.id">{{ member.name }}</option></select><small>{{ authState.account?.systemAdmin ? '系统管理员可更换负责人。' : '只有系统管理员可以更换负责人。' }}</small></label>
-            <fieldset class="full member-picker"><legend>团队成员</legend><div><label v-for="member in memberOptions" :key="member.id" class="member-pick"><input type="checkbox" :checked="selectedMemberIds.has(member.id)" :disabled="member.id === teamForm.leaderProfileId" @change="toggle(teamForm.memberProfileIds, member.id, $event.target.checked)" /><span class="mini-avatar"><img v-if="member.avatarUrl" :src="member.avatarUrl" alt="" /><b v-else>{{ member.name.slice(0, 1) }}</b></span><span><strong>{{ member.name }}</strong><small>{{ member.skillTags.join(' · ') || '暂未设置标签' }}</small></span></label></div></fieldset>
-            <fieldset class="full member-picker"><legend>项目管理员</legend><p>项目管理员可以编辑项目资料；团队成员变更仍由负责人或系统管理员操作。</p><div><label v-for="member in memberOptions.filter((item) => selectedMemberIds.has(item.id))" :key="member.id" class="member-pick"><input type="checkbox" :checked="teamForm.administratorProfileIds.includes(member.id)" @change="toggle(teamForm.administratorProfileIds, member.id, $event.target.checked)" /><span class="mini-avatar"><img v-if="member.avatarUrl" :src="member.avatarUrl" alt="" /><b v-else>{{ member.name.slice(0, 1) }}</b></span><span><strong>{{ member.name }}</strong><small>项目管理员</small></span></label></div></fieldset>
+            <label class="full">团队名称<input v-model.trim="teamForm.teamName" required maxlength="120" /></label><SearchableMemberSelect v-model="teamForm.leaderProfileId" class="full" :options="memberOptions" label="项目负责人" empty-label="请选择负责人" :disabled="!authState.account?.systemAdmin" />
+            <fieldset class="full member-picker"><legend>团队成员</legend><label class="member-picker-search"><Search :size="16" aria-hidden="true" /><span class="sr-only">搜索团队成员</span><input v-model.trim="teamMemberSearch" type="search" placeholder="按姓名或学号搜索团队成员" /></label><div><label v-for="member in filteredTeamMembers" :key="member.id" class="member-pick"><input type="checkbox" :checked="selectedMemberIds.has(member.id)" :disabled="member.id === teamForm.leaderProfileId" @change="toggle(teamForm.memberProfileIds, member.id, $event.target.checked)" /><span class="mini-avatar"><img v-if="member.avatarUrl" :src="member.avatarUrl" alt="" /><b v-else>{{ member.name.slice(0, 1) }}</b></span><span><strong>{{ member.name }}</strong><small>{{ member.memberCode }} · {{ member.skillTags.join(' · ') || '暂未设置标签' }}</small></span></label><p v-if="!filteredTeamMembers.length" class="empty-note">没有匹配姓名或学号的成员。</p></div></fieldset>
+            <fieldset class="full member-picker"><legend>项目管理员</legend><p>项目管理员可以编辑项目资料；团队成员变更仍由负责人或系统管理员操作。</p><label class="member-picker-search"><Search :size="16" aria-hidden="true" /><span class="sr-only">搜索项目管理员</span><input v-model.trim="teamAdministratorSearch" type="search" placeholder="按姓名或学号搜索已选成员" /></label><div><label v-for="member in filteredTeamAdministrators" :key="member.id" class="member-pick"><input type="checkbox" :checked="teamForm.administratorProfileIds.includes(member.id)" @change="toggle(teamForm.administratorProfileIds, member.id, $event.target.checked)" /><span class="mini-avatar"><img v-if="member.avatarUrl" :src="member.avatarUrl" alt="" /><b v-else>{{ member.name.slice(0, 1) }}</b></span><span><strong>{{ member.name }}</strong><small>{{ member.memberCode }} · 项目管理员</small></span></label><p v-if="!filteredTeamAdministrators.length" class="empty-note">没有匹配的已选成员。</p></div></fieldset>
             <footer class="project-editor-submit full"><button class="portal-primary" type="submit" :disabled="saving"><Save :size="17" aria-hidden="true" />{{ saving ? '保存中…' : '保存团队设置' }}</button></footer>
           </form>
         </section>

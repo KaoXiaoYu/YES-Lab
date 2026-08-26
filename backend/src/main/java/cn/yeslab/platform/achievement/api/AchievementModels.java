@@ -19,11 +19,12 @@ import java.util.UUID;
 public final class AchievementModels {
     private AchievementModels() {}
 
-    public record MemberOption(UUID id, String name, Role role, String avatarUrl) {}
+    public record MemberOption(UUID id, String name, String memberCode, Role role, String avatarUrl) {}
     public record ParticipantRequest(@NotBlank @Size(max = 80) String displayName, UUID linkedProfileId) {}
     public record ParticipantView(String displayName, UUID linkedProfileId, String avatarUrl, boolean captain) {}
     public record ImageView(UUID id, String url, String description, int displayOrder) {}
     public record ProjectOption(UUID id, String name, String teamName) {}
+    public record CompetitionShowcaseOption(UUID id, String name, String awardName, LocalDate competitionDate) {}
 
     public record CompetitionUpsertRequest(
             @NotBlank(message = "请输入比赛名称") @Size(max = 180) String name,
@@ -56,6 +57,7 @@ public final class AchievementModels {
             UUID id, String name, String track, CompetitionLevel level, String awardName, String description,
             LocalDate competitionDate, MemberOption captain, MemberOption advisor, String advisorName,
             ProjectOption project, List<ParticipantView> participants, List<ImageView> images,
+            boolean hasCertificate, String certificateOriginalName, String certificateUrl,
             int displayOrder, Instant updatedAt
     ) {}
 

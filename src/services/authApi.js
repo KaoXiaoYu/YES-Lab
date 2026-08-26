@@ -57,6 +57,14 @@ export function getOwnProfile() {
   return apiRequest('/api/v1/member/profile')
 }
 
+export function getOwnShowcase() {
+  return apiRequest('/api/v1/member/profile/showcase')
+}
+
+export function updateOwnShowcase(payload) {
+  return apiRequest('/api/v1/member/profile/showcase', { method: 'PUT', body: payload })
+}
+
 export async function updateOwnProfile(payload) {
   const profile = await apiRequest('/api/v1/member/profile', { method: 'PUT', body: payload })
   syncAccountAvatar(profile)

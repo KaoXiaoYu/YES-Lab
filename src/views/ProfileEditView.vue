@@ -2,13 +2,13 @@
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import {
-  ArrowLeft, Bold, Braces, Camera, Italic, List, ListOrdered, Quote, Redo2, Save,
+  ArrowDown, ArrowLeft, ArrowUp, Bold, Braces, Camera, Eye, Italic, List, ListOrdered, Quote, Redo2, Save,
   Strikethrough, Trash2, Undo2, Upload,
 } from 'lucide-vue-next'
-import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
-import { deleteOwnAvatar, getOwnProfile, replaceOwnAvatar, updateOwnProfile } from '../services/authApi'
+import { deleteOwnAvatar, getOwnProfile, getOwnShowcase, replaceOwnAvatar, updateOwnProfile, updateOwnShowcase } from '../services/authApi'
 
 const router = useRouter()
 const profile = ref(null)
@@ -21,6 +21,9 @@ const avatarInput = ref(null)
 const message = ref('')
 const errorMessage = ref('')
 const form = reactive({ avatarUrl: '', internalContact: '', headline: '' })
+const showcase = ref({ projectOptions: [], achievementOptions: [], featuredProjectIds: [], featuredCompetitionIds: [] })
+const selectedProjects = computed(() => orderedOptions(showcase.value.projectOptions, showcase.value.featuredProjectIds))
+const selectedAchievements = computed(() => orderedOptions(showcase.value.achievementOptions, showcase.value.featuredCompetitionIds))
 let redirectTimer
 
 const editor = useEditor({
@@ -31,7 +34,9 @@ const editor = useEditor({
 
 onMounted(async () => {
   try {
-    profile.value = await getOwnProfile()
+    const [profileData, showcaseData] = await Promise.all([getOwnProfile(), getOwnShowcase()])
+    profile.value = profileData
+    showcase.value = showcaseData
     form.avatarUrl = profile.value.avatarUrl || ''
     form.internalContact = profile.value.internalContact || ''
     form.headline = profile.value.headline || ''
@@ -111,17 +116,42 @@ function releaseAvatarPreview() {
   avatarPreview.value = ''
 }
 
+function toggleShowcase(list, id, checked) {
+  if (checked && !list.includes(id)) list.push(id)
+  const index = list.indexOf(id)
+  if (!checked && index >= 0) list.splice(index, 1)
+}
+
+function moveShowcase(list, index, direction) {
+  const target = index + direction
+  if (target < 0 || target >= list.length) return
+  ;[list[index], list[target]] = [list[target], list[index]]
+}
+
+function orderedOptions(options, ids) {
+  const byId = new Map(options.map((item) => [item.id, item]))
+  return ids.map((id) => byId.get(id)).filter(Boolean)
+}
+
 async function saveProfile() {
   if (!editor.value) return
   saving.value = true
   message.value = ''
   errorMessage.value = ''
   try {
-    profile.value = await updateOwnProfile({
-      internalContact: form.internalContact || null,
-      headline: form.headline || null,
-      profileHtml: editor.value.getHTML(),
-    })
+    const [profileData, showcaseData] = await Promise.all([
+      updateOwnProfile({
+        internalContact: form.internalContact || null,
+        headline: form.headline || null,
+        profileHtml: editor.value.getHTML(),
+      }),
+      updateOwnShowcase({
+        featuredProjectIds: showcase.value.featuredProjectIds,
+        featuredCompetitionIds: showcase.value.featuredCompetitionIds,
+      }),
+    ])
+    profile.value = profileData
+    showcase.value = showcaseData
     message.value = '个人主页已保存，即将返回主页。'
     redirectTimer = window.setTimeout(() => router.push('/profile'), 450)
   } catch (error) {
@@ -165,6 +195,14 @@ function toggle(command) {
         <label>内部联系方式<input v-model.trim="form.internalContact" type="text" autocomplete="tel" placeholder="仅成员系统内部展示" /></label>
         <label class="full">主页标语<input v-model.trim="form.headline" type="text" maxlength="160" placeholder="用一句话描述你的研究兴趣" /></label>
       </div>
+
+      <section class="profile-showcase-editor" aria-labelledby="profile-showcase-title">
+        <header><div><p>PUBLIC RECORDS</p><h3 id="profile-showcase-title">主页展示内容</h3></div><span><Eye :size="16" aria-hidden="true" />只显示已公开项目和审核通过的奖项</span></header>
+        <div class="profile-showcase-grid">
+          <article><h4>展示项目</h4><p>勾选本人参与或指导的公开项目，再调整顺序。</p><div class="profile-showcase-options"><label v-for="item in showcase.projectOptions" :key="item.id"><input type="checkbox" :checked="showcase.featuredProjectIds.includes(item.id)" @change="toggleShowcase(showcase.featuredProjectIds, item.id, $event.target.checked)" /><span><strong>{{ item.title }}</strong><small>{{ item.subtitle }}</small></span></label><p v-if="!showcase.projectOptions.length" class="empty-note">暂无可公开展示的关联项目。</p></div><ol class="profile-showcase-order"><li v-for="(item, index) in selectedProjects" :key="item.id"><span>{{ index + 1 }}</span><strong>{{ item.title }}</strong><button type="button" :disabled="index === 0" :aria-label="`上移项目：${item.title}`" @click="moveShowcase(showcase.featuredProjectIds, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === selectedProjects.length - 1" :aria-label="`下移项目：${item.title}`" @click="moveShowcase(showcase.featuredProjectIds, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button></li></ol></article>
+          <article><h4>展示奖项</h4><p>仅列出本人关联且已经管理员认证的比赛成果。</p><div class="profile-showcase-options"><label v-for="item in showcase.achievementOptions" :key="item.id"><input type="checkbox" :checked="showcase.featuredCompetitionIds.includes(item.id)" @change="toggleShowcase(showcase.featuredCompetitionIds, item.id, $event.target.checked)" /><span><strong>{{ item.title }}</strong><small>{{ item.subtitle }}</small></span></label><p v-if="!showcase.achievementOptions.length" class="empty-note">暂无审核通过的关联奖项。</p></div><ol class="profile-showcase-order"><li v-for="(item, index) in selectedAchievements" :key="item.id"><span>{{ index + 1 }}</span><strong>{{ item.title }}</strong><button type="button" :disabled="index === 0" :aria-label="`上移奖项：${item.title}`" @click="moveShowcase(showcase.featuredCompetitionIds, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === selectedAchievements.length - 1" :aria-label="`下移奖项：${item.title}`" @click="moveShowcase(showcase.featuredCompetitionIds, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button></li></ol></article>
+        </div>
+      </section>
 
       <div class="editor-shell">
         <div v-if="editor" class="editor-toolbar" role="toolbar" aria-label="富文本格式工具">

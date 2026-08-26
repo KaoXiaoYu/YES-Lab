@@ -13,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Lob;
 import jakarta.persistence.OneToOne;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
@@ -84,6 +85,21 @@ public class MemberProfileEntity {
     @Column(name = "record_text", length = 500)
     private List<String> achievementRecords = new ArrayList<>();
 
+    @Column(nullable = false)
+    private boolean showcaseConfigured;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "member_featured_projects", joinColumns = @JoinColumn(name = "member_id"))
+    @OrderColumn(name = "display_order")
+    @Column(name = "project_id", nullable = false)
+    private List<UUID> featuredProjectIds = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "member_featured_competitions", joinColumns = @JoinColumn(name = "member_id"))
+    @OrderColumn(name = "display_order")
+    @Column(name = "competition_id", nullable = false)
+    private List<UUID> featuredCompetitionIds = new ArrayList<>();
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -132,6 +148,9 @@ public class MemberProfileEntity {
     public Integer getCurrentRank() { return currentRank; }
     public List<String> getProjectRecords() { return List.copyOf(projectRecords); }
     public List<String> getAchievementRecords() { return List.copyOf(achievementRecords); }
+    public boolean isShowcaseConfigured() { return showcaseConfigured; }
+    public List<UUID> getFeaturedProjectIds() { return List.copyOf(featuredProjectIds); }
+    public List<UUID> getFeaturedCompetitionIds() { return List.copyOf(featuredCompetitionIds); }
     public Instant getUpdatedAt() { return updatedAt; }
 
     public void updateManagedFields(
@@ -164,6 +183,13 @@ public class MemberProfileEntity {
 
     public void updateAvatarUrl(String avatarUrl) {
         this.avatarUrl = avatarUrl;
+        this.updatedAt = Instant.now();
+    }
+
+    public void updateShowcase(List<UUID> projectIds, List<UUID> competitionIds) {
+        this.featuredProjectIds = new ArrayList<>(projectIds);
+        this.featuredCompetitionIds = new ArrayList<>(competitionIds);
+        this.showcaseConfigured = true;
         this.updatedAt = Instant.now();
     }
 }

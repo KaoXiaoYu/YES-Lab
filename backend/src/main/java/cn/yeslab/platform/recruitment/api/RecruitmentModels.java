@@ -94,6 +94,6 @@ public final class RecruitmentModels {
     ) {
     }
 
-    public record InterviewerView(UUID accountId, String username, String role) {
+    public record InterviewerView(UUID accountId, String username, String name, String memberCode, String role) {
     }
 }

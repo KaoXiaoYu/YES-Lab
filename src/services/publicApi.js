@@ -131,6 +131,7 @@ function normalizeCompetition(item) {
   return {
     ...item,
     images: (item.images || []).map((image) => ({ ...image, url: `${apiBaseUrl}${image.url}` })),
+    certificateUrl: item.certificateUrl ? `${apiBaseUrl}${item.certificateUrl}` : null,
   }
 }
 

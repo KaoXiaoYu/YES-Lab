@@ -14,6 +14,8 @@ import org.springframework.web.context.WebApplicationContext;
 import java.util.List;
 
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -65,6 +67,7 @@ class ProjectTeamApiTests {
                         .content(requestPayload))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.leader.id").value(memberId))
+                .andExpect(jsonPath("$.data.leader.memberCode").value(notNullValue()))
                 .andExpect(jsonPath("$.data.advisor.id").value(teacherId))
                 .andExpect(jsonPath("$.data.members[*].id", hasItem(memberId)))
                 .andReturn().getResponse().getContentAsString();
@@ -118,6 +121,9 @@ class ProjectTeamApiTests {
         mvc.perform(get("/api/v1/public/project-teams/{id}", projectId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.advisor.name").value("汤洪大王"))
+                .andExpect(jsonPath("$.data.leader.memberCode").value(nullValue()))
+                .andExpect(jsonPath("$.data.advisor.memberCode").value(nullValue()))
+                .andExpect(jsonPath("$.data.members[0].memberCode").value(nullValue()))
                 .andExpect(jsonPath("$.data.coverImageUrl").value("/api/v1/public/project-teams/" + projectId + "/cover"))
                 .andExpect(jsonPath("$.data.administrators").doesNotExist())
                 .andExpect(jsonPath("$.data.canEditProject").doesNotExist());

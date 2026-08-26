@@ -13,7 +13,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 
@@ -49,9 +48,8 @@ public class AchievementFileStorageService {
     private StoredFile store(MultipartFile file, Path directory, Set<String> allowedTypes, long limit, String label) {
         if (file == null || file.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "请上传" + label);
         if (file.getSize() > limit) throw new ApiException(HttpStatus.BAD_REQUEST, label + "文件过大");
-        String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase(Locale.ROOT);
+        String contentType = detectContentType(file, label);
         if (!allowedTypes.contains(contentType)) throw new ApiException(HttpStatus.BAD_REQUEST, label + "格式不支持");
-        verifySignature(file, contentType, label);
         String extension = switch (contentType) {
             case "application/pdf" -> ".pdf";
             case "image/png" -> ".png";
@@ -68,17 +66,22 @@ public class AchievementFileStorageService {
         return new StoredFile(storedName, original, contentType, file.getSize());
     }
 
-    private void verifySignature(MultipartFile file, String type, String label) {
+    private String detectContentType(MultipartFile file, String label) {
         try (InputStream input = file.getInputStream()) {
             byte[] header = input.readNBytes(12);
-            boolean valid = switch (type) {
-                case "application/pdf" -> header.length >= 4 && header[0] == '%' && header[1] == 'P' && header[2] == 'D' && header[3] == 'F';
-                case "image/png" -> header.length >= 8 && (header[0] & 0xff) == 0x89 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G';
-                case "image/jpeg" -> header.length >= 3 && (header[0] & 0xff) == 0xff && (header[1] & 0xff) == 0xd8 && (header[2] & 0xff) == 0xff;
-                case "image/webp" -> header.length >= 12 && new String(header, 0, 4).equals("RIFF") && new String(header, 8, 4).equals("WEBP");
-                default -> false;
-            };
-            if (!valid) throw new ApiException(HttpStatus.BAD_REQUEST, label + "文件内容与格式不匹配");
+            if (header.length >= 4 && header[0] == '%' && header[1] == 'P' && header[2] == 'D' && header[3] == 'F') {
+                return "application/pdf";
+            }
+            if (header.length >= 8 && (header[0] & 0xff) == 0x89 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G') {
+                return "image/png";
+            }
+            if (header.length >= 3 && (header[0] & 0xff) == 0xff && (header[1] & 0xff) == 0xd8 && (header[2] & 0xff) == 0xff) {
+                return "image/jpeg";
+            }
+            if (header.length >= 12 && new String(header, 0, 4).equals("RIFF") && new String(header, 8, 4).equals("WEBP")) {
+                return "image/webp";
+            }
+            throw new ApiException(HttpStatus.BAD_REQUEST, label + "文件内容与格式不匹配");
         } catch (IOException error) {
             throw new ApiException(HttpStatus.BAD_REQUEST, label + "读取失败");
         }

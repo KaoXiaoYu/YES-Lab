@@ -3,11 +3,13 @@ import { ArrowLeft, FileBadge, ImagePlus, Plus, Save, Trash2 } from 'lucide-vue-
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
+import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
 import { createCompetition, getCompetition, listCompetitionMemberOptions, listCompetitionProjectOptions, replaceCompetitionCertificate, replaceCompetitionImages, updateCompetition } from '../services/authApi'
 
 const route = useRoute(); const router = useRouter(); const editing = computed(() => Boolean(route.params.competitionId))
 const members = ref([]); const projects = ref([]); const existing = ref(null); const loading = ref(true); const saving = ref(false); const errorMessage = ref('')
 const certificate = ref(null); const imageFiles = ref([]); const imageDescriptions = ref([])
+const certificateError = ref('')
 const form = reactive({ name: '', track: '', level: 'PROVINCIAL', lifecycle: 'PLANNED', awardName: '', description: '', competitionDate: '', provincialDate: '', nationalDate: '', advisorProfileId: '', advisorName: '', projectId: '', participants: [{ displayName: '', linkedProfileId: '' }] })
 const teachers = computed(() => members.value.filter((member) => member.role === 'TEACHER'))
 const finished = computed(() => form.lifecycle === 'FINISHED')
@@ -25,7 +27,23 @@ onMounted(async () => {
 function addParticipant() { if (form.participants.length < 49) form.participants.push({ displayName: '', linkedProfileId: '' }) }
 function removeParticipant(index) { form.participants.splice(index, 1); if (!form.participants.length) addParticipant() }
 function chooseMember(row) { const member = members.value.find((item) => item.id === row.linkedProfileId); if (member) row.displayName = member.name }
-function chooseCertificate(event) { certificate.value = event.target.files?.[0] || null }
+function chooseCertificate(event) {
+  certificateError.value = ''
+  const file = event.target.files?.[0] || null
+  if (!file) { certificate.value = null; return }
+  const extension = file.name.split('.').pop()?.toLocaleLowerCase()
+  if (!['pdf', 'jpg', 'jpeg', 'png'].includes(extension || '')) {
+    certificateError.value = '证书仅支持 PDF、JPG、JPEG 或 PNG。'
+    event.target.value = ''
+    return
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    certificateError.value = '证书文件不能超过 10MB。'
+    event.target.value = ''
+    return
+  }
+  certificate.value = file
+}
 function chooseImages(event) { imageFiles.value = [...(event.target.files || [])].slice(0, 8); imageDescriptions.value = imageFiles.value.map((_, index) => imageDescriptions.value[index] || '') }
 function payload() { return { ...form, competitionDate: form.competitionDate || null, provincialDate: form.provincialDate || null, nationalDate: form.nationalDate || null, advisorProfileId: form.advisorProfileId || null, advisorName: form.advisorName || null, projectId: form.projectId || null, awardName: form.awardName || null, track: form.track || null, participants: form.participants.filter((row) => row.displayName.trim() || row.linkedProfileId).map((row) => ({ displayName: row.displayName || '关联成员', linkedProfileId: row.linkedProfileId || null })), imageDescriptions: imageDescriptions.value } }
 
@@ -60,13 +78,13 @@ async function submit() {
       </div></section>
 
       <section class="competition-form-section"><header><span>02</span><div><p>TEAM & RELATIONS</p><h2>队伍与关联</h2></div></header><div class="competition-form-grid">
-        <label>指导老师账号{{ finished ? '（可选）' : '' }}<select v-model="form.advisorProfileId" :required="!finished && !form.advisorName"><option value="">不关联账号</option><option v-for="teacher in teachers" :key="teacher.id" :value="teacher.id">{{ teacher.name }}</option></select></label><label>指导老师展示姓名{{ finished ? '（可选）' : '' }}<input v-model.trim="form.advisorName" :required="!finished && !form.advisorProfileId" maxlength="80" /></label>
+        <SearchableMemberSelect v-model="form.advisorProfileId" :options="teachers" :label="`指导老师账号${finished ? '（可选）' : ''}`" empty-label="不关联账号" :required="!finished && !form.advisorName" /><label>指导老师展示姓名{{ finished ? '（可选）' : '' }}<input v-model.trim="form.advisorName" :required="!finished && !form.advisorProfileId" maxlength="80" /></label>
         <label class="full">关联项目（可选）<select v-model="form.projectId"><option value="">不关联项目</option><option v-for="project in projects" :key="project.id" :value="project.id">{{ project.name }} · {{ project.teamName }}</option></select></label>
-        <fieldset class="full participant-editor"><legend>比赛成员</legend><p>你会自动作为队长加入，无需重复填写。没有实验室账号的队员只填写展示姓名即可。</p><div v-for="(row, index) in form.participants" :key="index" class="participant-row"><label>关联成员<select v-model="row.linkedProfileId" @change="chooseMember(row)"><option value="">不关联账号</option><option v-for="member in members" :key="member.id" :value="member.id">{{ member.name }}</option></select></label><label>展示姓名<input v-model.trim="row.displayName" maxlength="80" /></label><button type="button" aria-label="移除该成员" @click="removeParticipant(index)"><Trash2 :size="17" aria-hidden="true" /></button></div><button class="achievement-secondary" type="button" @click="addParticipant"><Plus :size="16" aria-hidden="true" />增加成员</button></fieldset>
+        <fieldset class="full participant-editor"><legend>比赛成员</legend><p>你会自动作为队长加入，无需重复填写。没有实验室账号的队员只填写展示姓名即可。</p><div v-for="(row, index) in form.participants" :key="index" class="participant-row"><SearchableMemberSelect v-model="row.linkedProfileId" :options="members" label="关联成员" empty-label="不关联账号" @change="chooseMember(row)" /><label>展示姓名<input v-model.trim="row.displayName" maxlength="80" /></label><button type="button" aria-label="移除该成员" @click="removeParticipant(index)"><Trash2 :size="17" aria-hidden="true" /></button></div><button class="achievement-secondary" type="button" @click="addParticipant"><Plus :size="16" aria-hidden="true" />增加成员</button></fieldset>
       </div></section>
 
       <section class="competition-form-section"><header><span>03</span><div><p>EVIDENCE & GALLERY</p><h2>证书与比赛图片</h2></div></header><div class="competition-form-grid">
-        <label class="file-drop full"><FileBadge :size="24" aria-hidden="true" /><span><strong>证书文件{{ finished ? '（必填）' : '（可选）' }}</strong><small>PDF、JPG 或 PNG，最大 10MB。证书仅供队长和管理员审核查看，不在公开页直接展示。</small></span><input type="file" accept="application/pdf,image/jpeg,image/png" :required="finished && !existing?.hasCertificate" @change="chooseCertificate" /><b>{{ certificate?.name || existing?.certificateOriginalName || '选择文件' }}</b></label>
+        <label class="file-drop full"><FileBadge :size="24" aria-hidden="true" /><span><strong>证书文件{{ finished ? '（必填）' : '（可选）' }}</strong><small>PDF、JPG、JPEG 或 PNG，最大 10MB；管理员审核通过后可在公开详情查看。</small></span><input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" :required="finished && !existing?.hasCertificate" @change="chooseCertificate" /><b>{{ certificate?.name || existing?.certificateOriginalName || '选择文件' }}</b><small v-if="certificateError" class="file-error" role="alert">{{ certificateError }}</small></label>
         <label class="file-drop full"><ImagePlus :size="24" aria-hidden="true" /><span><strong>比赛相关图片（可选，最多 8 张）</strong><small>JPG、PNG 或 WebP；审核通过后用于公开比赛详情页。</small></span><input type="file" accept="image/jpeg,image/png,image/webp" multiple @change="chooseImages" /><b>{{ imageFiles.length ? `已选择 ${imageFiles.length} 张` : editing && existing?.images.length ? `保留现有 ${existing.images.length} 张` : '选择图片' }}</b></label>
         <div v-if="imageFiles.length" class="image-caption-list full"><label v-for="(file, index) in imageFiles" :key="`${file.name}-${index}`">图片 {{ index + 1 }}：{{ file.name }}<input v-model.trim="imageDescriptions[index]" maxlength="300" placeholder="填写图片说明（可选）" /></label></div>
       </div></section>

@@ -46,4 +46,21 @@ public final class MemberProfileModels {
             String profileHtml
     ) {
     }
+
+    public record ShowcaseOption(UUID id, String title, String subtitle) {
+    }
+
+    public record ShowcaseSettings(
+            List<ShowcaseOption> projectOptions,
+            List<ShowcaseOption> achievementOptions,
+            List<UUID> featuredProjectIds,
+            List<UUID> featuredCompetitionIds
+    ) {
+    }
+
+    public record UpdateShowcaseRequest(
+            @NotNull @Size(max = 100, message = "主页项目不能超过 100 项") List<@NotNull UUID> featuredProjectIds,
+            @NotNull @Size(max = 100, message = "主页奖项不能超过 100 项") List<@NotNull UUID> featuredCompetitionIds
+    ) {
+    }
 }

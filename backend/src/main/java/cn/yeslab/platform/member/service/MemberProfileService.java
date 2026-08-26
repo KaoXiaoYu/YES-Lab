@@ -11,6 +11,8 @@ import cn.yeslab.platform.identity.repository.MemberProfileRepository;
 import cn.yeslab.platform.identity.service.AuthService;
 import cn.yeslab.platform.member.api.MemberManagementModels;
 import cn.yeslab.platform.member.api.MemberProfileModels;
+import cn.yeslab.platform.project.model.ProjectTeamEntity;
+import cn.yeslab.platform.project.repository.ProjectTeamRepository;
 import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.PolicyFactory;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
+import java.util.Comparator;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -43,6 +49,7 @@ public class MemberProfileService {
     private final AchievementService achievements;
     private final PasswordEncoder passwords;
     private final MemberAvatarStorageService avatars;
+    private final ProjectTeamRepository projects;
 
     public MemberProfileService(
             MemberProfileRepository profiles,
@@ -50,7 +57,8 @@ public class MemberProfileService {
             AuthService authService,
             AchievementService achievements,
             PasswordEncoder passwords,
-            MemberAvatarStorageService avatars
+            MemberAvatarStorageService avatars,
+            ProjectTeamRepository projects
     ) {
         this.profiles = profiles;
         this.accounts = accounts;
@@ -58,6 +66,7 @@ public class MemberProfileService {
         this.achievements = achievements;
         this.passwords = passwords;
         this.avatars = avatars;
+        this.projects = projects;
     }
 
     @PreAuthorize("hasAuthority('PROFILE_SELF_EDIT')")
@@ -82,6 +91,32 @@ public class MemberProfileService {
                 safeHtml
         );
         return toView(profiles.save(profile));
+    }
+
+    @PreAuthorize("hasAuthority('PROFILE_SELF_EDIT')")
+    @Transactional(readOnly = true)
+    public MemberProfileModels.ShowcaseSettings getOwnShowcase(Authentication authentication) {
+        return showcaseSettings(requireProfile(authService.requireAccount(authentication)));
+    }
+
+    @PreAuthorize("hasAuthority('PROFILE_SELF_EDIT')")
+    @Transactional
+    public MemberProfileModels.ShowcaseSettings updateOwnShowcase(
+            Authentication authentication,
+            MemberProfileModels.UpdateShowcaseRequest request
+    ) {
+        MemberProfileEntity profile = requireProfile(authService.requireAccount(authentication));
+        List<UUID> projectIds = uniqueIds(request.featuredProjectIds(), "主页项目不能重复");
+        List<UUID> competitionIds = uniqueIds(request.featuredCompetitionIds(), "主页奖项不能重复");
+        Set<UUID> allowedProjects = eligibleProjects(profile.getId()).stream().map(ProjectTeamEntity::getId).collect(java.util.stream.Collectors.toSet());
+        Set<UUID> allowedCompetitions = achievements.approvedAchievementOptionsFor(profile.getId()).stream()
+                .map(cn.yeslab.platform.achievement.api.AchievementModels.CompetitionShowcaseOption::id)
+                .collect(java.util.stream.Collectors.toSet());
+        if (!allowedProjects.containsAll(projectIds)) throw new ApiException(HttpStatus.BAD_REQUEST, "只能展示本人参与且已公开的项目");
+        if (!allowedCompetitions.containsAll(competitionIds)) throw new ApiException(HttpStatus.BAD_REQUEST, "只能展示本人关联且审核通过的奖项");
+        profile.updateShowcase(projectIds, competitionIds);
+        profiles.save(profile);
+        return showcaseSettings(profile);
     }
 
     @PreAuthorize("hasAuthority('MEMBER_MANAGE')")
@@ -275,7 +310,7 @@ public class MemberProfileService {
                 profile.getProfileHtml(),
                 teacher ? null : profile.getTotalPoints(),
                 teacher ? null : profile.getCurrentRank(),
-                profile.getProjectRecords(),
+                projectRecords(profile),
                 achievementRecords(profile),
                 profile.getUpdatedAt()
         );
@@ -300,16 +335,77 @@ public class MemberProfileService {
                 profile.getTotalPoints(),
                 profile.getCurrentRank(),
                 List.of(),
-                profile.getProjectRecords(),
+                projectRecords(profile),
                 achievementRecords(profile),
                 profile.getUpdatedAt()
         );
     }
 
     private List<String> achievementRecords(MemberProfileEntity profile) {
+        if (profile.isShowcaseConfigured()) {
+            Map<UUID, cn.yeslab.platform.achievement.api.AchievementModels.CompetitionShowcaseOption> available = achievements
+                    .approvedAchievementOptionsFor(profile.getId()).stream()
+                    .collect(java.util.stream.Collectors.toMap(
+                            cn.yeslab.platform.achievement.api.AchievementModels.CompetitionShowcaseOption::id,
+                            item -> item,
+                            (left, right) -> left,
+                            LinkedHashMap::new
+                    ));
+            return profile.getFeaturedCompetitionIds().stream().map(available::get).filter(java.util.Objects::nonNull)
+                    .map(item -> item.name() + (item.awardName() == null ? "" : " · " + item.awardName())).toList();
+        }
         LinkedHashSet<String> records = new LinkedHashSet<>(profile.getAchievementRecords());
         records.addAll(achievements.approvedAchievementsFor(profile.getId()));
         return List.copyOf(records);
+    }
+
+    private List<String> projectRecords(MemberProfileEntity profile) {
+        List<ProjectTeamEntity> available = eligibleProjects(profile.getId());
+        if (!profile.isShowcaseConfigured()) {
+            LinkedHashSet<String> records = new LinkedHashSet<>(profile.getProjectRecords());
+            available.stream().map(ProjectTeamEntity::getProjectName).forEach(records::add);
+            return List.copyOf(records);
+        }
+        Map<UUID, ProjectTeamEntity> byId = available.stream().collect(java.util.stream.Collectors.toMap(
+                ProjectTeamEntity::getId, item -> item, (left, right) -> left, LinkedHashMap::new
+        ));
+        return profile.getFeaturedProjectIds().stream().map(byId::get).filter(java.util.Objects::nonNull)
+                .map(ProjectTeamEntity::getProjectName).toList();
+    }
+
+    private MemberProfileModels.ShowcaseSettings showcaseSettings(MemberProfileEntity profile) {
+        List<MemberProfileModels.ShowcaseOption> projectOptions = eligibleProjects(profile.getId()).stream()
+                .map(item -> new MemberProfileModels.ShowcaseOption(item.getId(), item.getProjectName(), item.getTeamName()))
+                .toList();
+        List<MemberProfileModels.ShowcaseOption> achievementOptions = achievements.approvedAchievementOptionsFor(profile.getId()).stream()
+                .map(item -> new MemberProfileModels.ShowcaseOption(item.id(), item.name(),
+                        item.awardName() == null ? "审核通过" : item.awardName()))
+                .toList();
+        Set<UUID> projectOptionIds = projectOptions.stream().map(MemberProfileModels.ShowcaseOption::id).collect(java.util.stream.Collectors.toSet());
+        Set<UUID> achievementOptionIds = achievementOptions.stream().map(MemberProfileModels.ShowcaseOption::id).collect(java.util.stream.Collectors.toSet());
+        List<UUID> selectedProjects = profile.isShowcaseConfigured()
+                ? profile.getFeaturedProjectIds().stream().filter(projectOptionIds::contains).toList()
+                : projectOptions.stream().map(MemberProfileModels.ShowcaseOption::id).toList();
+        List<UUID> selectedAchievements = profile.isShowcaseConfigured()
+                ? profile.getFeaturedCompetitionIds().stream().filter(achievementOptionIds::contains).toList()
+                : achievementOptions.stream().map(MemberProfileModels.ShowcaseOption::id).toList();
+        return new MemberProfileModels.ShowcaseSettings(projectOptions, achievementOptions, selectedProjects, selectedAchievements);
+    }
+
+    private List<ProjectTeamEntity> eligibleProjects(UUID profileId) {
+        return projects.findAll().stream()
+                .filter(ProjectTeamEntity::isExternallyVisible)
+                .filter(item -> item.getLeader().getId().equals(profileId)
+                        || item.getMembers().stream().anyMatch(member -> member.getId().equals(profileId))
+                        || item.getAdvisor() != null && item.getAdvisor().getId().equals(profileId))
+                .sorted(Comparator.comparing(ProjectTeamEntity::getUpdatedAt).reversed())
+                .toList();
+    }
+
+    private List<UUID> uniqueIds(List<UUID> ids, String message) {
+        LinkedHashSet<UUID> unique = new LinkedHashSet<>(ids);
+        if (unique.size() != ids.size()) throw new ApiException(HttpStatus.BAD_REQUEST, message);
+        return List.copyOf(unique);
     }
 
     public record AvatarDownload(Resource resource, String contentType, String originalName) {

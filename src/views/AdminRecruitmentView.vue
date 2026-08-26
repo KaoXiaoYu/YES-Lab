@@ -2,6 +2,7 @@
 import { ArrowRight, CheckCircle2, Search, UserCheck, UserPlus, XCircle } from 'lucide-vue-next'
 import { computed, onMounted, reactive, ref } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
+import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
 import {
   changeRecruitmentStage, convertRecruitmentToMember, listInterviewers,
   listRecruitmentApplications, saveInterview,
@@ -134,7 +135,7 @@ function splitTags(value) {
 
         <section v-if="['SCREENING', 'INTERVIEW'].includes(selected.stage)" class="admin-form-card">
           <header><UserCheck :size="22" aria-hidden="true" /><div><p>INTERVIEW</p><h3>面试分配与评价</h3></div></header>
-          <div class="admin-form-grid"><label>面试官<select v-model="interviewForm.interviewerUsername"><option v-for="item in interviewers" :key="item.accountId" :value="item.username">{{ item.username }} · {{ item.role === 'TEACHER' ? '教师' : '核心学生' }}</option></select></label><label>评分（0—100）<input v-model="interviewForm.score" type="number" min="0" max="100" /></label><label class="full">面试评价<textarea v-model="interviewForm.evaluation" rows="4"></textarea></label><label class="full">建议标签<input v-model="interviewForm.suggestedTags" placeholder="用逗号或顿号分隔" /></label><fieldset class="full"><legend>面试结论</legend><label class="check-option"><input v-model="interviewForm.passed" type="radio" :value="true" />建议通过</label><label class="check-option"><input v-model="interviewForm.passed" type="radio" :value="false" />建议不通过</label></fieldset></div>
+          <div class="admin-form-grid"><SearchableMemberSelect v-model="interviewForm.interviewerUsername" :options="interviewers" value-key="username" label="面试官" empty-label="请选择面试官" /><label>评分（0—100）<input v-model="interviewForm.score" type="number" min="0" max="100" /></label><label class="full">面试评价<textarea v-model="interviewForm.evaluation" rows="4"></textarea></label><label class="full">建议标签<input v-model="interviewForm.suggestedTags" placeholder="用逗号或顿号分隔" /></label><fieldset class="full"><legend>面试结论</legend><label class="check-option"><input v-model="interviewForm.passed" type="radio" :value="true" />建议通过</label><label class="check-option"><input v-model="interviewForm.passed" type="radio" :value="false" />建议不通过</label></fieldset></div>
           <button class="portal-primary" type="button" :disabled="working || !interviewForm.interviewerUsername" @click="submitInterview"><CheckCircle2 :size="18" aria-hidden="true" />保存面试记录</button>
         </section>
 

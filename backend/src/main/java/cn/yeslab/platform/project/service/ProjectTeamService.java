@@ -401,9 +401,9 @@ public class ProjectTeamService {
                 project.getDescription(),
                 project.getType(),
                 project.getStatus(),
-                toMemberSummary(project.getLeader()),
-                project.getAdvisor() == null ? null : toMemberSummary(project.getAdvisor()),
-                sortedMembers(project.getMembers()),
+                toPublicMemberSummary(project.getLeader()),
+                project.getAdvisor() == null ? null : toPublicMemberSummary(project.getAdvisor()),
+                sortedPublicMembers(project.getMembers()),
                 project.getRequiredSkillTags(),
                 project.getStartDate(),
                 project.getEndDate(),
@@ -424,10 +424,29 @@ public class ProjectTeamService {
                 .toList();
     }
 
+    private List<ProjectModels.MemberSummary> sortedPublicMembers(Set<MemberProfileEntity> members) {
+        return members.stream()
+                .sorted(Comparator.comparing(MemberProfileEntity::getName))
+                .map(this::toPublicMemberSummary)
+                .toList();
+    }
+
     private ProjectModels.MemberSummary toMemberSummary(MemberProfileEntity profile) {
         return new ProjectModels.MemberSummary(
                 profile.getId(),
                 profile.getName(),
+                profile.getMemberCode(),
+                profile.getAccount().getRole(),
+                profile.getAvatarUrl(),
+                profile.getSkillTags()
+        );
+    }
+
+    private ProjectModels.MemberSummary toPublicMemberSummary(MemberProfileEntity profile) {
+        return new ProjectModels.MemberSummary(
+                profile.getId(),
+                profile.getName(),
+                null,
                 profile.getAccount().getRole(),
                 profile.getAvatarUrl(),
                 profile.getSkillTags()

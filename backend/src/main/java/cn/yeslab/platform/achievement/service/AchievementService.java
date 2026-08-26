@@ -206,6 +206,14 @@ public class AchievementService {
     }
 
     @Transactional(readOnly = true)
+    public FileDownload publicCertificate(UUID competitionId) {
+        CompetitionEntity item = requireCompetition(competitionId);
+        ensurePublic(item);
+        if (item.getCertificateStoredName() == null) throw new ApiException(HttpStatus.NOT_FOUND, "该比赛尚未上传证书");
+        return new FileDownload(storage.certificate(item.getCertificateStoredName()), item.getCertificateOriginalName(), item.getCertificateContentType());
+    }
+
+    @Transactional(readOnly = true)
     public List<AchievementModels.PublicCompetitionView> publicCompetitions() {
         return competitions.findAll().stream().filter(this::isPublicFeatured)
                 .sorted(Comparator.comparingInt(CompetitionEntity::getDisplayOrder).thenComparing(CompetitionEntity::getCompetitionDate,
@@ -241,11 +249,18 @@ public class AchievementService {
 
     @Transactional(readOnly = true)
     public List<String> approvedAchievementsFor(UUID profileId) {
+        return approvedAchievementOptionsFor(profileId).stream()
+                .map(item -> item.name() + (item.awardName() == null ? "" : " · " + item.awardName())).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AchievementModels.CompetitionShowcaseOption> approvedAchievementOptionsFor(UUID profileId) {
         return competitions.findAll().stream()
                 .filter(item -> item.getLifecycle() == CompetitionLifecycle.FINISHED && item.getVerificationStatus() == VerificationStatus.APPROVED)
                 .filter(item -> item.getParticipants().stream().anyMatch(p -> p.getLinkedProfile() != null && p.getLinkedProfile().getId().equals(profileId)))
                 .sorted(Comparator.comparing(CompetitionEntity::getCompetitionDate, Comparator.nullsLast(Comparator.reverseOrder())))
-                .map(item -> item.getName() + (item.getAwardName() == null ? "" : " · " + item.getAwardName())).toList();
+                .map(item -> new AchievementModels.CompetitionShowcaseOption(item.getId(), item.getName(), item.getAwardName(), item.getCompetitionDate()))
+                .toList();
     }
 
     private void validateRequest(AchievementModels.CompetitionUpsertRequest request, boolean hasCertificate, CompetitionEntity existing) {
@@ -346,12 +361,15 @@ public class AchievementService {
     private boolean canEdit(CompetitionEntity item, Actor actor) { return actor.systemAdmin() || item.getCaptainProfile().getId().equals(actor.profile().getId()) && item.getVerificationStatus() != VerificationStatus.APPROVED; }
     private AchievementModels.PublicCompetitionView toPublicView(CompetitionEntity item) {
         return new AchievementModels.PublicCompetitionView(item.getId(), item.getName(), item.getTrack(), item.getLevel(), item.getAwardName(), item.getDescription(), item.getCompetitionDate(),
-                memberOption(item.getCaptainProfile()), item.getAdvisorProfile() == null ? null : memberOption(item.getAdvisorProfile()), item.getAdvisorName(), projectOption(item.getProject()),
-                participantViews(item), imageViews(item, true), item.getDisplayOrder(), item.getUpdatedAt());
+                publicMemberOption(item.getCaptainProfile()), item.getAdvisorProfile() == null ? null : publicMemberOption(item.getAdvisorProfile()), item.getAdvisorName(), projectOption(item.getProject()),
+                participantViews(item), imageViews(item, true), item.getCertificateStoredName() != null, item.getCertificateOriginalName(),
+                item.getCertificateStoredName() == null ? null : "/api/v1/public/competitions/" + item.getId() + "/certificate",
+                item.getDisplayOrder(), item.getUpdatedAt());
     }
     private List<AchievementModels.ParticipantView> participantViews(CompetitionEntity item) { return item.getParticipants().stream().map(p -> new AchievementModels.ParticipantView(p.getDisplayName(), p.getLinkedProfile() == null ? null : p.getLinkedProfile().getId(), p.getLinkedProfile() == null ? null : p.getLinkedProfile().getAvatarUrl(), p.isCaptain())).toList(); }
     private List<AchievementModels.ImageView> imageViews(CompetitionEntity item, boolean publicPath) { return item.getImages().stream().map(image -> new AchievementModels.ImageView(image.getId(), (publicPath ? "/api/v1/public/competitions/" : "/api/v1/competitions/") + item.getId() + "/images/" + image.getId(), image.getDescription(), image.getDisplayOrder())).toList(); }
-    private AchievementModels.MemberOption memberOption(MemberProfileEntity p) { return new AchievementModels.MemberOption(p.getId(), p.getName(), p.getAccount().getRole(), p.getAvatarUrl()); }
+    private AchievementModels.MemberOption memberOption(MemberProfileEntity p) { return new AchievementModels.MemberOption(p.getId(), p.getName(), p.getMemberCode(), p.getAccount().getRole(), p.getAvatarUrl()); }
+    private AchievementModels.MemberOption publicMemberOption(MemberProfileEntity p) { return new AchievementModels.MemberOption(p.getId(), p.getName(), null, p.getAccount().getRole(), p.getAvatarUrl()); }
     private AchievementModels.ProjectOption projectOption(ProjectTeamEntity p) { return p == null ? null : new AchievementModels.ProjectOption(p.getId(), p.getProjectName(), p.getTeamName()); }
     private AchievementModels.NewsView newsView(NewsEntity item) { return new AchievementModels.NewsView(item.getId(), item.getTitle(), item.getSourceName(), item.getSourceUrl(), item.getSummary(), item.getPublishedDate(), item.isVisible(), item.getCreatedAt(), item.getUpdatedAt()); }
 

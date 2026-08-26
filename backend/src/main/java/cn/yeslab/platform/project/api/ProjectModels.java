@@ -21,6 +21,7 @@ public final class ProjectModels {
     public record MemberSummary(
             UUID id,
             String name,
+            String memberCode,
             Role role,
             String avatarUrl,
             List<String> skillTags

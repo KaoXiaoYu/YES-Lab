@@ -12,8 +12,11 @@ const activeRanking = ref('总榜')
 const activeProjectFilter = ref('全部')
 const selectedProject = ref(null)
 const modalClose = ref(null)
+const homepageReady = ref(false)
 let revealObserver
 let rankingsRefreshTimer
+const publicHomeSnapshotKey = 'yeslab_public_home_snapshot_v1'
+const publicHomeSnapshotMaxAge = 7 * 24 * 60 * 60 * 1000
 
 const defaultProjects = [
   {
@@ -195,9 +198,36 @@ const applyCompleteHome = (home) => {
     : (home.awards || []).map((item, index) => ({ id: null, name: item.competition, track: item.category, awardName: item.prize, level: item.level, competitionDate: `历史成果 ${index + 1}` }))
 }
 
+const readPublicHomeSnapshot = () => {
+  try {
+    const snapshot = JSON.parse(localStorage.getItem(publicHomeSnapshotKey) || 'null')
+    if (!snapshot?.home || !snapshot.savedAt || Date.now() - snapshot.savedAt > publicHomeSnapshotMaxAge) return null
+    return snapshot.home
+  } catch {
+    return null
+  }
+}
+
+const savePublicHomeSnapshot = (home) => {
+  if (!home) return
+  try {
+    localStorage.setItem(publicHomeSnapshotKey, JSON.stringify({ savedAt: Date.now(), home }))
+  } catch {
+    // 浏览器禁用或存储空间不足时继续使用内置兜底，不影响页面访问。
+  }
+}
+
 const syncPublicHome = async () => {
   const home = await fetchPublicHome(applyCoreHome)
   applyCompleteHome(home)
+  savePublicHomeSnapshot(home)
+  homepageReady.value = true
+}
+
+const cachedPublicHome = readPublicHomeSnapshot()
+if (cachedPublicHome) {
+  applyCompleteHome(cachedPublicHome)
+  homepageReady.value = true
 }
 
 const handleKeydown = (event) => {
@@ -238,7 +268,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="site-shell">
+  <main :class="['site-shell', { 'awaiting-home': !homepageReady }]">
+    <div v-if="!homepageReady" class="home-bootstrap-state" role="status" aria-live="polite">
+      <img src="/yes-lab-logo.png" alt="" width="900" height="506" />
+      <p>正在同步 YES Lab 最新公开内容…</p>
+    </div>
     <a class="skip-link" href="#top">跳到主要内容</a>
     <header class="site-header">
       <a class="brand" href="#top" aria-label="YES Lab 首页" @click.prevent="scrollTo('#top')">
