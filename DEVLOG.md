@@ -219,3 +219,9 @@
 
 - `.openai/hosting.json` 已由 Git 跟踪，Vue 生产构建、工作流 YAML 解析和 `git diff --check` 均通过。
 - 当前本机没有可用 Docker daemon，实际容器构建与 GHCR 推送需提交本次修复后由下一次 GitHub Actions 运行验证。
+
+## 2026-08-26：仓库与镜像可见性方案
+
+- 通过 GitHub CLI 确认 `KaoXiaoYu/YES-Lab` 当前仍为 Public；可以改为 Private，现有 Actions 使用仓库 `GITHUB_TOKEN` 的 `contents: read` 与 `packages: write`，不依赖仓库公开状态。
+- 推荐源代码仓库和两个 GHCR 镜像均保持 Private：服务器使用只读 Deploy Key 拉取 Git，使用仅含 `read:packages` 的 classic PAT 登录 GHCR；Docker 登录状态可供后续发布脚本复用。
+- GHCR Container Package 的可见性与仓库可以独立配置；若镜像改为 Public，服务器可匿名拉取，但 GitHub 官方提示公开后的 Package 不能再改回 Private，因此应在首次成功发布镜像后谨慎选择。
