@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import jakarta.servlet.http.Cookie;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -117,6 +118,51 @@ class IdentityRecruitmentApiTests {
                 .andExpect(jsonPath("$.data.profileHtml", containsString("安全内容")))
                 .andExpect(jsonPath("$.data.profileHtml", not(containsString("script"))))
                 .andExpect(jsonPath("$.data.profileHtml", not(containsString("javascript:"))));
+    }
+
+    @Test
+    void rememberLoginIsExplicitAndRefreshTokensRotate() throws Exception {
+        var sessionLogin = mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"member","password":"YesLab-Member-2026!","rememberMe":false}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn().getResponse();
+        Cookie sessionCookie = sessionLogin.getCookie("yeslab_refresh_token");
+        org.assertj.core.api.Assertions.assertThat(sessionCookie).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(sessionCookie.getMaxAge()).isEqualTo(-1);
+        org.assertj.core.api.Assertions.assertThat(sessionCookie.isHttpOnly()).isTrue();
+
+        var rememberedLogin = mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"member","password":"YesLab-Member-2026!","rememberMe":true}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn().getResponse();
+        Cookie firstCookie = rememberedLogin.getCookie("yeslab_refresh_token");
+        org.assertj.core.api.Assertions.assertThat(firstCookie).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(firstCookie.getMaxAge()).isEqualTo(30 * 24 * 60 * 60);
+        org.assertj.core.api.Assertions.assertThat(rememberedLogin.getHeader("Set-Cookie"))
+                .contains("HttpOnly", "SameSite=Lax");
+
+        var refreshed = mvc.perform(post("/api/v1/auth/refresh").cookie(firstCookie))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andReturn().getResponse();
+        Cookie rotatedCookie = refreshed.getCookie("yeslab_refresh_token");
+        org.assertj.core.api.Assertions.assertThat(rotatedCookie).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(rotatedCookie.getValue()).isNotEqualTo(firstCookie.getValue());
+
+        mvc.perform(post("/api/v1/auth/refresh").cookie(firstCookie))
+                .andExpect(status().isUnauthorized())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Set-Cookie", containsString("Max-Age=0")));
+        mvc.perform(post("/api/v1/auth/logout").cookie(rotatedCookie))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/auth/refresh").cookie(rotatedCookie))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

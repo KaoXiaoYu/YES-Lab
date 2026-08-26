@@ -59,6 +59,7 @@ public class RecruitmentApplicationEntity {
     private List<String> existingSkills = new ArrayList<>();
 
     @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String experience;
 
     @ElementCollection(fetch = FetchType.EAGER)
@@ -78,6 +79,7 @@ public class RecruitmentApplicationEntity {
     private Integer interviewScore;
 
     @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String interviewEvaluation;
 
     @ElementCollection(fetch = FetchType.EAGER)

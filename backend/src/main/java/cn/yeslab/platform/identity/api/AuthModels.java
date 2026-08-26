@@ -16,7 +16,8 @@ public final class AuthModels {
 
     public record LoginRequest(
             @NotBlank(message = "请输入账号") String username,
-            @NotBlank(message = "请输入密码") String password
+            @NotBlank(message = "请输入密码") String password,
+            Boolean rememberMe
     ) {
     }
 

@@ -47,7 +47,7 @@ public class CompetitionEntity {
     @Column(length = 160)
     private String awardName;
 
-    @Lob @Column(nullable = false)
+    @Lob @Column(nullable = false, columnDefinition = "LONGTEXT")
     private String description;
 
     private LocalDate competitionDate;

@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class JwtTokenService {
@@ -43,6 +44,7 @@ public class JwtTokenService {
                 .issuedAt(issuedAt)
                 .expiresAt(expiresAt)
                 .subject(account.getId().toString())
+                .id(UUID.randomUUID().toString())
                 .claim("username", account.getUsername())
                 .claim("role", account.getRole().name())
                 .claim("authorities", authorities)

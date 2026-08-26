@@ -42,7 +42,7 @@ public class ProjectTeamEntity {
     private String teamName;
 
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
     private String description;
 
     @Enumerated(EnumType.STRING)
@@ -92,9 +92,11 @@ public class ProjectTeamEntity {
     private List<String> stageGoals = new ArrayList<>();
 
     @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String progressDescription;
 
     @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String outcomes;
 
     @Column(length = 500)

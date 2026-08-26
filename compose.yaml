@@ -1,0 +1,93 @@
+name: yes-lab
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    command:
+      - --innodb-buffer-pool-size=128M
+      - --max-connections=30
+      - --performance-schema=OFF
+      - --skip-name-resolve
+    environment:
+      MYSQL_DATABASE: yeslab
+      MYSQL_USER: ${YESLAB_DATABASE_USERNAME}
+      MYSQL_PASSWORD: ${YESLAB_DATABASE_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${YESLAB_MYSQL_ROOT_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - ${YESLAB_DATA_ROOT:-/srv/yeslab/data}/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping --host=127.0.0.1 --user=root --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    mem_limit: 320m
+    networks: [backend]
+
+  api:
+    image: ${YESLAB_API_IMAGE:-ghcr.io/kaoxiaoyu/yes-lab-api}:${YESLAB_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      YESLAB_DATABASE_URL: jdbc:mysql://mysql:3306/yeslab?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+      YESLAB_DATABASE_USERNAME: ${YESLAB_DATABASE_USERNAME}
+      YESLAB_DATABASE_PASSWORD: ${YESLAB_DATABASE_PASSWORD}
+      YESLAB_DATABASE_MAX_POOL_SIZE: 8
+      YESLAB_DATABASE_MIN_IDLE: 1
+      YESLAB_JWT_SECRET: ${YESLAB_JWT_SECRET}
+      YESLAB_JWT_ISSUER: ${YESLAB_JWT_ISSUER:-yes-lab-api}
+      YESLAB_CORS_ALLOWED_ORIGINS: ${YESLAB_CORS_ALLOWED_ORIGINS}
+      YESLAB_ACHIEVEMENTS_DIRECTORY: /var/lib/yeslab/uploads/achievements
+      YESLAB_PROJECTS_DIRECTORY: /var/lib/yeslab/uploads/projects
+      JAVA_TOOL_OPTIONS: -Xms96m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:MaxDirectMemorySize=64m -Xss512k -XX:+UseSerialGC
+      TZ: Asia/Shanghai
+    volumes:
+      - ${YESLAB_DATA_ROOT:-/srv/yeslab/data}/uploads:/var/lib/yeslab/uploads
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 50s
+    mem_limit: 384m
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    networks: [backend]
+
+  web:
+    image: ${YESLAB_WEB_IMAGE:-ghcr.io/kaoxiaoyu/yes-lab-web}:${YESLAB_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      YESLAB_SITE_ADDRESS: ${YESLAB_SITE_ADDRESS}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    mem_limit: 96m
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    networks: [backend]
+
+networks:
+  backend:
+
+volumes:
+  caddy_data:
+  caddy_config:

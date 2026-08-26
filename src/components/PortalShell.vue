@@ -20,8 +20,8 @@ const roleLabels = {
 const accountLabel = computed(() => roleLabels[authState.account?.role] || authState.account?.role)
 const accountName = computed(() => authState.account?.displayName || authState.account?.username || '')
 
-function signOut() {
-  logout()
+async function signOut() {
+  await logout()
   router.push('/')
 }
 </script>

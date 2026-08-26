@@ -66,7 +66,7 @@ public class MemberProfileEntity {
     private String headline;
 
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
     private String profileHtml = "<p>在这里介绍你的研究兴趣、项目经历与成长目标。</p>";
 
     @Column(nullable = false)

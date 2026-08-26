@@ -11,7 +11,7 @@ const submitting = ref(false)
 const showPassword = ref(false)
 const errorMessage = ref('')
 const fieldErrors = ref({})
-const form = reactive({ username: '', password: '', confirmPassword: '' })
+const form = reactive({ username: '', password: '', confirmPassword: '', rememberMe: false })
 
 const isRegister = computed(() => mode.value === 'register')
 
@@ -33,7 +33,7 @@ async function submit() {
   try {
     const account = isRegister.value
       ? await register({ username: form.username.trim(), password: form.password })
-      : await login({ username: form.username.trim(), password: form.password })
+      : await login({ username: form.username.trim(), password: form.password, rememberMe: form.rememberMe })
     const requestedPath = typeof route.query.redirect === 'string' ? route.query.redirect : null
     await router.push(requestedPath || (account.role === 'VISITOR' ? '/application' : '/profile'))
   } catch (error) {
@@ -87,6 +87,11 @@ async function submit() {
           <div class="input-shell" :class="{ invalid: fieldErrors.confirmPassword }"><LockKeyhole :size="18" aria-hidden="true" /><input id="confirm-password" v-model="form.confirmPassword" name="confirm-password" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" required placeholder="再次输入密码" /></div>
           <small v-if="fieldErrors.confirmPassword" class="field-error">{{ fieldErrors.confirmPassword }}</small>
         </template>
+
+        <label v-else class="remember-login">
+          <input v-model="form.rememberMe" type="checkbox" name="remember-me" />
+          <span><strong>记住我的登录状态</strong><small>仅在这台可信设备上勾选；关闭浏览器后仍保持登录 30 天。</small></span>
+        </label>
 
         <button class="auth-submit" type="submit" :disabled="submitting"><span>{{ submitting ? '正在提交…' : (isRegister ? '注册并填写报名表' : '登录成员系统') }}</span><ArrowRight :size="19" aria-hidden="true" /></button>
       </form>

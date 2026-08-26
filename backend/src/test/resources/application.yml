@@ -19,6 +19,10 @@ yeslab:
       issuer: yes-lab-api-test
       secret: yes-lab-test-secret-key-with-at-least-thirty-two-bytes
       ttl: PT30M
+    refresh-token:
+      session-ttl: PT12H
+      remembered-ttl: P30D
+      secure-cookie: false
     bootstrap:
       enabled: true
       teacher-password: YesLab-Teacher-2026!

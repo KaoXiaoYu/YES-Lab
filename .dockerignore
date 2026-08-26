@@ -1,0 +1,15 @@
+.git
+.github
+.idea
+.vscode
+.openai
+backend/data
+backend/target
+design-system
+dist
+node_modules
+outputs
+work
+*.log
+.env*
+DEVLOG.md

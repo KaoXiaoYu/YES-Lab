@@ -69,6 +69,13 @@
 .input-shell.invalid { border-color: #ef4444; }
 .input-shell input { width: 100%; height: 48px; border: 0; outline: 0; color: #0f172a; background: transparent; font-size: 14px; }
 .input-shell button { display: grid; place-items: center; width: 44px; height: 44px; border: 0; color: #64748b; background: transparent; }
+.remember-login { display: grid !important; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; min-height: 48px; margin: 2px 0 0 !important; padding: 10px 0; cursor: pointer; }
+.remember-login input { width: 18px; height: 18px; margin: 2px; accent-color: #a16207; }
+.remember-login input:focus-visible { outline: 2px solid #1e3a5f; outline-offset: 3px; }
+.remember-login span { display: grid; gap: 3px; }
+.remember-login strong { color: #334155; font-size: 12px; }
+.remember-login small { color: #64748b; font-size: 11px; font-weight: 400; line-height: 1.55; }
+.remember-login:focus-within strong { text-decoration: underline; text-underline-offset: 3px; }
 .auth-submit { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 52px; margin-top: 28px; padding: 12px 18px 12px 22px; border: 1px solid #a16207; border-radius: 8px; color: #fff; background: #a16207; font-size: 13px; font-weight: 700; }
 .auth-note { margin: 28px 0 0; color: #64748b; font-size: 10px; line-height: 1.7; }
 

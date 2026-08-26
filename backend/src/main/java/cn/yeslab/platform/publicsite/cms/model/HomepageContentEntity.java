@@ -15,7 +15,7 @@ public class HomepageContentEntity {
     private Long id;
 
     @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
     private String contentJson;
 
     @Column(nullable = false, length = 64)

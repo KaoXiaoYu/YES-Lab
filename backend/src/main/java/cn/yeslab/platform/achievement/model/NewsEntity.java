@@ -23,7 +23,7 @@ public class NewsEntity {
     @Column(nullable = false, length = 220) private String title;
     @Column(nullable = false, length = 120) private String sourceName;
     @Column(nullable = false, length = 800) private String sourceUrl;
-    @Lob @Column(nullable = false) private String summary;
+    @Lob @Column(nullable = false, columnDefinition = "LONGTEXT") private String summary;
     @Column(nullable = false) private LocalDate publishedDate;
     @Column(nullable = false) private boolean visible;
     @ManyToOne(optional = false, fetch = FetchType.LAZY) @JoinColumn(name = "created_by_account_id", nullable = false, updatable = false)

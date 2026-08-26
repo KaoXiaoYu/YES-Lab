@@ -13,6 +13,8 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+  flyway:
+    enabled: false
   servlet:
     multipart:
       max-file-size: 10MB
@@ -42,7 +44,11 @@ yeslab:
     jwt:
       issuer: yes-lab-api
       secret: ${YESLAB_JWT_SECRET:local-development-only-change-this-yes-lab-secret-2026}
-      ttl: PT2H
+      ttl: PT15M
+    refresh-token:
+      session-ttl: PT12H
+      remembered-ttl: P30D
+      secure-cookie: ${YESLAB_SECURE_COOKIE:false}
     bootstrap:
       enabled: ${YESLAB_BOOTSTRAP_ENABLED:true}
       teacher-password: ${YESLAB_BOOTSTRAP_TEACHER_PASSWORD:YesLab-Teacher-2026!}

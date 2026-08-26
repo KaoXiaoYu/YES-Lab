@@ -5,7 +5,7 @@
 ## 当前状态
 
 - 前端：Vue 3 + Vite，包含公开展示、公开成员主页、登录注册、游客报名、成员个人主页、成员/招新管理、项目团队空间和竞赛成果管理。
-- 后端：Java 21 + Spring Boot 4.1.1、Spring Security、JWT、JPA；本地使用 H2 文件数据库。
+- 后端：Java 21 + Spring Boot 4.1.1、Spring Security、JWT、JPA；本地使用 H2，生产配置使用 MySQL 8.4 + Flyway。
 - 角色：教师与核心学生均为系统管理员；普通成员维护个人主页；游客只维护本人报名并查看进度。
 - 尚未实现：测验、写题、积分计算、比赛记录删除/导入和项目即时聊天；现阶段仅保留相应权限或字段边界。
 
@@ -103,8 +103,8 @@
 
 ## 后续待办
 
-- 上线前改用 PostgreSQL + Flyway，关闭演示账号初始化，配置独立 JWT 密钥和正式 CORS 域名。
-- 待确认后再增加刷新令牌/吊销、密码重置、登录限流与告警、全局操作审计、独立的内部联系方式查看权限。
+- 正式服务器首次上线前完成域名解析、HTTPS 签发、MySQL/Flyway 空库与已有库演练、备份恢复演练；生产环境关闭演示账号初始化并配置独立 JWT 密钥和正式 CORS 域名。
+- 后续增加密码重置、登录限流与告警、JWT 双密钥平滑轮换、全局操作审计、独立的内部联系方式查看权限。
 - 后续实现头像文件上传，以及测验和积分模块；项目即时聊天如需加入，应先补充消息、文件、已读与内容治理规则。
 - 使用真实成员、项目、仓库和社交平台资料替换占位内容。
 
@@ -141,3 +141,35 @@
 - Vue 生产构建通过；`git diff --check` 通过。
 - Spring Boot 已使用 Java 21 重启，健康检查为 `UP`；公开首页 API 返回 3 个可跳转研究方向，Vite 首页返回 HTTP 200。
 - 未进行自动截图视觉验收；已完成构建、响应式样式审查与运行态接口检查。
+
+## 2026-08-26：MySQL、正式 JWT 会话与生产部署基线
+
+- 生产数据库确定为 MySQL 8.4，加入 Connector/J、Flyway 和独立 `prod` profile；生产环境使用 `ddl-auto=validate`，演示数据初始化固定关闭，数据库连接、JWT 密钥和 CORS 来源均由环境变量注入。
+- 建立 V1 完整表结构与 V2 刷新会话迁移。空库执行完整建表；已有未纳管 MySQL 库登记为 V1 后只执行 V2。富文本、主页 JSON、比赛/项目描述等列统一扩为 `LONGTEXT`，避免 MySQL `TINYTEXT` 截断。
+- JWT 访问令牌缩短为 15 分钟并增加 `jti`；新增 48 字节随机刷新令牌，服务端只存 SHA-256 摘要，支持轮换、吊销和退出登录。
+- 登录页新增明确的“记住我的登录状态”复选框：不勾选时为最长 12 小时的浏览器会话 Cookie，勾选时为 30 天持久 Cookie；生产 Cookie 使用 `HttpOnly + Secure + SameSite=Lax`。访问 JWT 改为仅保存在前端内存，旧 `sessionStorage` 令牌会被清除。
+- 前后端改为同源 `/api`：本地由 Vite 代理，生产由 Caddy 代理，减少跨域 Cookie 差异；登录表单按 UI/UX Pro Max 保留原生语义、可见说明、键盘焦点和密码管理器兼容。
+- 新增 Vue/Caddy 与 Java 21 多阶段镜像、MySQL/API/Web Compose 编排、低内存 JVM/MySQL 参数、健康检查、仓库外数据目录及 Caddy 自动 HTTPS。
+- 新增 GitHub Actions：`main` 推送先完成 Vue 构建与 Java 测试，再向 `ghcr.io/kaoxiaoyu` 发布 `latest` 和提交 SHA 镜像；服务器无需承担编译。
+- 新增升级前 MySQL + 上传文件备份脚本、安全快进部署脚本、生产环境示例和 Debian 12 / Ubuntu LTS 通用部署手册；明确禁止 `down -v`，并要求首次上线和后续定期进行恢复演练。
+
+### 验证
+
+- Java 21 全量回归共 15 项测试通过，0 失败、0 错误、0 跳过；新增覆盖未勾选会话 Cookie、勾选后精确 30 天、刷新令牌轮换、旧令牌失效和退出吊销。
+- Vue 生产构建通过；`git diff --check` 与两个部署脚本 `bash -n` 通过；Compose YAML 可被本地 YAML 解析器读取。
+- 本地 Spring Boot 已用 Java 21 重启，真实 HTTP 登录返回 `Max-Age=2592000` 的 HttpOnly Cookie，刷新接口返回 200 且 Cookie 完成轮换；Vite 同源代理健康检查返回 200。
+- 已使用 Hibernate MySQL 方言生成元数据并核对 V1/V2 字段类型；当前电脑没有运行中的 Docker daemon/Compose 插件，因此尚未执行真实 MySQL 容器迁移、镜像构建和 Caddy HTTPS 实机测试，这三项列为服务器首次发布前的强制验收。
+
+## 2026-08-26：2 核 2 GB Ubuntu 24.04 服务器容量评估
+
+- 确认 Ubuntu 24.04 LTS（Noble）属于 Docker Engine 官方支持版本，可继续使用现有 Docker Compose、MySQL 8.4、Spring Boot API 与 Caddy 部署方案。
+- 当前 MySQL、API、Web 三个容器内存上限合计 800 MB；2 GB 内存可满足初期低并发运行，正式上线时建议配置 2 GB swap，仅用于吸收启动、备份和偶发请求峰值。
+- 2 核 CPU 与 20 Mbps 带宽足以承载实验室公开展示、成员管理和少量并发上传；不建议在本机托管视频或进行图片转码、批量计算等重任务。
+- 40 GB SSD 是主要容量约束。现有备份脚本每天同时备份数据库和全部上传文件并默认保留 14 天，图片增长后会重复占用大量空间；正式上线前应改为较短的本机留存配合异地备份，并限制 Docker 日志大小。
+- 200 GB 月流量折合整月平均约 0.62 Mbps；普通图文访问够用，但需压缩首页和比赛图片并使用浏览器缓存，视频应使用外部视频平台或对象存储/CDN。
+
+### 验证
+
+- 核对 Compose 内存配置：MySQL 320 MB、API 384 MB、Web 96 MB，合计硬限制 800 MB。
+- 核对备份脚本：上传目录采用完整 `tar.gz` 快照，默认本机保留 14 天。
+- 核对 Docker 官方 Ubuntu 支持列表：Ubuntu Noble 24.04 LTS 受支持。本次仅进行容量与部署兼容性评估，未修改运行代码。

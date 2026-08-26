@@ -3,19 +3,30 @@ package cn.yeslab.platform.identity.service;
 import cn.yeslab.platform.common.error.ApiException;
 import cn.yeslab.platform.identity.api.AuthModels;
 import cn.yeslab.platform.identity.model.AccountEntity;
+import cn.yeslab.platform.identity.model.RefreshTokenEntity;
 import cn.yeslab.platform.identity.model.Role;
 import cn.yeslab.platform.identity.repository.AccountRepository;
 import cn.yeslab.platform.identity.repository.MemberProfileRepository;
+import cn.yeslab.platform.identity.repository.RefreshTokenRepository;
 import cn.yeslab.platform.recruitment.repository.RecruitmentApplicationRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.HexFormat;
 import java.util.UUID;
 
 @Service
@@ -27,6 +38,10 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenService tokens;
+    private final RefreshTokenRepository refreshTokens;
+    private final SecureRandom secureRandom = new SecureRandom();
+    private final Duration sessionRefreshTtl;
+    private final Duration rememberedRefreshTtl;
 
     public AuthService(
             AccountRepository accounts,
@@ -34,7 +49,10 @@ public class AuthService {
             RecruitmentApplicationRepository applications,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
-            JwtTokenService tokens
+            JwtTokenService tokens,
+            RefreshTokenRepository refreshTokens,
+            @Value("${yeslab.security.refresh-token.session-ttl}") Duration sessionRefreshTtl,
+            @Value("${yeslab.security.refresh-token.remembered-ttl}") Duration rememberedRefreshTtl
     ) {
         this.accounts = accounts;
         this.profiles = profiles;
@@ -42,10 +60,13 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.tokens = tokens;
+        this.refreshTokens = refreshTokens;
+        this.sessionRefreshTtl = sessionRefreshTtl;
+        this.rememberedRefreshTtl = rememberedRefreshTtl;
     }
 
-    @Transactional(readOnly = true)
-    public AuthModels.AuthResponse login(AuthModels.LoginRequest request) {
+    @Transactional
+    public AuthSession login(AuthModels.LoginRequest request) {
         try {
             authenticationManager.authenticate(
                     UsernamePasswordAuthenticationToken.unauthenticated(request.username(), request.password())
@@ -56,11 +77,11 @@ public class AuthService {
 
         AccountEntity account = accounts.findByUsernameIgnoreCase(request.username())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "账号或密码错误"));
-        return createResponse(account);
+        return createSession(account, Boolean.TRUE.equals(request.rememberMe()));
     }
 
     @Transactional
-    public AuthModels.AuthResponse register(AuthModels.RegisterRequest request) {
+    public AuthSession register(AuthModels.RegisterRequest request) {
         String normalizedUsername = request.username().trim().toLowerCase();
         if (accounts.existsByUsernameIgnoreCase(normalizedUsername)) {
             throw new ApiException(HttpStatus.CONFLICT, "该账号已被注册");
@@ -70,7 +91,26 @@ public class AuthService {
                 passwordEncoder.encode(request.password()),
                 Role.VISITOR
         ));
-        return createResponse(account);
+        return createSession(account, false);
+    }
+
+    @Transactional
+    public AuthSession refresh(String rawRefreshToken) {
+        Instant now = Instant.now();
+        RefreshTokenEntity current = refreshTokens.findByTokenHash(hash(rawRefreshToken))
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "登录状态已失效，请重新登录"));
+        if (!current.isActiveAt(now)) {
+            current.revoke(now);
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "登录状态已失效，请重新登录");
+        }
+        current.revoke(now);
+        return createSession(current.getAccount(), current.isRememberLogin());
+    }
+
+    @Transactional
+    public void logout(String rawRefreshToken) {
+        if (rawRefreshToken == null || rawRefreshToken.isBlank()) return;
+        refreshTokens.findByTokenHash(hash(rawRefreshToken)).ifPresent(token -> token.revoke(Instant.now()));
     }
 
     @Transactional(readOnly = true)
@@ -90,9 +130,32 @@ public class AuthService {
         }
     }
 
-    private AuthModels.AuthResponse createResponse(AccountEntity account) {
+    private AuthSession createSession(AccountEntity account, boolean rememberLogin) {
         JwtTokenService.IssuedToken token = tokens.issue(account);
-        return new AuthModels.AuthResponse(token.value(), "Bearer", token.expiresAt(), toView(account));
+        String rawRefreshToken = newRefreshToken();
+        Duration refreshTtl = rememberLogin ? rememberedRefreshTtl : sessionRefreshTtl;
+        Instant refreshExpiresAt = Instant.now().plus(refreshTtl);
+        refreshTokens.deleteByExpiresAtBefore(Instant.now().minus(Duration.ofDays(1)));
+        refreshTokens.save(new RefreshTokenEntity(account, hash(rawRefreshToken), rememberLogin, refreshExpiresAt));
+        AuthModels.AuthResponse response = new AuthModels.AuthResponse(
+                token.value(), "Bearer", token.expiresAt(), toView(account)
+        );
+        return new AuthSession(response, rawRefreshToken, refreshTtl, rememberLogin);
+    }
+
+    private String newRefreshToken() {
+        byte[] bytes = new byte[48];
+        secureRandom.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String hash(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 不可用", exception);
+        }
     }
 
     private AuthModels.AccountView toView(AccountEntity account) {
@@ -108,5 +171,13 @@ public class AuthService {
                 profile.map(memberProfile -> memberProfile.getName()).orElse(account.getUsername()),
                 profile.map(memberProfile -> memberProfile.getAvatarUrl()).orElse(null)
         );
+    }
+
+    public record AuthSession(
+            AuthModels.AuthResponse response,
+            String refreshToken,
+            Duration refreshTtl,
+            boolean rememberLogin
+    ) {
     }
 }

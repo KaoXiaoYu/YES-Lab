@@ -1,26 +1,24 @@
 import { reactive } from 'vue'
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '')
-const tokenKey = 'yeslab_access_token'
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
+const legacyTokenKey = 'yeslab_access_token'
 
 export const authState = reactive({
-  token: sessionStorage.getItem(tokenKey),
+  token: null,
   account: null,
   ready: false,
 })
 
 let restorePromise
+let refreshPromise
+sessionStorage.removeItem(legacyTokenKey)
 
 export async function restoreSession() {
   if (authState.ready) return authState.account
   if (restorePromise) return restorePromise
   restorePromise = (async () => {
-    if (!authState.token) {
-      authState.ready = true
-      return null
-    }
     try {
-      authState.account = await apiRequest('/api/v1/auth/me')
+      await refreshSession()
     } catch {
       clearSession()
     } finally {
@@ -43,8 +41,16 @@ export async function register(credentials) {
   return response.account
 }
 
-export function logout() {
-  clearSession()
+export async function logout() {
+  try {
+    await fetch(`${apiBaseUrl}/api/v1/auth/logout`, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      credentials: 'include',
+    })
+  } finally {
+    clearSession()
+  }
 }
 
 export function getOwnProfile() {
@@ -132,7 +138,9 @@ export function listManagedNews() { return apiRequest('/api/v1/admin/achievement
 export function createNews(payload) { return apiRequest('/api/v1/admin/achievements/news', { method: 'POST', body: payload }) }
 export function updateNews(id, payload) { return apiRequest(`/api/v1/admin/achievements/news/${id}`, { method: 'PUT', body: payload }) }
 export async function getAuthenticatedFile(path) {
-  const response = await fetch(`${apiBaseUrl}${path}`, { headers: { Authorization: `Bearer ${authState.token}` } })
+  const response = await fetchWithRefresh(`${apiBaseUrl}${path}`, {
+    headers: { Authorization: `Bearer ${authState.token}` },
+  })
   if (!response.ok) throw new ApiError(`文件读取失败（${response.status}）`, {}, response.status)
   return URL.createObjectURL(await response.blob())
 }
@@ -172,11 +180,11 @@ async function apiRequest(path, options = {}) {
 
   let response
   try {
-    response = await fetch(`${apiBaseUrl}${path}`, {
+    response = await fetchWithRefresh(`${apiBaseUrl}${path}`, {
       method: options.method || 'GET',
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    })
+    }, options.authenticated !== false)
   } catch {
     throw new ApiError('无法连接后端服务，请确认 Spring Boot 已启动。')
   }
@@ -192,7 +200,7 @@ async function apiRequest(path, options = {}) {
 async function formRequest(path, options) {
   let response
   try {
-    response = await fetch(`${apiBaseUrl}${path}`, {
+    response = await fetchWithRefresh(`${apiBaseUrl}${path}`, {
       method: options.method,
       headers: { Accept: 'application/json', ...(authState.token ? { Authorization: `Bearer ${authState.token}` } : {}) },
       body: options.body,
@@ -207,15 +215,50 @@ function setSession(response) {
   authState.token = response.accessToken
   authState.account = response.account
   authState.ready = true
-  sessionStorage.setItem(tokenKey, response.accessToken)
 }
 
 function clearSession() {
-  sessionStorage.removeItem(tokenKey)
+  sessionStorage.removeItem(legacyTokenKey)
   authState.token = null
   authState.account = null
   authState.ready = true
   restorePromise = null
+}
+
+async function refreshSession() {
+  if (refreshPromise) return refreshPromise
+  refreshPromise = (async () => {
+    const response = await fetch(`${apiBaseUrl}/api/v1/auth/refresh`, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+      credentials: 'include',
+    })
+    if (!response.ok) throw new Error('登录状态不可恢复')
+    const payload = await response.json()
+    setSession(payload.data)
+    return payload.data
+  })().finally(() => {
+    refreshPromise = null
+  })
+  return refreshPromise
+}
+
+async function fetchWithRefresh(url, init, authenticated = true) {
+  const request = { ...init, credentials: 'include' }
+  let response = await fetch(url, request)
+  if (response.status !== 401 || !authenticated) return response
+
+  try {
+    await refreshSession()
+  } catch {
+    clearSession()
+    return response
+  }
+
+  const headers = new Headers(init.headers || {})
+  headers.set('Authorization', `Bearer ${authState.token}`)
+  response = await fetch(url, { ...request, headers })
+  return response
 }
 
 export class ApiError extends Error {

@@ -1,0 +1,37 @@
+spring:
+  datasource:
+    url: ${YESLAB_DATABASE_URL}
+    username: ${YESLAB_DATABASE_USERNAME}
+    password: ${YESLAB_DATABASE_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${YESLAB_DATABASE_MAX_POOL_SIZE:10}
+      minimum-idle: ${YESLAB_DATABASE_MIN_IDLE:2}
+      connection-timeout: 20000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    database-platform: org.hibernate.dialect.MySQLDialect
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+    locations: classpath:db/migration
+
+yeslab:
+  storage:
+    achievements-directory: ${YESLAB_ACHIEVEMENTS_DIRECTORY:/var/lib/yeslab/uploads/achievements}
+    projects-directory: ${YESLAB_PROJECTS_DIRECTORY:/var/lib/yeslab/uploads/projects}
+  cors:
+    allowed-origins: ${YESLAB_CORS_ALLOWED_ORIGINS}
+  security:
+    jwt:
+      issuer: ${YESLAB_JWT_ISSUER:yes-lab-api}
+      secret: ${YESLAB_JWT_SECRET}
+      ttl: PT15M
+    refresh-token:
+      session-ttl: PT12H
+      remembered-ttl: P30D
+      secure-cookie: true
+    bootstrap:
+      enabled: false
