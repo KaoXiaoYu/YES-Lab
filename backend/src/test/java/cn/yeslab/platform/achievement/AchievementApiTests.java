@@ -102,6 +102,7 @@ class AchievementApiTests {
                 .andExpect(jsonPath("$.data.description").value("团队使用无人机与机器狗完成自主侦察、路径规划和协同任务。"))
                 .andExpect(jsonPath("$.data.images.length()").value(1))
                 .andExpect(jsonPath("$.data.certificateOriginalName").value("certificate.jpg"))
+                .andExpect(jsonPath("$.data.certificateContentType").value("image/jpeg"))
                 .andExpect(jsonPath("$.data.certificateUrl").value("/api/v1/public/competitions/" + competitionId + "/certificate"))
                 .andReturn().getResponse().getContentAsString();
         String publicImageUrl = JsonPath.read(publicDetail, "$.data.images[0].url");
@@ -139,6 +140,31 @@ class AchievementApiTests {
                 .andExpect(jsonPath("$.data.verificationStatus").value("NOT_REQUIRED"))
                 .andExpect(jsonPath("$.data.advisor.role").value("TEACHER"))
                 .andExpect(jsonPath("$.data.nationalDate").value("2027-08-12"));
+    }
+
+    @Test
+    void scannerStyleJpgCertificateUsesSafeCertificateOnlyFallback() throws Exception {
+        String memberToken = login("member", "YesLab-Member-2026!");
+        MockMultipartFile data = jsonPart("""
+                {"name":"扫描证书兼容测试","track":"证书上传","level":"SCHOOL","lifecycle":"FINISHED",
+                 "awardName":"二等奖","description":"验证非标准扫描 JPG 可以作为证书提交。",
+                 "competitionDate":"2026-08-25","participants":[]}
+                """);
+        MockMultipartFile scannerJpg = new MockMultipartFile(
+                "certificate", "扫描证书.JPG", "image/pjpeg", "scanner-exported-jpeg".getBytes(StandardCharsets.UTF_8));
+
+        mvc.perform(multipart("/api/v1/competitions").file(data).file(scannerJpg)
+                        .header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.hasCertificate").value(true))
+                .andExpect(jsonPath("$.data.certificateOriginalName").value("扫描证书.JPG"));
+
+        MockMultipartFile disguisedText = new MockMultipartFile(
+                "certificate", "不是证书.txt", "image/jpeg", "plain text".getBytes(StandardCharsets.UTF_8));
+        mvc.perform(multipart("/api/v1/competitions").file(data).file(disguisedText)
+                        .header("Authorization", bearer(memberToken)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("证书文件内容与格式不匹配"));
     }
 
     @Test

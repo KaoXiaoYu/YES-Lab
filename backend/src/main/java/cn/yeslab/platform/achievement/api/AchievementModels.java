@@ -57,7 +57,7 @@ public final class AchievementModels {
             UUID id, String name, String track, CompetitionLevel level, String awardName, String description,
             LocalDate competitionDate, MemberOption captain, MemberOption advisor, String advisorName,
             ProjectOption project, List<ParticipantView> participants, List<ImageView> images,
-            boolean hasCertificate, String certificateOriginalName, String certificateUrl,
+            boolean hasCertificate, String certificateOriginalName, String certificateContentType, String certificateUrl,
             int displayOrder, Instant updatedAt
     ) {}
 

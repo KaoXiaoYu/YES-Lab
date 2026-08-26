@@ -362,7 +362,7 @@ public class AchievementService {
     private AchievementModels.PublicCompetitionView toPublicView(CompetitionEntity item) {
         return new AchievementModels.PublicCompetitionView(item.getId(), item.getName(), item.getTrack(), item.getLevel(), item.getAwardName(), item.getDescription(), item.getCompetitionDate(),
                 publicMemberOption(item.getCaptainProfile()), item.getAdvisorProfile() == null ? null : publicMemberOption(item.getAdvisorProfile()), item.getAdvisorName(), projectOption(item.getProject()),
-                participantViews(item), imageViews(item, true), item.getCertificateStoredName() != null, item.getCertificateOriginalName(),
+                participantViews(item), imageViews(item, true), item.getCertificateStoredName() != null, item.getCertificateOriginalName(), item.getCertificateContentType(),
                 item.getCertificateStoredName() == null ? null : "/api/v1/public/competitions/" + item.getId() + "/certificate",
                 item.getDisplayOrder(), item.getUpdatedAt());
     }
