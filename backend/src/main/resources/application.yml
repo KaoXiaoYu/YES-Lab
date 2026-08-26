@@ -54,3 +54,9 @@ yeslab:
       teacher-password: ${YESLAB_BOOTSTRAP_TEACHER_PASSWORD:YesLab-Teacher-2026!}
       core-password: ${YESLAB_BOOTSTRAP_CORE_PASSWORD:YesLab-Core-2026!}
       member-password: ${YESLAB_BOOTSTRAP_MEMBER_PASSWORD:YesLab-Member-2026!}
+    initial-admin:
+      enabled: ${YESLAB_INITIAL_ADMIN_ENABLED:false}
+      username: ${YESLAB_INITIAL_ADMIN_USERNAME:admin}
+      password: ${YESLAB_INITIAL_ADMIN_PASSWORD:}
+      display-name: ${YESLAB_INITIAL_ADMIN_DISPLAY_NAME:系统管理员}
+      member-code: ${YESLAB_INITIAL_ADMIN_MEMBER_CODE:T-001}

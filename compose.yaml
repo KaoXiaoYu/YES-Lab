@@ -1,5 +1,11 @@
 name: yes-lab
 
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   mysql:
     image: mysql:8.4
@@ -24,6 +30,7 @@ services:
       retries: 12
       start_period: 40s
     mem_limit: 320m
+    logging: *default-logging
     networks: [backend]
 
   api:
@@ -42,6 +49,11 @@ services:
       YESLAB_JWT_SECRET: ${YESLAB_JWT_SECRET}
       YESLAB_JWT_ISSUER: ${YESLAB_JWT_ISSUER:-yes-lab-api}
       YESLAB_CORS_ALLOWED_ORIGINS: ${YESLAB_CORS_ALLOWED_ORIGINS}
+      YESLAB_INITIAL_ADMIN_ENABLED: ${YESLAB_INITIAL_ADMIN_ENABLED:-false}
+      YESLAB_INITIAL_ADMIN_USERNAME: ${YESLAB_INITIAL_ADMIN_USERNAME:-admin}
+      YESLAB_INITIAL_ADMIN_PASSWORD: ${YESLAB_INITIAL_ADMIN_PASSWORD:-}
+      YESLAB_INITIAL_ADMIN_DISPLAY_NAME: ${YESLAB_INITIAL_ADMIN_DISPLAY_NAME:-系统管理员}
+      YESLAB_INITIAL_ADMIN_MEMBER_CODE: ${YESLAB_INITIAL_ADMIN_MEMBER_CODE:-T-001}
       YESLAB_ACHIEVEMENTS_DIRECTORY: /var/lib/yeslab/uploads/achievements
       YESLAB_PROJECTS_DIRECTORY: /var/lib/yeslab/uploads/projects
       JAVA_TOOL_OPTIONS: -Xms96m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:MaxDirectMemorySize=64m -Xss512k -XX:+UseSerialGC
@@ -55,6 +67,7 @@ services:
       retries: 12
       start_period: 50s
     mem_limit: 384m
+    logging: *default-logging
     read_only: true
     tmpfs:
       - /tmp:size=64m,mode=1777
@@ -78,6 +91,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     mem_limit: 96m
+    logging: *default-logging
     read_only: true
     tmpfs:
       - /tmp:size=16m,mode=1777

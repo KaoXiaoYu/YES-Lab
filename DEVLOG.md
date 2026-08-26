@@ -173,3 +173,24 @@
 - 核对 Compose 内存配置：MySQL 320 MB、API 384 MB、Web 96 MB，合计硬限制 800 MB。
 - 核对备份脚本：上传目录采用完整 `tar.gz` 快照，默认本机保留 14 天。
 - 核对 Docker 官方 Ubuntu 支持列表：Ubuntu Noble 24.04 LTS 受支持。本次仅进行容量与部署兼容性评估，未修改运行代码。
+
+## 2026-08-26：Ubuntu 24.04 SSH 一键部署
+
+- 新增 `deploy/scripts/bootstrap-ubuntu.sh`，支持在全新 Ubuntu 24.04 服务器通过 SSH 一次完成 Docker 官方 APT 源安装、2 GB swap、生产密钥、仓库外数据目录、镜像拉取、健康检查、首个管理员和自动备份配置。
+- 脚本为幂等设计：已有 `deploy/.env.production`、MySQL 数据、上传文件和账号密码均不会被覆盖；Docker 包冲突时停止并要求人工处理，不擅自卸载已有运行环境。
+- 新增独立的生产首管理员初始化器，只创建一个 `TEACHER` 管理员与规范成员档案，不启用三个演示账号或演示项目；已有同名账号不会被修改或提权。
+- 首个管理员使用运行时随机密码初始化；写入数据库并校验角色后，脚本立即以关闭初始化的环境重建 API，使明文初始密码不写入 `.env.production`，只在 SSH 终端显示。
+- 为三个容器统一增加 `10 MB × 3` 的 JSON 日志轮转，避免日志占满 40 GB 磁盘；本机完整备份默认留存从 14 天调整为 7 天，并为备份清理增加绝对路径保护。
+- 新增每天约 03:30 执行的 `yeslab-backup.timer`，生产手册改为 Ubuntu 24.04 SSH 操作流程，并补充 GHCR 默认私有、域名、安全组、健康检查和日常更新说明。
+
+### 验证
+
+- Java 21 全量回归共 18 项测试通过，0 失败、0 错误、0 跳过；新增 3 项覆盖首管理员创建、已有账号不提权和弱初始密码拒绝。
+- Vue 生产构建通过；三个部署脚本 `bash -n`、Compose YAML 解析和 `git diff --check` 通过。
+- 本机 Docker CLI 没有 Compose 插件且 Docker daemon 未运行，因此未执行真实 Ubuntu 安装、GHCR 拉取、MySQL/Flyway、systemd timer 与 Caddy HTTPS 实机测试；需在服务器首次部署时按手册逐项验收。
+
+### 上线待办
+
+- 将本次代码推送到 GitHub `main` 并等待 Actions 发布新 API/Web 镜像；随后将两个 GHCR 包设为 Public，或准备只读 Packages 令牌。
+- 配置真实域名解析及云安全组 TCP 22/80/443、UDP 443，再通过 SSH 运行首次部署脚本并保存终端输出的管理员初始密码。
+- 上线后检查容器健康、HTTPS、登录、上传、自动备份，并尽快配置异地备份和完成恢复演练。

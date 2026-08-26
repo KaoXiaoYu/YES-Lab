@@ -16,9 +16,17 @@ set +a
 
 BACKUP_ROOT="${YESLAB_BACKUP_ROOT:-/srv/yeslab/backups}"
 DATA_ROOT="${YESLAB_DATA_ROOT:-/srv/yeslab/data}"
-RETENTION_DAYS="${YESLAB_BACKUP_RETENTION_DAYS:-14}"
+RETENTION_DAYS="${YESLAB_BACKUP_RETENTION_DAYS:-7}"
 if [[ ! "$RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
   echo "YESLAB_BACKUP_RETENTION_DAYS 必须是非负整数" >&2
+  exit 1
+fi
+if [[ "$BACKUP_ROOT" != /* || "$BACKUP_ROOT" == "/" ]]; then
+  echo "YESLAB_BACKUP_ROOT 必须是安全的绝对路径" >&2
+  exit 1
+fi
+if [[ "$DATA_ROOT" != /* || "$DATA_ROOT" == "/" ]]; then
+  echo "YESLAB_DATA_ROOT 必须是安全的绝对路径" >&2
   exit 1
 fi
 

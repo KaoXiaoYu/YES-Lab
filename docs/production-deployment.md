@@ -9,63 +9,90 @@
 - `mysql`：MySQL 8.4，使用仓库外的持久目录。
 - GitHub Actions：每次推送 `main` 先运行前后端测试，再构建并发布两个 GHCR 镜像；低内存服务器不承担编译工作。
 
-这套配置同时支持 Debian 12 和 Ubuntu LTS。宿主机不需要安装 Java、Node、MySQL 或 Caddy，只需要 Git、Docker Engine 与 Docker Compose 插件。
+应用配置同时兼容 Debian 12 和 Ubuntu LTS；仓库提供的首次部署脚本目前专门支持 Ubuntu 24.04 LTS。宿主机不需要安装 Java、Node、MySQL 或 Caddy，只需要 Git、Docker Engine 与 Docker Compose 插件。
 
-当前服务器约 1 核 / 1 GB 内存，已为 MySQL、JVM 和连接池设置低内存参数。正式运行前强烈建议创建 2 GB swap；如果后续并发或上传量增加，优先升级到 2 GB 以上内存。
+目标服务器为 2 核 / 2 GB 内存 / 40 GB SSD，已为 MySQL、JVM、连接池和容器日志设置低资源参数。首次部署脚本会在系统没有 swap 时创建 2 GB swap；图片增多后，40 GB 磁盘会比 CPU 更早成为瓶颈。
 
 ## 2. 上线前条件
 
 1. 准备一个域名，并将 A/AAAA 记录解析到服务器公网地址。
 2. 安全组/防火墙开放 TCP 22、80、443 和 UDP 443；不要向公网开放 3306、8080。
-3. 按 Docker 官方文档安装 Engine 与 Compose 插件：[Ubuntu](https://docs.docker.com/engine/install/ubuntu/) / [Debian](https://docs.docker.com/engine/install/debian/)。
-4. 将 GitHub 仓库的 GHCR 包设为公开，或在服务器使用仅含 `read:packages` 权限的令牌执行 `docker login ghcr.io`。
+3. 将 GitHub 仓库中的最新代码推送到 `main`，等待 `Test and publish images` 工作流成功。
+4. 将 GitHub 个人主页 Packages 中的 `yes-lab-api` 和 `yes-lab-web` 设为 `Public`。GHCR 首次发布的包默认是私有的；若保持私有，需要在服务器使用仅含 `read:packages` 权限的 classic PAT 执行 `docker login ghcr.io`。
 5. 确认 GitHub 仓库 Actions 已启用。推送到 `main` 后，`Test and publish images` 工作流应全部通过。
 
-可按以下方式创建 swap（只需执行一次）：
+不需要在服务器安装 Java 21、Maven、Node.js 或 MySQL，镜像由 GitHub Actions 构建。Docker Engine 与 Compose 插件由首次部署脚本按照 Docker 官方 APT 仓库安装。
+
+## 3. 通过 SSH 首次部署 Ubuntu 24.04
+
+先从本机连接服务器：
 
 ```bash
-sudo fallocate -l 2G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+ssh root@你的服务器公网IP
 ```
 
-执行 `free -h` 确认 swap 已启用。
+如果云厂商默认提供普通用户，则使用 `ssh 用户名@公网IP`，并为下面的系统命令保留 `sudo`。
 
-## 3. 首次安装
-
-以下路径是约定值，可调整，但业务数据目录必须位于 Git 仓库之外：
+进入服务器后执行：
 
 ```bash
-sudo install -d -m 0755 /opt/yes-lab
-sudo install -d -m 0750 /srv/yeslab/data/mysql /srv/yeslab/data/uploads /srv/yeslab/backups
-sudo chown -R 999:999 /srv/yeslab/data/mysql
-sudo chown -R 10001:10001 /srv/yeslab/data/uploads
-sudo chown -R "$USER":"$USER" /opt/yes-lab /srv/yeslab/backups
-git clone https://github.com/KaoXiaoYu/YES-Lab.git /opt/yes-lab
+sudo apt-get update
+sudo apt-get install -y git
+sudo git clone https://github.com/KaoXiaoYu/YES-Lab.git /opt/yes-lab
 cd /opt/yes-lab
-cp deploy/.env.production.example deploy/.env.production
-chmod 600 deploy/.env.production
+sudo ./deploy/scripts/bootstrap-ubuntu.sh --domain lab.example.edu.cn
 ```
 
-编辑 `deploy/.env.production`：
+将最后一行的 `lab.example.edu.cn` 换成真实域名，不要填写 `https://`、端口或路径。默认会创建：
 
-- `YESLAB_SITE_ADDRESS` 填域名，不含协议。
-- `YESLAB_CORS_ALLOWED_ORIGINS` 填对应的 `https://域名`。
-- 两个 MySQL 密码必须不同，可分别用 `openssl rand -base64 36` 生成。
-- JWT 密钥用 `openssl rand -hex 64` 生成，不要提交到 Git。
-- 首次验证可用 `latest`；稳定运行后建议改为本次 Git 提交的完整 SHA 标签。
+- 登录名：`teacher`
+- 显示名：`汤洪大王`
+- 内部编号：`T-001`
 
-首次启动：
+如需修改，可在首次运行时增加参数：
 
 ```bash
-docker compose --env-file deploy/.env.production pull
-docker compose --env-file deploy/.env.production up -d
-docker compose --env-file deploy/.env.production ps
+sudo ./deploy/scripts/bootstrap-ubuntu.sh \
+  --domain lab.example.edu.cn \
+  --admin-user teacher \
+  --admin-name '汤洪大王' \
+  --admin-code T-001
 ```
 
-Caddy 会在域名解析与 80/443 端口可达后自动申请并续期 HTTPS 证书。原理见 [Caddy Automatic HTTPS](https://caddyserver.com/docs/automatic-https)。
+脚本会自动完成：
+
+- 校验 Ubuntu 24.04 与仓库结构。
+- 从 Docker 官方仓库安装 Docker Engine、Buildx 和 Compose 插件。
+- 在系统没有 swap 时创建 2 GB `/swapfile`。
+- 创建仓库外的数据、上传和备份目录。
+- 在服务器本地生成 MySQL 密码与 64 字节 JWT 密钥，并以 `0600` 权限写入 `deploy/.env.production`。
+- 拉取 GHCR 镜像，依次启动 MySQL、API 和 Web，并等待健康检查。
+- 只创建一个真实教师管理员，不加载 `core`、`member` 等演示账号和演示项目。
+- 验证管理员已经写入数据库，然后立即关闭初始化开关并重建 API，使明文初始密码不留在配置文件或容器环境变量中。
+- 创建每天约 03:30 执行的 systemd 备份定时器，本机备份保留 7 天。
+
+脚本只在 SSH 终端显示管理员初始密码，不会写入服务器配置文件；看到后请立即存入密码管理器。重复运行脚本不会覆盖 `deploy/.env.production`、MySQL、上传文件或已有账号密码。
+
+部署后检查：
+
+```bash
+cd /opt/yes-lab
+sudo docker compose --env-file deploy/.env.production ps
+curl https://你的域名/actuator/health
+free -h
+df -h
+systemctl list-timers yeslab-backup.timer
+```
+
+健康接口应返回包含 `"status":"UP"` 的 JSON。Caddy 会在域名解析与 80/443 端口可达后自动申请并续期 HTTPS 证书。原理见 [Caddy Automatic HTTPS](https://caddyserver.com/docs/automatic-https)。
+
+如果镜像拉取提示 `denied`，通常是 GHCR 包仍为 Private。可以将两个包改为 Public，或先登录：
+
+```bash
+echo '你的 classic PAT' | sudo docker login ghcr.io -u KaoXiaoYu --password-stdin
+```
+
+不要把 PAT 写进脚本或 Git；使用完可执行 `sudo docker logout ghcr.io`，但私有镜像下次更新前需要重新登录。
 
 ## 4. 数据安全与数据库接管
 
@@ -118,7 +145,15 @@ Flyway 的行为分两种：
 ./deploy/scripts/backup.sh
 ```
 
-脚本使用 `mysqldump --single-transaction --quick` 生成一致性 SQL 备份，同时打包上传目录、生成 SHA-256 校验文件，并按配置保留最近 14 天。相关选项见 [MySQL 8.4 mysqldump](https://dev.mysql.com/doc/refman/8.4/en/mysqldump.html)。
+脚本使用 `mysqldump --single-transaction --quick` 生成一致性 SQL 备份，同时打包上传目录、生成 SHA-256 校验文件，并按配置保留最近 7 天。相关选项见 [MySQL 8.4 mysqldump](https://dev.mysql.com/doc/refman/8.4/en/mysqldump.html)。
+
+查看自动备份状态：
+
+```bash
+systemctl status yeslab-backup.timer
+journalctl -u yeslab-backup.service --since today
+ls -lah /srv/yeslab/backups
+```
 
 至少每月在另一台机器或临时数据库中进行一次恢复演练。服务器本地备份不能替代异地备份；建议再将备份目录同步到学校存储、私有对象存储或另一台受控主机。
 

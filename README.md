@@ -40,7 +40,7 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 
 Git 只同步代码和数据库迁移脚本，不同步账号、报名、成员、项目、比赛、主页配置和上传文件等业务数据。`backend/data/` 已加入 `.gitignore`，因此服务器执行 `git pull` 不会覆盖当前 H2 数据库和上传文件；但不应删除、重建或用新目录覆盖该持久化目录。
 
-正式部署已配置 MySQL 8.4 + Flyway、仓库外持久目录、升级前备份、Caddy HTTPS、GitHub Actions 镜像构建和 Docker Compose。Debian 12 与 Ubuntu LTS 使用同一套应用配置；完整安装、发布、备份和回滚方法见 [正式部署手册](docs/production-deployment.md)。
+正式部署已配置 MySQL 8.4 + Flyway、仓库外持久目录、升级前备份、Caddy HTTPS、GitHub Actions 镜像构建和 Docker Compose。Ubuntu 24.04 服务器可在 SSH 中运行 `sudo ./deploy/scripts/bootstrap-ubuntu.sh --domain 你的域名` 完成首次安装；完整安装、发布、备份和回滚方法见 [正式部署手册](docs/production-deployment.md)。
 
 ## 本地演示账号
 
