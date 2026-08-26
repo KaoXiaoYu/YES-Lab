@@ -67,22 +67,23 @@ public class AuthService {
 
     @Transactional
     public AuthSession login(AuthModels.LoginRequest request) {
+        String normalizedUsername = normalizeUsername(request.username());
         try {
             authenticationManager.authenticate(
-                    UsernamePasswordAuthenticationToken.unauthenticated(request.username(), request.password())
+                    UsernamePasswordAuthenticationToken.unauthenticated(normalizedUsername, request.password())
             );
         } catch (AuthenticationException exception) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "账号或密码错误");
         }
 
-        AccountEntity account = accounts.findByUsernameIgnoreCase(request.username())
+        AccountEntity account = accounts.findByUsernameIgnoreCase(normalizedUsername)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "账号或密码错误"));
         return createSession(account, Boolean.TRUE.equals(request.rememberMe()));
     }
 
     @Transactional
     public AuthSession register(AuthModels.RegisterRequest request) {
-        String normalizedUsername = request.username().trim().toLowerCase();
+        String normalizedUsername = normalizeUsername(request.username());
         if (accounts.existsByUsernameIgnoreCase(normalizedUsername)) {
             throw new ApiException(HttpStatus.CONFLICT, "该账号已被注册");
         }
@@ -92,6 +93,13 @@ public class AuthService {
                 Role.VISITOR
         ));
         return createSession(account, false);
+    }
+
+    private String normalizeUsername(String value) {
+        String trimmed = value == null ? "" : value.trim();
+        if (trimmed.contains("@")) return trimmed.toLowerCase();
+        if (trimmed.matches("\\+?[0-9][0-9 -]*")) return trimmed.replaceAll("[ -]", "");
+        return trimmed;
     }
 
     @Transactional

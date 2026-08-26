@@ -1,0 +1,1 @@
+ALTER TABLE accounts MODIFY username VARCHAR(190) NOT NULL;

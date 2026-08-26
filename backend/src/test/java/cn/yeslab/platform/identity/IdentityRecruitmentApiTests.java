@@ -42,10 +42,11 @@ class IdentityRecruitmentApiTests {
         String visitorToken = tokenFrom(mvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"username":"visitorflow","password":"Visitor-Flow-2026!"}
+                                {"username":"VisitorFlow@Example.com","password":"Visitor-Flow-2026!"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.account.role").value("VISITOR"))
+                .andExpect(jsonPath("$.data.account.username").value("visitorflow@example.com"))
                 .andReturn().getResponse().getContentAsString());
 
         mvc.perform(get("/api/v1/member/profile").header("Authorization", bearer(visitorToken)))
@@ -70,7 +71,7 @@ class IdentityRecruitmentApiTests {
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
         mvc.perform(get("/api/v1/admin/recruitment/applications").header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[*].applicantUsername", hasItem("visitorflow")));
+                .andExpect(jsonPath("$.data[*].applicantUsername", hasItem("visitorflow@example.com")));
 
         changeStage(applicationId, teacherToken, "SCREENING");
         mvc.perform(put("/api/v1/admin/recruitment/applications/{id}/interview", applicationId)
@@ -97,11 +98,38 @@ class IdentityRecruitmentApiTests {
                 .andExpect(jsonPath("$.data.convertedMemberId").isNotEmpty())
                 .andExpect(jsonPath("$.data.history.length()").value(6));
 
-        String memberToken = login("visitorflow", "Visitor-Flow-2026!");
+        String memberToken = login("VISITORFLOW@EXAMPLE.COM", "Visitor-Flow-2026!");
         mvc.perform(get("/api/v1/member/profile").header("Authorization", bearer(memberToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.memberCode").value("S-FLOW-001"))
                 .andExpect(jsonPath("$.data.skillTags", hasItem("无人机系统")));
+    }
+
+    @Test
+    void visitorRegistrationAcceptsOnlyEmailOrMobileAndNormalizesMobile() throws Exception {
+        mvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"plain-visitor-name","password":"Visitor-Flow-2026!"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.username").value("请输入有效的邮箱或手机号码"));
+
+        mvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"+86 138-0013-8000","password":"Visitor-Phone-2026!"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.account.username").value("+8613800138000"));
+
+        mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"+86 138 0013 8000","password":"Visitor-Phone-2026!"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.account.username").value("+8613800138000"));
     }
 
     @Test

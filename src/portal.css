@@ -38,6 +38,9 @@
 .form-alert { color: #991b1b; border: 1px solid #fecaca; background: #fff1f2; }
 .save-message { color: #166534; border: 1px solid #bbf7d0; background: #f0fdf4; }
 .field-error { display: block; margin: -8px 0 14px; color: #b91c1c; font-size: 11px; }
+.field-help { display: block; margin: -8px 0 14px; color: #64748b; font-size: 11px; line-height: 1.5; }
+.field-help.detected { color: #166534; }
+.application-fields label .field-help { margin: 0; font-weight: 500; }
 .portal-primary { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 11px 18px; border: 1px solid #1e3a5f; border-radius: 8px; color: #fff; background: #1e3a5f; font-size: 12px; font-weight: 700; }
 .portal-primary:disabled, .auth-submit:disabled { cursor: wait; opacity: .5; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

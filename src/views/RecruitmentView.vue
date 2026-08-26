@@ -2,7 +2,7 @@
 import { Check, Circle, Clock3, Send } from 'lucide-vue-next'
 import { computed, onMounted, reactive, ref } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
-import { getOwnApplication, saveOwnApplication } from '../services/authApi'
+import { authState, getOwnApplication, saveOwnApplication } from '../services/authApi'
 
 const stages = ['SIGNUP', 'SCREENING', 'INTERVIEW', 'SKILL_TEST', 'PROBATION', 'FORMAL_MEMBER']
 const stageLabels = {
@@ -27,6 +27,7 @@ onMounted(async () => {
   try {
     application.value = await getOwnApplication()
     if (application.value) fillForm(application.value)
+    else if (authState.account?.role === 'VISITOR') form.contact = authState.account.username || ''
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -96,7 +97,7 @@ function splitTags(value) {
           <form @submit.prevent="submit">
             <div class="application-fields">
               <label>姓名<input v-model.trim="form.name" required :disabled="!editable" autocomplete="name" /></label>
-              <label>联系方式<input v-model.trim="form.contact" required :disabled="!editable" autocomplete="tel" /></label>
+              <label>联系方式<input v-model.trim="form.contact" required :disabled="!editable" autocomplete="username" /><small v-if="!application && form.contact" class="field-help detected">已根据注册账号自动填入，可按实际需要修改。</small></label>
               <label>专业<input v-model.trim="form.major" required :disabled="!editable" /></label>
               <label>班级<input v-model.trim="form.className" required :disabled="!editable" /></label>
               <label>年级<input v-model.trim="form.grade" :disabled="!editable" placeholder="例如 2025" /></label>

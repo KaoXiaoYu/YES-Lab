@@ -14,6 +14,14 @@ const fieldErrors = ref({})
 const form = reactive({ username: '', password: '', confirmPassword: '', rememberMe: false })
 
 const isRegister = computed(() => mode.value === 'register')
+const normalizedUsername = computed(() => normalizeUsername(form.username))
+const accountType = computed(() => identifyAccountType(form.username))
+const usernameHelp = computed(() => {
+  if (!isRegister.value) return '游客使用注册邮箱或手机号；实验室成员也可使用内部账号。'
+  if (accountType.value === 'email') return '已识别为邮箱，注册后会自动填入报名联系方式。'
+  if (accountType.value === 'phone') return '已识别为手机号码，注册后会自动填入报名联系方式。'
+  return '请输入常用邮箱或手机号码；它将作为登录账号和报名联系方式。'
+})
 
 watch(() => route.path, (path) => {
   mode.value = path === '/register' ? 'register' : 'login'
@@ -24,6 +32,7 @@ watch(() => route.path, (path) => {
 async function submit() {
   errorMessage.value = ''
   fieldErrors.value = {}
+  if (isRegister.value && !validateUsername()) return
   if (isRegister.value && form.password !== form.confirmPassword) {
     fieldErrors.value = { confirmPassword: '两次输入的密码不一致' }
     return
@@ -32,7 +41,7 @@ async function submit() {
   submitting.value = true
   try {
     const account = isRegister.value
-      ? await register({ username: form.username.trim(), password: form.password })
+      ? await register({ username: normalizedUsername.value, password: form.password })
       : await login({ username: form.username.trim(), password: form.password, rememberMe: form.rememberMe })
     const requestedPath = typeof route.query.redirect === 'string' ? route.query.redirect : null
     await router.push(requestedPath || (account.role === 'VISITOR' ? '/application' : '/profile'))
@@ -42,6 +51,34 @@ async function submit() {
   } finally {
     submitting.value = false
   }
+}
+
+function normalizeUsername(value) {
+  const trimmed = value.trim()
+  if (trimmed.includes('@')) return trimmed.toLowerCase()
+  const compactPhone = trimmed.replace(/[ -]/g, '')
+  return /^\+?\d+$/.test(compactPhone) ? compactPhone : trimmed
+}
+
+function identifyAccountType(value) {
+  const normalized = normalizeUsername(value)
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) && normalized.length <= 190) return 'email'
+  if (/^\+?[1-9]\d{6,14}$/.test(normalized)) return 'phone'
+  return null
+}
+
+function validateUsername() {
+  if (!form.username.trim()) {
+    fieldErrors.value = { ...fieldErrors.value, username: '请输入邮箱或手机号码' }
+    return false
+  }
+  if (!accountType.value) {
+    fieldErrors.value = { ...fieldErrors.value, username: '请输入有效的邮箱或手机号码' }
+    return false
+  }
+  const { username, ...remainingErrors } = fieldErrors.value
+  fieldErrors.value = remainingErrors
+  return true
 }
 </script>
 
@@ -74,9 +111,10 @@ async function submit() {
 
       <form novalidate @submit.prevent="submit">
         <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
-        <label for="username">账号</label>
-        <div class="input-shell" :class="{ invalid: fieldErrors.username }"><UserRound :size="18" aria-hidden="true" /><input id="username" v-model.trim="form.username" name="username" autocomplete="username" required placeholder="4—32 位字母或数字" /></div>
-        <small v-if="fieldErrors.username" class="field-error">{{ fieldErrors.username }}</small>
+        <label for="username">{{ isRegister ? '邮箱或手机号码' : '账号' }}</label>
+        <div class="input-shell" :class="{ invalid: fieldErrors.username }"><UserRound :size="18" aria-hidden="true" /><input id="username" v-model="form.username" name="username" autocomplete="username" required maxlength="190" :placeholder="isRegister ? 'name@example.com 或 13800138000' : '邮箱、手机号或实验室账号'" :aria-invalid="Boolean(fieldErrors.username)" :aria-describedby="fieldErrors.username ? 'username-help username-error' : 'username-help'" @blur="isRegister && validateUsername()" /></div>
+        <small id="username-help" class="field-help" :class="{ detected: isRegister && accountType }">{{ usernameHelp }}</small>
+        <small v-if="fieldErrors.username" id="username-error" class="field-error">{{ fieldErrors.username }}</small>
 
         <label for="password">密码</label>
         <div class="input-shell" :class="{ invalid: fieldErrors.password }"><LockKeyhole :size="18" aria-hidden="true" /><input id="password" v-model="form.password" name="password" :type="showPassword ? 'text' : 'password'" :autocomplete="isRegister ? 'new-password' : 'current-password'" required :placeholder="isRegister ? '至少 10 位，可粘贴或使用密码管理器' : '输入密码'" /><button type="button" :aria-label="showPassword ? '隐藏密码' : '显示密码'" @click="showPassword = !showPassword"><EyeOff v-if="showPassword" :size="18" aria-hidden="true" /><Eye v-else :size="18" aria-hidden="true" /></button></div>

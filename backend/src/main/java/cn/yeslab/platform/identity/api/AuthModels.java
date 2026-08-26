@@ -22,8 +22,12 @@ public final class AuthModels {
     }
 
     public record RegisterRequest(
-            @NotBlank(message = "请输入账号")
-            @Pattern(regexp = "[A-Za-z0-9_.-]{4,32}", message = "账号需为 4—32 位字母、数字、点、下划线或短横线")
+            @NotBlank(message = "请输入邮箱或手机号码")
+            @Size(max = 190, message = "邮箱或手机号码不能超过 190 位")
+            @Pattern(
+                    regexp = "(?i)^(?:[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+|\\+?[1-9](?:[ -]?\\d){6,14})$",
+                    message = "请输入有效的邮箱或手机号码"
+            )
             String username,
             @NotBlank(message = "请输入密码")
             @Size(min = 10, max = 72, message = "密码长度需为 10—72 位")

@@ -20,7 +20,7 @@ public class AccountEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true, length = 64)
+    @Column(nullable = false, unique = true, length = 190)
     private String username;
 
     @Column(nullable = false, length = 100)

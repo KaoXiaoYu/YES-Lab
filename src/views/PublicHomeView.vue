@@ -80,7 +80,7 @@ const defaultSponsors = [{
 
 const defaultHomepageContent = {
   profile: {
-    heroEyebrow: 'YES LAB · ROBOTICS RESEARCH / 2026', heroTitle: '研究，让机器\n理解', heroAccent: '真实世界',
+    heroEyebrow: 'YES LAB · ROBOTICS RESEARCH / 2026', heroTitle: '让无人设备带上、\n你的', heroAccent: '眼眸',
     primaryActionLabel: '浏览研究项目', secondaryActionLabel: '了解合作伙伴',
     researchDirectionItems: [
       { name: '无人机', url: '#projects' },
@@ -94,7 +94,7 @@ const defaultHomepageContent = {
       eyebrow: '02 / ABOUT', title: '把研究做成\n可以触碰的现场',
       paragraphOne: 'YES Lab 是一个处于起步阶段的实验室，主要研究无人机、无人机与机器狗空地协同、具身智能等方向。',
       paragraphTwo: '我们以竞赛与真实工程项目为牵引，为学校培养兼具算法、硬件和系统能力的复合型人才。',
-      principles: ['面向真实场景', '强调系统协同', '培养工程人才'],
+      principles: ['面向真实场景', '强调应用实践', '培养工程人才'],
       featureEyebrow: 'HOW WE WORK', featureTitle: '从研究方向走向工程现场',
       features: [
         { title: '真实问题驱动', description: '从无人系统的真实任务出发，把研究目标拆解为可以验证的算法、硬件与系统方案。' },
@@ -102,9 +102,9 @@ const defaultHomepageContent = {
         { title: '项目制人才培养', description: '以竞赛和科研项目贯穿学习路径，让成员在实践、复盘和公开成果中持续成长。' },
       ],
     },
-    members: { eyebrow: '03 / PEOPLE', title: '共同成长的研究者', description: '固定展示指导老师与核心成员，榜单数据每 30 秒自动同步公开接口。' },
+    members: { eyebrow: '03 / PEOPLE', title: '共同成长的研究者', description: '榜单每30s刷新' },
     partners: { eyebrow: '04 / PARTNERS', title: '赞助与合作伙伴', description: '感谢企业伙伴为无人系统研究、工程实践与人才培养提供支持。' },
-    achievements: { eyebrow: '05 / ACHIEVEMENTS', title: '成果与外部报道', description: '新闻按发布日期自动排序；经认证的比赛成果由管理员决定首页顺序。' },
+    achievements: { eyebrow: '05 / ACHIEVEMENTS', title: '成果与外部报道', description: '新闻按发布日期自动排序' },
     contact: { eyebrow: '06 / CONNECT', title: '下一次探索，\n从这里开始。', description: '关注我们的研究、比赛和开源进展。' },
     footerText: '© 2026 YES Lab · INTELLIGENCE IN MOTION',
   },
@@ -116,7 +116,9 @@ const defaultHomepageContent = {
   ],
   externalLinks: [
     { platform: 'github', label: '开源仓库', url: 'https://github.com', enabled: true },
+    { platform: 'bilibili', label: '哔哩哔哩', url: '', enabled: false },
     { platform: 'wechat', label: '微信公众号', url: '', enabled: false },
+    { platform: 'douyin', label: '抖音', url: '', enabled: false },
   ],
 }
 
@@ -173,10 +175,16 @@ const handleDirectionClick = (event, url) => {
 
 const directionTarget = (url) => /^https?:\/\//i.test(url || '') ? '_blank' : undefined
 
-const syncPublicHome = async () => {
-  const home = await fetchPublicHome()
+const applyCoreHome = (home) => {
   if (!home) return
   profile.value = home.profile
+  homepageContent.value = home.homepageContent || defaultHomepageContent
+  sponsors.value = home.sponsors || []
+}
+
+const applyCompleteHome = (home) => {
+  if (!home) return
+  applyCoreHome(home)
   projects.value = home.projects
   members.value = home.members
   advisor.value = home.advisor || defaultAdvisor
@@ -185,8 +193,11 @@ const syncPublicHome = async () => {
   competitionResults.value = home.competitionResults?.length
     ? home.competitionResults
     : (home.awards || []).map((item, index) => ({ id: null, name: item.competition, track: item.category, awardName: item.prize, level: item.level, competitionDate: `历史成果 ${index + 1}` }))
-  sponsors.value = home.sponsors || []
-  homepageContent.value = home.homepageContent || defaultHomepageContent
+}
+
+const syncPublicHome = async () => {
+  const home = await fetchPublicHome(applyCoreHome)
+  applyCompleteHome(home)
 }
 
 const handleKeydown = (event) => {

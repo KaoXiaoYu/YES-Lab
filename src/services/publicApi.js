@@ -1,9 +1,10 @@
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
-export async function fetchPublicHome() {
+export async function fetchPublicHome(onCoreLoaded) {
   try {
-    const [home, publicProfiles, publicProjects, competitions, news] = await Promise.all([
-      fetchPublicData('/api/v1/public/home'),
+    const home = await fetchPublicData('/api/v1/public/home')
+    if (onCoreLoaded) onCoreLoaded(normalizeHome(home))
+    const [publicProfiles, publicProjects, competitions, news] = await Promise.all([
       fetchPublicData('/api/v1/public/member-profiles').catch(() => []),
       fetchPublicData('/api/v1/public/project-teams').catch(() => []),
       fetchPublicData('/api/v1/public/competitions').catch(() => []),

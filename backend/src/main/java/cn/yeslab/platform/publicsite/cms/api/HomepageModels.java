@@ -149,7 +149,7 @@ public final class HomepageModels {
                                 new ResearchDirectionItem("空地协同", "#projects"),
                                 new ResearchDirectionItem("具身智能", "#projects")
                         ),
-                        "YES LAB · ROBOTICS RESEARCH / 2026", "研究，让机器\n理解", "真实世界", "浏览研究项目", "了解合作伙伴"
+                        "YES LAB · ROBOTICS RESEARCH / 2026", "让无人设备带上、\n你的", "眼眸", "浏览研究项目", "了解合作伙伴"
                 ),
                 new PageSections(
                         new SectionCopy("01 / SELECTED RESEARCH", "研究与工程实践", "从算法、硬件到系统集成，我们以可运行、可验证的真实项目建立研究能力。"),
@@ -157,14 +157,14 @@ public final class HomepageModels {
                                 "02 / ABOUT", "把研究做成\n可以触碰的现场",
                                 "YES Lab 是一个处于起步阶段的实验室，主要研究无人机、无人机与机器狗空地协同、具身智能等方向。",
                                 "我们以竞赛与真实工程项目为牵引，为学校培养兼具算法、硬件和系统能力的复合型人才。",
-                                List.of("面向真实场景", "强调系统协同", "培养工程人才"),
+                                List.of("面向真实场景", "强调应用实践", "培养工程人才"),
                                 "用竞赛检验技术，以成果记录成长。",
                                 "HOW WE WORK", "从研究方向走向工程现场",
                                 defaultAboutFeatures()
                         ),
-                        new SectionCopy("03 / PEOPLE", "共同成长的研究者", "固定展示指导老师与核心成员，榜单数据定期同步公开接口。"),
+                        new SectionCopy("03 / PEOPLE", "共同成长的研究者", "榜单每30s刷新"),
                         new SectionCopy("04 / PARTNERS", "赞助与合作伙伴", "感谢企业伙伴为无人系统研究、工程实践与人才培养提供支持。"),
-                        new SectionCopy("05 / ACHIEVEMENTS", "成果与外部报道", "新闻按发布日期自动排序；经认证的比赛成果由管理员决定首页顺序。"),
+                        new SectionCopy("05 / ACHIEVEMENTS", "成果与外部报道", "新闻按发布日期自动排序"),
                         new ContactSection("06 / CONNECT", "下一次探索，\n从这里开始。", "关注我们的研究、比赛和开源进展。"),
                         "© 2026 YES Lab · INTELLIGENCE IN MOTION"
                 ),
