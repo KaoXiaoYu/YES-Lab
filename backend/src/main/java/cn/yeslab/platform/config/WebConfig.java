@@ -8,17 +8,17 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    private final String[] allowedOrigins;
+    private final String[] allowedOriginPatterns;
 
     public WebConfig(@Value("${yeslab.cors.allowed-origins}") String[] allowedOrigins) {
-        this.allowedOrigins = allowedOrigins;
+        this.allowedOriginPatterns = allowedOrigins;
     }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/v1/public/**")
-                .allowedOrigins(allowedOrigins)
-                .allowedMethods("GET", "OPTIONS")
+        registry.addMapping("/api/v1/**")
+                .allowedOriginPatterns(allowedOriginPatterns)
+                .allowedMethods("GET", "POST", "PUT", "PATCH", "OPTIONS")
                 .allowedHeaders("*")
                 .maxAge(3600);
     }

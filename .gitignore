@@ -32,6 +32,7 @@ yarn-error.log*
 
 # Java / Maven
 backend/target/
+backend/data/
 *.iml
 .idea/
 

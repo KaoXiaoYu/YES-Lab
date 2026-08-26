@@ -1,5 +1,7 @@
 package cn.yeslab.platform.publicsite.model;
 
+import cn.yeslab.platform.publicsite.cms.api.HomepageModels;
+
 import java.util.List;
 import java.util.Map;
 
@@ -10,19 +12,23 @@ public final class PublicShowcase {
 
     public record Home(
             Profile profile,
+            Advisor advisor,
             Statistics statistics,
             List<Project> projects,
             List<Member> members,
             Map<String, List<RankingEntry>> rankings,
             List<Update> updates,
+            List<Award> awards,
             List<Sponsor> sponsors,
-            List<ExternalLink> externalLinks
+            List<ExternalLink> externalLinks,
+            HomepageModels.HomepageContent homepageContent
     ) {
     }
 
     public record Profile(
             String name,
             String displayName,
+            String fullName,
             String slogan,
             String description,
             List<String> researchDirections
@@ -30,6 +36,15 @@ public final class PublicShowcase {
     }
 
     public record Statistics(int activeProjects, int members, int achievements) {
+    }
+
+    public record Advisor(
+            String initials,
+            String name,
+            String role,
+            String description,
+            List<String> tags
+    ) {
     }
 
     public record Project(
@@ -56,6 +71,7 @@ public final class PublicShowcase {
             List<String> tags,
             int points,
             int rank,
+            boolean core,
             boolean visible
     ) {
     }
@@ -71,6 +87,9 @@ public final class PublicShowcase {
     }
 
     public record Update(String publishedAt, String type, String title, String slug) {
+    }
+
+    public record Award(String competition, String category, String level, String prize) {
     }
 
     public record Sponsor(

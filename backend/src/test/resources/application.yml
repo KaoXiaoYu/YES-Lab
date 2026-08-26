@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:yeslab-test;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+
+yeslab:
+  storage:
+    achievements-directory: ./target/test-achievements
+    projects-directory: ./target/test-projects
+  cors:
+    allowed-origins: http://localhost:5173
+  security:
+    jwt:
+      issuer: yes-lab-api-test
+      secret: yes-lab-test-secret-key-with-at-least-thirty-two-bytes
+      ttl: PT30M
+    bootstrap:
+      enabled: true
+      teacher-password: YesLab-Teacher-2026!
+      core-password: YesLab-Core-2026!
+      member-password: YesLab-Member-2026!

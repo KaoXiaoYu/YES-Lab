@@ -1,6 +1,7 @@
 package cn.yeslab.platform.publicsite.repository;
 
 import cn.yeslab.platform.publicsite.model.PublicShowcase;
+import cn.yeslab.platform.publicsite.cms.api.HomepageModels;
 import org.springframework.stereotype.Repository;
 
 import java.util.LinkedHashMap;
@@ -36,18 +37,26 @@ public class InMemoryPublicShowcaseRepository implements PublicShowcaseRepositor
     );
 
     private final List<PublicShowcase.Member> members = List.of(
-            new PublicShowcase.Member("fan-zhuoxuan-01", "FZ", "范桌轩大王", "2023 · 计算机科学", List.of("无人机系统", "工程实现"), 2480, 1, true),
-            new PublicShowcase.Member("fan-zhuoxuan-02", "YX", "范桌轩大王", "2022 · 人工智能", List.of("计算机视觉", "具身智能"), 2210, 2, true),
-            new PublicShowcase.Member("fan-zhuoxuan-03", "LC", "范桌轩大王", "2024 · 电子信息", List.of("嵌入式", "机器人控制"), 1980, 3, true),
-            new PublicShowcase.Member("fan-zhuoxuan-04", "WQ", "范桌轩大王", "2023 · 自动化", List.of("多智能体", "系统设计"), 1750, 4, true)
+            new PublicShowcase.Member("fan-zhuoxuan-01", "FZ", "范桌轩大王", "2023 · 计算机科学", List.of("无人机系统", "工程实现"), 2480, 1, true, true),
+            new PublicShowcase.Member("fan-zhuoxuan-02", "YX", "范桌轩大王", "2022 · 人工智能", List.of("计算机视觉", "具身智能"), 2210, 2, true, true),
+            new PublicShowcase.Member("fan-zhuoxuan-03", "LC", "范桌轩大王", "2024 · 电子信息", List.of("嵌入式", "机器人控制"), 1980, 3, true, true),
+            new PublicShowcase.Member("fan-zhuoxuan-04", "WQ", "范桌轩大王", "2023 · 自动化", List.of("多智能体", "系统设计"), 1750, 4, false, true)
     );
 
     private final Map<String, List<Integer>> rankingPoints = createRankingPoints();
 
     private final List<PublicShowcase.Update> updates = List.of(
             new PublicShowcase.Update("荣誉", "竞赛成果", "YES Lab 获得计算机设计大赛全国二等奖", "national-second-prize"),
+            new PublicShowcase.Update("荣誉", "竞赛成果", "江西省智能机器人大赛飞行巡航定点赛道省赛二等奖", "jiangxi-robot-flight-second-prize"),
+            new PublicShowcase.Update("荣誉", "竞赛成果", "全国智能汽车大赛平衡轮腿组华东赛赛区三等奖", "smart-car-east-china-third-prize"),
             new PublicShowcase.Update("方向", "研究动态", "推进无人机与机器狗空地协同系统研究", "air-ground-research"),
             new PublicShowcase.Update("伙伴", "企业支持", "CUAV 成为 YES Lab 企业赞助伙伴", "cuav-sponsorship")
+    );
+
+    private final List<PublicShowcase.Award> awards = List.of(
+            new PublicShowcase.Award("计算机设计大赛", "全国赛", "全国", "二等奖"),
+            new PublicShowcase.Award("江西省智能机器人大赛", "飞行巡航定点赛道", "省赛", "二等奖"),
+            new PublicShowcase.Award("全国智能汽车大赛", "平衡轮腿组 · 华东赛", "赛区", "三等奖")
     );
 
     @Override
@@ -57,15 +66,21 @@ public class InMemoryPublicShowcaseRepository implements PublicShowcaseRepositor
 
         return new PublicShowcase.Home(
                 new PublicShowcase.Profile(
-                        "YES Lab", "YES Lab 实验室", "探索空地协同，培养未来工程人才",
+                        "YES Lab", "YES Lab 实验室", "Yichun Embodied Science", "探索空地协同，培养未来工程人才",
                         "一个面向无人系统与具身智能的初创实验室，以真实项目连接科研、竞赛与人才培养。",
                         List.of("无人机", "空地协同", "具身智能")
                 ),
-                new PublicShowcase.Statistics(3, 0, 1),
+                new PublicShowcase.Advisor(
+                        "TH", "汤洪大王", "YES Lab 指导老师",
+                        "负责实验室研究方向、项目实践与人才培养指导。",
+                        List.of("研究指导", "人才培养")
+                ),
+                new PublicShowcase.Statistics(3, 0, awards.size()),
                 projects,
                 findVisibleMembers(),
                 rankings,
                 updates,
+                awards,
                 List.of(
                         new PublicShowcase.Sponsor(
                                 "CUAV", "企业赞助伙伴",
@@ -79,7 +94,8 @@ public class InMemoryPublicShowcaseRepository implements PublicShowcaseRepositor
                         new PublicShowcase.ExternalLink("bilibili", "哔哩哔哩", "", false),
                         new PublicShowcase.ExternalLink("wechat", "微信公众号", "", false),
                         new PublicShowcase.ExternalLink("douyin", "抖音", "", false)
-                )
+                ),
+                HomepageModels.defaultContent()
         );
     }
 
