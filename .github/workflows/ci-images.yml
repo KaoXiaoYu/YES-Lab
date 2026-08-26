@@ -33,6 +33,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
           - image: ghcr.io/kaoxiaoyu/yes-lab-web

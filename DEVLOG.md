@@ -208,3 +208,14 @@
 - HTTPS 方式只能使用 GitHub 用户名配合 PAT；生产服务器推荐只读 Deploy Key，且不授予写权限。
 - Deploy Key 应复制 `/root/.ssh/yeslab_deploy.pub` 的完整单行内容，格式为 `ssh-ed25519 <Base64 公钥> yes-lab-production`；不得复制无 `.pub` 后缀的私钥，也不要把 GitHub 主机的 `SHA256:` 指纹当作公钥。
 - 首次部署已在生成 swap 与生产 `.env.production` 后安全停止于 GHCR `denied`；原因范围为镜像尚未由 Actions 发布或两个 Packages 仍为 Private，MySQL/API/Web 尚未启动。处理包可见性或完成 `docker login ghcr.io` 后可直接重跑引导脚本，已有生产密钥会原样复用。
+
+## 2026-08-26：GitHub Actions Web 镜像构建修复
+
+- 通过 GitHub CLI 读取失败运行 `32945350702` 的完整日志，确认 Web 镜像并非 GHCR 权限或 Caddy 标签失败，而是 Docker 构建阶段缺少 `/workspace/.openai/hosting.json`，导致 `@openai/sites-vite-plugin` 在 `closeBundle` 抛出 `ENOENT`。
+- 调整 `.dockerignore`，仅忽略 `.openai` 下的其他内容并明确保留 `hosting.json`；Web Dockerfile 在执行 `npm run build` 前复制该文件，保持 Sites 构建配置完整。
+- GitHub Actions 镜像矩阵设置 `fail-fast: false`，Web 或 API 任一镜像失败时，另一个任务仍会继续并给出独立结果，避免无诊断信息的取消状态。
+
+### 验证
+
+- `.openai/hosting.json` 已由 Git 跟踪，Vue 生产构建、工作流 YAML 解析和 `git diff --check` 均通过。
+- 当前本机没有可用 Docker daemon，实际容器构建与 GHCR 推送需提交本次修复后由下一次 GitHub Actions 运行验证。

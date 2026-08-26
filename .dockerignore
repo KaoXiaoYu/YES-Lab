@@ -2,7 +2,8 @@
 .github
 .idea
 .vscode
-.openai
+.openai/*
+!.openai/hosting.json
 backend/data
 backend/target
 design-system
