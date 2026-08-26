@@ -2,18 +2,22 @@
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import {
-  ArrowLeft, Bold, Braces, Italic, List, ListOrdered, Quote, Redo2, Save,
-  Strikethrough, Undo2,
+  ArrowLeft, Bold, Braces, Camera, Italic, List, ListOrdered, Quote, Redo2, Save,
+  Strikethrough, Trash2, Undo2, Upload,
 } from 'lucide-vue-next'
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
-import { getOwnProfile, updateOwnProfile } from '../services/authApi'
+import { deleteOwnAvatar, getOwnProfile, replaceOwnAvatar, updateOwnProfile } from '../services/authApi'
 
 const router = useRouter()
 const profile = ref(null)
 const loading = ref(true)
 const saving = ref(false)
+const avatarSaving = ref(false)
+const avatarFile = ref(null)
+const avatarPreview = ref('')
+const avatarInput = ref(null)
 const message = ref('')
 const errorMessage = ref('')
 const form = reactive({ avatarUrl: '', internalContact: '', headline: '' })
@@ -41,8 +45,71 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.clearTimeout(redirectTimer)
+  releaseAvatarPreview()
   editor.value?.destroy()
 })
+
+function selectAvatar(event) {
+  const file = event.target.files?.[0]
+  errorMessage.value = ''
+  if (!file) return
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    errorMessage.value = '头像仅支持 JPG、PNG 或 WebP。'
+    event.target.value = ''
+    return
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    errorMessage.value = '头像图片不能超过 4MB。'
+    event.target.value = ''
+    return
+  }
+  releaseAvatarPreview()
+  avatarFile.value = file
+  avatarPreview.value = URL.createObjectURL(file)
+}
+
+async function uploadAvatar() {
+  if (!avatarFile.value) return
+  avatarSaving.value = true
+  message.value = ''
+  errorMessage.value = ''
+  try {
+    profile.value = await replaceOwnAvatar(avatarFile.value)
+    form.avatarUrl = profile.value.avatarUrl || ''
+    releaseAvatarPreview()
+    avatarFile.value = null
+    if (avatarInput.value) avatarInput.value.value = ''
+    message.value = '头像已更新。'
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    avatarSaving.value = false
+  }
+}
+
+async function removeAvatar() {
+  if (!window.confirm('确定移除当前头像吗？')) return
+  avatarSaving.value = true
+  message.value = ''
+  errorMessage.value = ''
+  try {
+    profile.value = await deleteOwnAvatar()
+    form.avatarUrl = ''
+    releaseAvatarPreview()
+    avatarFile.value = null
+    if (avatarInput.value) avatarInput.value.value = ''
+    message.value = '头像已移除。'
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    avatarSaving.value = false
+  }
+}
+
+function releaseAvatarPreview() {
+  if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
+  avatarPreview.value = ''
+}
 
 async function saveProfile() {
   if (!editor.value) return
@@ -51,7 +118,6 @@ async function saveProfile() {
   errorMessage.value = ''
   try {
     profile.value = await updateOwnProfile({
-      avatarUrl: form.avatarUrl || null,
       internalContact: form.internalContact || null,
       headline: form.headline || null,
       profileHtml: editor.value.getHTML(),
@@ -84,8 +150,18 @@ function toggle(command) {
       <div v-if="message" class="save-message" role="status">{{ message }}</div>
       <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
 
+      <section class="avatar-editor" aria-labelledby="avatar-editor-title">
+        <span class="avatar-editor-preview"><img v-if="avatarPreview || form.avatarUrl" :src="avatarPreview || form.avatarUrl" alt="当前头像预览" /><Camera v-else :size="28" aria-hidden="true" /></span>
+        <div><h3 id="avatar-editor-title">个人头像</h3><p>支持 JPG、PNG、WebP，文件不超过 4MB。建议使用清晰的正方形图片。</p>
+          <div class="avatar-editor-actions">
+            <label class="avatar-file-button"><Camera :size="17" aria-hidden="true" />选择图片<input ref="avatarInput" type="file" accept="image/jpeg,image/png,image/webp" @change="selectAvatar" /></label>
+            <button type="button" :disabled="!avatarFile || avatarSaving" @click="uploadAvatar"><Upload :size="17" aria-hidden="true" />{{ avatarSaving && avatarFile ? '上传中…' : '上传头像' }}</button>
+            <button v-if="form.avatarUrl" class="danger" type="button" :disabled="avatarSaving" @click="removeAvatar"><Trash2 :size="17" aria-hidden="true" />移除头像</button>
+          </div>
+        </div>
+      </section>
+
       <div class="profile-fields">
-        <label>头像地址<input v-model.trim="form.avatarUrl" type="url" autocomplete="url" placeholder="https://… 或 /images/…" /><small>当前阶段使用图片地址，后续可接入文件上传。</small></label>
         <label>内部联系方式<input v-model.trim="form.internalContact" type="text" autocomplete="tel" placeholder="仅成员系统内部展示" /></label>
         <label class="full">主页标语<input v-model.trim="form.headline" type="text" maxlength="160" placeholder="用一句话描述你的研究兴趣" /></label>
       </div>
@@ -109,7 +185,7 @@ function toggle(command) {
         <EditorContent :editor="editor" />
       </div>
 
-      <div class="profile-save-row"><p>公开内容会在服务端再次进行 HTML 白名单清洗。</p><button type="button" :disabled="saving" @click="saveProfile"><Save :size="18" aria-hidden="true" />{{ saving ? '保存中…' : '保存并返回主页' }}</button></div>
+      <div class="profile-save-row"><p>公开内容会在服务端再次进行 HTML 白名单清洗。</p><button type="button" :disabled="saving || avatarSaving" @click="saveProfile"><Save :size="18" aria-hidden="true" />{{ saving ? '保存中…' : '保存并返回主页' }}</button></div>
     </section>
   </PortalShell>
 </template>

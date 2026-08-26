@@ -43,7 +43,8 @@ JWT 使用 HS256 签名，API 保持无状态；生产环境必须替换 `YESLAB
 ## 成员个人主页
 
 - `GET /api/v1/member/profile`：读取自己的规范成员资料和成长数据占位。
-- `PUT /api/v1/member/profile`：本人编辑头像地址、内部联系方式、主页标语和富文本内容。
+- `PUT /api/v1/member/profile`：本人编辑内部联系方式、主页标语和富文本内容。
+- `PUT /api/v1/member/profile/avatar`、`DELETE /api/v1/member/profile/avatar`：本人上传、替换或移除头像。
 
 姓名、编号、专业、班级、年级、成员状态和能力标签仍由管理员维护。富文本在后端通过 OWASP HTML Sanitizer 白名单清洗。
 
@@ -66,8 +67,10 @@ JWT 使用 HS256 签名，API 保持无状态；生产环境必须替换 `YESLAB
 - `GET /api/v1/admin/members`
 - `GET /api/v1/admin/members/{id}`
 - `PUT /api/v1/admin/members/{id}`
+- `POST /api/v1/admin/members/core-students`
+- `PUT /api/v1/admin/members/{id}/avatar`、`DELETE /api/v1/admin/members/{id}/avatar`
 
-管理员维护姓名、编号、角色、状态、专业、班级、年级、内部联系方式和能力标签。教师角色会自动清空不适用的专业、班级和年级；头像、标语和主页正文继续由成员本人维护。
+管理员维护姓名、编号、角色、状态、专业、班级、年级、内部联系方式和能力标签，可直接创建具有完整系统权限的核心学生账号，也可协助维护成员头像。教师角色会自动清空不适用的专业、班级和年级；标语和主页正文继续由成员本人维护。
 
 ## 项目团队管理
 

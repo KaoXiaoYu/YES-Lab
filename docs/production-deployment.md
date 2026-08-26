@@ -126,7 +126,7 @@ echo '你的 classic PAT' | sudo docker login ghcr.io -u KaoXiaoYu --password-st
 生产数据不会存入 Git：
 
 - MySQL：`/srv/yeslab/data/mysql`
-- 证书、比赛图片和项目主图：`/srv/yeslab/data/uploads`
+- 证书、比赛图片、项目主图和成员头像：`/srv/yeslab/data/uploads`
 - 本机备份：`/srv/yeslab/backups`
 - HTTPS 证书：Docker 命名卷 `caddy_data`
 

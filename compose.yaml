@@ -56,6 +56,7 @@ services:
       YESLAB_INITIAL_ADMIN_MEMBER_CODE: ${YESLAB_INITIAL_ADMIN_MEMBER_CODE:-T-001}
       YESLAB_ACHIEVEMENTS_DIRECTORY: /var/lib/yeslab/uploads/achievements
       YESLAB_PROJECTS_DIRECTORY: /var/lib/yeslab/uploads/projects
+      YESLAB_MEMBERS_DIRECTORY: /var/lib/yeslab/uploads/members
       JAVA_TOOL_OPTIONS: -Xms96m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:MaxDirectMemorySize=64m -Xss512k -XX:+UseSerialGC
       TZ: Asia/Shanghai
     volumes:

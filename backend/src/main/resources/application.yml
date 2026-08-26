@@ -38,6 +38,7 @@ yeslab:
   storage:
     achievements-directory: ${YESLAB_ACHIEVEMENTS_DIRECTORY:./data/achievements}
     projects-directory: ${YESLAB_PROJECTS_DIRECTORY:./data/projects}
+    members-directory: ${YESLAB_MEMBERS_DIRECTORY:./data/members}
   cors:
     allowed-origins: ${YESLAB_CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*,https://yes-lab-public.funskii55.chatgpt.site}
   security:

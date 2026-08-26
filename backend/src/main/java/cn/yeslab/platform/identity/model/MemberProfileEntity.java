@@ -155,11 +155,15 @@ public class MemberProfileEntity {
         this.updatedAt = Instant.now();
     }
 
-    public void updateEditableFields(String avatarUrl, String internalContact, String headline, String profileHtml) {
-        this.avatarUrl = avatarUrl;
+    public void updateEditableFields(String internalContact, String headline, String profileHtml) {
         this.internalContact = internalContact;
         this.headline = headline;
         this.profileHtml = profileHtml;
+        this.updatedAt = Instant.now();
+    }
+
+    public void updateAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
         this.updatedAt = Instant.now();
     }
 }

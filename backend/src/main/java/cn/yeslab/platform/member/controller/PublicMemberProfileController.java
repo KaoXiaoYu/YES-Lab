@@ -7,6 +7,13 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+
+import java.nio.charset.StandardCharsets;
 
 import java.util.List;
 import java.util.UUID;
@@ -29,5 +36,21 @@ public class PublicMemberProfileController {
     @GetMapping("/{profileId}")
     public ApiResponse<MemberManagementModels.PublicProfileView> profile(@PathVariable UUID profileId) {
         return ApiResponse.ok(service.getPublicProfile(profileId));
+    }
+
+    @GetMapping("/{profileId}/avatar")
+    public ResponseEntity<Resource> avatar(@PathVariable UUID profileId) {
+        MemberProfileService.AvatarDownload avatar = service.avatar(profileId);
+        MediaType contentType;
+        try {
+            contentType = MediaType.parseMediaType(avatar.contentType());
+        } catch (Exception ignored) {
+            contentType = MediaType.APPLICATION_OCTET_STREAM;
+        }
+        return ResponseEntity.ok()
+                .contentType(contentType)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.inline().filename(avatar.originalName(), StandardCharsets.UTF_8).build().toString())
+                .body(avatar.resource());
     }
 }

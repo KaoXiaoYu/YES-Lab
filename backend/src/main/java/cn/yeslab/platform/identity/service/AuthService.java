@@ -95,7 +95,7 @@ public class AuthService {
         return createSession(account, false);
     }
 
-    private String normalizeUsername(String value) {
+    public static String normalizeUsername(String value) {
         String trimmed = value == null ? "" : value.trim();
         if (trimmed.contains("@")) return trimmed.toLowerCase();
         if (trimmed.matches("\\+?[0-9][0-9 -]*")) return trimmed.replaceAll("[ -]", "");

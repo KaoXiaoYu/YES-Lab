@@ -39,7 +39,6 @@ public final class MemberProfileModels {
     }
 
     public record UpdateProfileRequest(
-            @Size(max = 500, message = "头像地址不能超过 500 个字符") String avatarUrl,
             @Size(max = 200, message = "联系方式不能超过 200 个字符") String internalContact,
             @Size(max = 160, message = "主页标语不能超过 160 个字符") String headline,
             @NotNull(message = "主页内容不能为空")

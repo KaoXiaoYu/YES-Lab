@@ -90,7 +90,6 @@ public class BootstrapDataConfig implements ApplicationRunner {
                     MemberStatus.OFFICIAL, skillTags
             );
             profile.updateEditableFields(
-                    null,
                     contact,
                     role == Role.TEACHER ? "指导真实世界中的智能系统研究" : "让工程能力在真实项目中生长",
                     role == Role.TEACHER

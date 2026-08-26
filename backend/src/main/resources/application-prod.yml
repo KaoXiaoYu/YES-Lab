@@ -22,6 +22,7 @@ yeslab:
   storage:
     achievements-directory: ${YESLAB_ACHIEVEMENTS_DIRECTORY:/var/lib/yeslab/uploads/achievements}
     projects-directory: ${YESLAB_PROJECTS_DIRECTORY:/var/lib/yeslab/uploads/projects}
+    members-directory: ${YESLAB_MEMBERS_DIRECTORY:/var/lib/yeslab/uploads/members}
   cors:
     allowed-origins: ${YESLAB_CORS_ALLOWED_ORIGINS}
   security:

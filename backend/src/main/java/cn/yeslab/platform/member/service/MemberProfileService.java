@@ -6,6 +6,7 @@ import cn.yeslab.platform.identity.model.AccountEntity;
 import cn.yeslab.platform.identity.model.MemberProfileEntity;
 import cn.yeslab.platform.identity.model.MemberStatus;
 import cn.yeslab.platform.identity.model.Role;
+import cn.yeslab.platform.identity.repository.AccountRepository;
 import cn.yeslab.platform.identity.repository.MemberProfileRepository;
 import cn.yeslab.platform.identity.service.AuthService;
 import cn.yeslab.platform.member.api.MemberManagementModels;
@@ -13,10 +14,13 @@ import cn.yeslab.platform.member.api.MemberProfileModels;
 import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.PolicyFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.LinkedHashSet;
@@ -34,13 +38,26 @@ public class MemberProfileService {
             .toFactory();
 
     private final MemberProfileRepository profiles;
+    private final AccountRepository accounts;
     private final AuthService authService;
     private final AchievementService achievements;
+    private final PasswordEncoder passwords;
+    private final MemberAvatarStorageService avatars;
 
-    public MemberProfileService(MemberProfileRepository profiles, AuthService authService, AchievementService achievements) {
+    public MemberProfileService(
+            MemberProfileRepository profiles,
+            AccountRepository accounts,
+            AuthService authService,
+            AchievementService achievements,
+            PasswordEncoder passwords,
+            MemberAvatarStorageService avatars
+    ) {
         this.profiles = profiles;
+        this.accounts = accounts;
         this.authService = authService;
         this.achievements = achievements;
+        this.passwords = passwords;
+        this.avatars = avatars;
     }
 
     @PreAuthorize("hasAuthority('PROFILE_SELF_EDIT')")
@@ -58,10 +75,8 @@ public class MemberProfileService {
     ) {
         AccountEntity account = authService.requireAccount(authentication);
         MemberProfileEntity profile = requireProfile(account);
-        String avatarUrl = normalizeAvatarUrl(request.avatarUrl());
         String safeHtml = PROFILE_HTML_POLICY.sanitize(request.profileHtml());
         profile.updateEditableFields(
-                avatarUrl,
                 normalize(request.internalContact()),
                 normalize(request.headline()),
                 safeHtml
@@ -120,6 +135,73 @@ public class MemberProfileService {
         return toView(profiles.save(profile));
     }
 
+    @PreAuthorize("hasAuthority('MEMBER_MANAGE')")
+    @Transactional
+    public MemberProfileModels.ProfileView createCoreStudent(
+            MemberManagementModels.CreateCoreStudentRequest request
+    ) {
+        String username = AuthService.normalizeUsername(request.username());
+        if (accounts.existsByUsernameIgnoreCase(username)) {
+            throw new ApiException(HttpStatus.CONFLICT, "该登录账号已被使用");
+        }
+        String memberCode = request.memberCode().trim();
+        if (profiles.existsByMemberCodeIgnoreCase(memberCode)) {
+            throw new ApiException(HttpStatus.CONFLICT, "该成员编号已被使用");
+        }
+
+        AccountEntity account = accounts.save(new AccountEntity(
+                username,
+                passwords.encode(request.temporaryPassword()),
+                Role.CORE_STUDENT
+        ));
+        MemberProfileEntity profile = new MemberProfileEntity(
+                account,
+                request.name().trim(),
+                memberCode,
+                normalize(request.major()),
+                normalize(request.className()),
+                normalize(request.grade()),
+                normalize(request.internalContact()),
+                request.status(),
+                normalizeTags(request.skillTags())
+        );
+        return toView(profiles.save(profile));
+    }
+
+    @PreAuthorize("hasAuthority('PROFILE_SELF_EDIT')")
+    @Transactional
+    public MemberProfileModels.ProfileView replaceOwnAvatar(Authentication authentication, MultipartFile avatar) {
+        return replaceAvatar(requireProfile(authService.requireAccount(authentication)), avatar);
+    }
+
+    @PreAuthorize("hasAuthority('PROFILE_SELF_EDIT')")
+    @Transactional
+    public MemberProfileModels.ProfileView deleteOwnAvatar(Authentication authentication) {
+        return deleteAvatar(requireProfile(authService.requireAccount(authentication)));
+    }
+
+    @PreAuthorize("hasAuthority('MEMBER_MANAGE')")
+    @Transactional
+    public MemberProfileModels.ProfileView replaceManagedAvatar(UUID profileId, MultipartFile avatar) {
+        return replaceAvatar(requireProfile(profileId), avatar);
+    }
+
+    @PreAuthorize("hasAuthority('MEMBER_MANAGE')")
+    @Transactional
+    public MemberProfileModels.ProfileView deleteManagedAvatar(UUID profileId) {
+        return deleteAvatar(requireProfile(profileId));
+    }
+
+    @Transactional(readOnly = true)
+    public AvatarDownload avatar(UUID profileId) {
+        MemberProfileEntity profile = requireProfile(profileId);
+        if (profile.getAvatarUrl() == null || !profile.getAvatarUrl().startsWith("/api/v1/public/member-profiles/")) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "头像不存在");
+        }
+        MemberAvatarStorageService.StoredAvatarResource stored = avatars.resource(profileId);
+        return new AvatarDownload(stored.resource(), stored.contentType(), stored.originalName());
+    }
+
     @Transactional(readOnly = true)
     public List<MemberManagementModels.PublicProfileView> listPublicProfiles() {
         return profiles.findAll().stream()
@@ -151,13 +233,16 @@ public class MemberProfileService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "成员资料不存在"));
     }
 
-    private String normalizeAvatarUrl(String value) {
-        String normalized = normalize(value);
-        if (normalized == null) return null;
-        if (!normalized.startsWith("https://") && !normalized.startsWith("http://") && !normalized.startsWith("/")) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "头像地址需使用 http、https 或站内路径");
-        }
-        return normalized;
+    private MemberProfileModels.ProfileView replaceAvatar(MemberProfileEntity profile, MultipartFile avatar) {
+        avatars.store(profile.getId(), avatar);
+        profile.updateAvatarUrl("/api/v1/public/member-profiles/" + profile.getId() + "/avatar?v=" + System.currentTimeMillis());
+        return toView(profiles.save(profile));
+    }
+
+    private MemberProfileModels.ProfileView deleteAvatar(MemberProfileEntity profile) {
+        avatars.delete(profile.getId());
+        profile.updateAvatarUrl(null);
+        return toView(profiles.save(profile));
     }
 
     private String normalize(String value) {
@@ -225,5 +310,8 @@ public class MemberProfileService {
         LinkedHashSet<String> records = new LinkedHashSet<>(profile.getAchievementRecords());
         records.addAll(achievements.approvedAchievementsFor(profile.getId()));
         return List.copyOf(records);
+    }
+
+    public record AvatarDownload(Resource resource, String contentType, String originalName) {
     }
 }

@@ -59,10 +59,7 @@ export function getOwnProfile() {
 
 export async function updateOwnProfile(payload) {
   const profile = await apiRequest('/api/v1/member/profile', { method: 'PUT', body: payload })
-  if (authState.account) {
-    authState.account.displayName = profile.name
-    authState.account.avatarUrl = profile.avatarUrl
-  }
+  syncAccountAvatar(profile)
   return profile
 }
 
@@ -72,6 +69,34 @@ export function listMembers() {
 
 export function updateMember(profileId, payload) {
   return apiRequest(`/api/v1/admin/members/${profileId}`, { method: 'PUT', body: payload })
+}
+
+export function createCoreStudent(payload) {
+  return apiRequest('/api/v1/admin/members/core-students', { method: 'POST', body: payload })
+}
+
+export async function replaceOwnAvatar(avatar) {
+  const form = new FormData()
+  form.append('avatar', avatar)
+  const profile = await formRequest('/api/v1/member/profile/avatar', { method: 'PUT', body: form })
+  syncAccountAvatar(profile)
+  return profile
+}
+
+export async function deleteOwnAvatar() {
+  const profile = await apiRequest('/api/v1/member/profile/avatar', { method: 'DELETE' })
+  syncAccountAvatar(profile)
+  return profile
+}
+
+export function replaceManagedMemberAvatar(profileId, avatar) {
+  const form = new FormData()
+  form.append('avatar', avatar)
+  return formRequest(`/api/v1/admin/members/${profileId}/avatar`, { method: 'PUT', body: form })
+}
+
+export function deleteManagedMemberAvatar(profileId) {
+  return apiRequest(`/api/v1/admin/members/${profileId}/avatar`, { method: 'DELETE' })
 }
 
 export function listProjects() {
@@ -215,6 +240,12 @@ function setSession(response) {
   authState.token = response.accessToken
   authState.account = response.account
   authState.ready = true
+}
+
+function syncAccountAvatar(profile) {
+  if (!authState.account) return
+  authState.account.displayName = profile.name
+  authState.account.avatarUrl = profile.avatarUrl
 }
 
 function clearSession() {

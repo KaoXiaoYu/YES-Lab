@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -18,6 +19,8 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -139,7 +142,7 @@ class IdentityRecruitmentApiTests {
                         .header("Authorization", bearer(memberToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"avatarUrl":null,"internalContact":"member@yes-lab.internal","headline":"具身智能研究",
+                                {"internalContact":"member@yes-lab.internal","headline":"具身智能研究",
                                  "profileHtml":"<script>alert(1)</script><p><strong>安全内容</strong></p><a href='javascript:alert(2)'>危险链接</a>"}
                                 """))
                 .andExpect(status().isOk())
@@ -230,6 +233,69 @@ class IdentityRecruitmentApiTests {
                 .andExpect(jsonPath("$.data.totalPoints").value(nullValue()))
                 .andExpect(jsonPath("$.data.memberCode").doesNotExist())
                 .andExpect(jsonPath("$.data.internalContact").doesNotExist());
+    }
+
+    @Test
+    void adminCanCreateCoreStudentAccountWithSystemAdminPermissions() throws Exception {
+        String memberToken = login("member", "YesLab-Member-2026!");
+        String request = """
+                {
+                  "username":"student-admin@example.com","temporaryPassword":"Student-Admin-2026!",
+                  "name":"学生管理员大王","memberCode":"S-ADMIN-001","major":"计算机科学",
+                  "className":"计科 2401","grade":"2024","internalContact":"student-admin@example.com",
+                  "status":"OFFICIAL","skillTags":["无人机系统","项目管理"]
+                }
+                """;
+
+        mvc.perform(post("/api/v1/admin/members/core-students")
+                        .header("Authorization", bearer(memberToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isForbidden());
+
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        mvc.perform(post("/api/v1/admin/members/core-students")
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("student-admin@example.com"))
+                .andExpect(jsonPath("$.data.role").value("CORE_STUDENT"))
+                .andExpect(jsonPath("$.data.memberCode").value("S-ADMIN-001"));
+
+        String studentAdminToken = login("student-admin@example.com", "Student-Admin-2026!");
+        mvc.perform(get("/api/v1/admin/members").header("Authorization", bearer(studentAdminToken)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void memberCanUploadReplaceAndRemoveAvatar() throws Exception {
+        String memberToken = login("member", "YesLab-Member-2026!");
+        String profileResponse = mvc.perform(get("/api/v1/member/profile")
+                        .header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String profileId = JsonPath.read(profileResponse, "$.data.id");
+        byte[] png = new byte[] {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10, 0, 0, 0, 0};
+        MockMultipartFile avatar = new MockMultipartFile("avatar", "avatar.png", "image/png", png);
+
+        mvc.perform(multipart("/api/v1/member/profile/avatar")
+                        .file(avatar)
+                        .with(request -> { request.setMethod("PUT"); return request; })
+                        .header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.avatarUrl", containsString("/api/v1/public/member-profiles/" + profileId + "/avatar?v=")));
+
+        mvc.perform(get("/api/v1/public/member-profiles/{profileId}/avatar", profileId))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType("image/png"));
+
+        mvc.perform(delete("/api/v1/member/profile/avatar")
+                        .header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.avatarUrl").value(nullValue()));
+        mvc.perform(get("/api/v1/public/member-profiles/{profileId}/avatar", profileId))
+                .andExpect(status().isNotFound());
     }
 
     private void changeStage(String applicationId, String token, String stage) throws Exception {
