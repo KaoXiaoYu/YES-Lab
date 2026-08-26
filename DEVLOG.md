@@ -194,3 +194,17 @@
 - 将本次代码推送到 GitHub `main` 并等待 Actions 发布新 API/Web 镜像；随后将两个 GHCR 包设为 Public，或准备只读 Packages 令牌。
 - 配置真实域名解析及云安全组 TCP 22/80/443、UDP 443，再通过 SSH 运行首次部署脚本并保存终端输出的管理员初始密码。
 - 上线后检查容器健康、HTTPS、登录、上传、自动备份，并尽快配置异地备份和完成恢复演练。
+
+## 2026-08-26：生产管理员初始化说明
+
+- 正式环境不需要、也不建议直接执行 SQL 添加管理员；Ubuntu 首次部署脚本会通过 Spring Security 的密码编码器创建教师管理员，并在同一事务中建立对应成员档案和能力标签。
+- README 中的 `teacher`、`core`、`member` 固定密码仅供本地演示环境使用，生产 profile 不加载这些演示账号。
+- 若生产库已经启动但没有管理员，可重新运行部署引导脚本并用 `--admin-user` 指定一个未占用的登录名；初始化器不会修改或提权已有同名账号，避免意外接管账号。
+
+## 2026-08-26：服务器 GitHub 认证排障
+
+- 确认服务器克隆失败的根因是 GitHub 不再支持使用账号密码进行 HTTPS Git 认证；首次克隆失败导致 `/opt/yes-lab` 未创建，后续 `cd` 和部署脚本报错均为连锁结果。
+- 正式部署手册新增私有仓库只读 Deploy Key 流程，包括独立 Ed25519 密钥、GitHub 仓库绑定、官方主机指纹核验、SSH 克隆和仓库级 `core.sshCommand`，确保后续自动发布脚本可持续执行 `git fetch`。
+- HTTPS 方式只能使用 GitHub 用户名配合 PAT；生产服务器推荐只读 Deploy Key，且不授予写权限。
+- Deploy Key 应复制 `/root/.ssh/yeslab_deploy.pub` 的完整单行内容，格式为 `ssh-ed25519 <Base64 公钥> yes-lab-production`；不得复制无 `.pub` 后缀的私钥，也不要把 GitHub 主机的 `SHA256:` 指纹当作公钥。
+- 首次部署已在生成 swap 与生产 `.env.production` 后安全停止于 GHCR `denied`；原因范围为镜像尚未由 Actions 发布或两个 Packages 仍为 Private，MySQL/API/Web 尚未启动。处理包可见性或完成 `docker login ghcr.io` 后可直接重跑引导脚本，已有生产密钥会原样复用。

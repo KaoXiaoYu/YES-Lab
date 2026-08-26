@@ -43,6 +43,33 @@ cd /opt/yes-lab
 sudo ./deploy/scripts/bootstrap-ubuntu.sh --domain lab.example.edu.cn
 ```
 
+以上 HTTPS 克隆适用于公开仓库。GitHub 已停止接受账号密码进行 Git 身份验证；如果仓库为私有，不要输入邮箱和 GitHub 登录密码，服务器推荐配置仓库专用的只读 Deploy Key：
+
+```bash
+install -d -m 700 /root/.ssh
+ssh-keygen -t ed25519 -C 'yes-lab-production' -f /root/.ssh/yeslab_deploy -N ''
+cat /root/.ssh/yeslab_deploy.pub
+```
+
+复制最后一条命令输出的整行公钥，在 GitHub 仓库中进入 `Settings → Deploy keys → Add deploy key`，标题可填写 `YES Lab Production`，不要勾选 `Allow write access`。添加后回到服务器测试：
+
+```bash
+ssh -i /root/.ssh/yeslab_deploy -o IdentitiesOnly=yes -T git@github.com
+```
+
+第一次连接会询问 GitHub 主机指纹；Ed25519 指纹应为 `SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU`。确认一致后输入 `yes`。成功信息末尾提示 GitHub 不提供 shell 属于正常现象。随后克隆并让后续 `git fetch` 固定使用这把密钥：
+
+```bash
+GIT_SSH_COMMAND='ssh -i /root/.ssh/yeslab_deploy -o IdentitiesOnly=yes' \
+  git clone git@github.com:KaoXiaoYu/YES-Lab.git /opt/yes-lab
+git -C /opt/yes-lab config core.sshCommand \
+  'ssh -i /root/.ssh/yeslab_deploy -o IdentitiesOnly=yes'
+cd /opt/yes-lab
+./deploy/scripts/bootstrap-ubuntu.sh --domain lab.example.edu.cn
+```
+
+也可以继续使用 HTTPS，但密码提示处必须填写 Personal Access Token，而不是账户密码，并且后续更新仍需处理凭据；因此生产服务器优先使用只读 Deploy Key。
+
 将最后一行的 `lab.example.edu.cn` 换成真实域名，不要填写 `https://`、端口或路径。默认会创建：
 
 - 登录名：`teacher`
