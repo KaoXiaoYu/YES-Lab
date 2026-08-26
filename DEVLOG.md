@@ -225,3 +225,34 @@
 - 通过 GitHub CLI 确认 `KaoXiaoYu/YES-Lab` 当前仍为 Public；可以改为 Private，现有 Actions 使用仓库 `GITHUB_TOKEN` 的 `contents: read` 与 `packages: write`，不依赖仓库公开状态。
 - 推荐源代码仓库和两个 GHCR 镜像均保持 Private：服务器使用只读 Deploy Key 拉取 Git，使用仅含 `read:packages` 的 classic PAT 登录 GHCR；Docker 登录状态可供后续发布脚本复用。
 - GHCR Container Package 的可见性与仓库可以独立配置；若镜像改为 Public，服务器可匿名拉取，但 GitHub 官方提示公开后的 Package 不能再改回 Private，因此应在首次成功发布镜像后谨慎选择。
+
+## 2026-08-26：私有 GHCR 镜像拉取排障
+
+- 通过 GitHub CLI 确认 `KaoXiaoYu/YES-Lab` 已设为 Private；最新 Actions 运行 `32951964039` 的测试、API 镜像和 Web 镜像任务全部成功，两个 `latest` 镜像已经发布。
+- 服务器返回 `unauthorized` 的根因是 Docker 尚未登录私有 GHCR，或登录使用的令牌缺少 `read:packages` 权限；这不是镜像构建失败。
+- Compose 中 API 与 MySQL 显示 `Interrupted` 是 Web 镜像拉取失败后并行任务被取消的连锁结果，并不表示 MySQL 镜像或数据库发生故障。
+- 处理方式为使用 GitHub 用户名 `KaoXiaoYu` 和具有 `read:packages` 权限的 classic PAT 执行一次 `docker login ghcr.io`，随后原样重跑部署引导脚本；已有 `.env.production` 和仓库外数据目录不会被覆盖。
+
+### 验证
+
+- GitHub 仓库可见性为 `PRIVATE`；Actions 运行 `32951964039` 总结论为 `success`，三个任务均为 `success`。
+- 本次仅完成远程状态核验与部署故障诊断，未连接生产服务器，也未改动生产配置或用户数据。
+- 服务器实测 `mysql:8.4` 可完整拉取，而 `yes-lab-web:latest` 与 `yes-lab-api:latest` 均返回 `denied`，进一步排除公网连接、Docker daemon 和 Docker Hub 故障，确认问题仅限私有 GHCR 认证。
+- 本地 GitHub CLI 在未授权 `read:packages` 时访问两个包同样返回 HTTP 403，和服务器症状一致；应新建仅含 `read:packages` 的 GitHub classic PAT，不能使用 Fine-grained token、GitHub 密码或仓库 Deploy Key 代替。
+- 服务器令牌响应头实测为 `x-oauth-scopes: repo`，确认所用 classic PAT 未授予 `read:packages`；需要新建正确的只读 Packages 令牌，成功后撤销权限过宽的旧令牌。
+- 后续拉取从 `root` 切换到 `ubuntu` 用户后出现 Docker socket `permission denied`；部署引导需要 root 权限，GHCR 登录信息也按 Linux 用户隔离，因此应在同一个 root shell 中完成 `docker login`、镜像拉取和部署，避免不同用户凭据不一致。
+
+## 2026-08-26：生产 API 首次启动未通过健康检查
+
+- 私有镜像拉取问题处理后，部署推进到首个管理员初始化阶段，但 `yes-lab-api-1` 被判定为 `unhealthy`，引导脚本在第 206 行安全停止；MySQL 数据目录和上传文件均未删除。
+- 第 206 行实际执行的是带临时管理员环境变量的 `docker compose up --wait api`；脚本行号本身不是根因。需通过 API 容器日志、退出状态、`OOMKilled` 标记和 healthcheck 输出区分应用启动异常、Flyway/JPA 数据库错误、健康接口 503 或内存限制问题。
+- 在取得服务器只读诊断输出前不修改生产配置、不重建数据库，也不重复创建管理员；部署脚本保持可安全重跑。
+- 服务器日志确认 API 可连接 MySQL 8.4，容器未被 OOM kill；实际异常为 `Schema validation: missing table [accounts]`。启动日志没有 Flyway 记录，说明 Hibernate 校验发生前数据库迁移根本未运行。
+- 根因是 Spring Boot 4 将 Flyway 自动配置拆分到独立模块，原 POM 只有 `flyway-core` 与 `flyway-mysql`，未引入 `spring-boot-flyway`；已将核心依赖改为官方 `spring-boot-starter-flyway` 并保留 MySQL 专用模块。
+- 测试环境继续使用 H2 与 Hibernate `create-drop`，因此在测试配置中显式关闭 MySQL 专用 Flyway 迁移；生产 `application-prod.yml` 仍启用 Flyway，并将在空库依次执行 V1、V2。
+
+### 验证
+
+- Java 21 下后端 18 项测试全部通过，0 失败、0 错误、0 跳过。
+- Maven 依赖树确认包含 `spring-boot-starter-flyway:4.1.1`、`spring-boot-flyway:4.1.1`、`flyway-mysql:12.4.0` 与传递依赖 `flyway-core:12.4.0`。
+- 当前终端默认 Java 为 8，首次测试因 class version 不兼容未执行；显式使用本机 Java 21 后验证通过，该环境问题与本次应用修复无关。
