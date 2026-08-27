@@ -416,7 +416,7 @@ public class AchievementService {
         return new AchievementModels.PublicCompetitionView(item.getId(), item.getName(), item.getTrack(), item.getLevel(), item.getAwardName(), item.getDescription(), item.getCompetitionDate(),
                 publicMemberOption(item.getCaptainProfile()), item.getAdvisorProfile() == null ? null : publicMemberOption(item.getAdvisorProfile()), item.getAdvisorName(), projectOption(item.getProject()),
                 participantViews(item), imageViews(item, true), item.getCertificateStoredName() != null, item.getCertificateOriginalName(), item.getCertificateContentType(),
-                item.getCertificateStoredName() == null ? null : "/api/v1/public/competitions/" + item.getId() + "/certificate",
+                item.getCertificateStoredName() == null ? null : "/api/v1/public/competitions/" + item.getId() + "/certificate?v=" + item.getUpdatedAt().toEpochMilli(),
                 item.getDisplayOrder(), item.getUpdatedAt());
     }
     private List<AchievementModels.ParticipantView> participantViews(CompetitionEntity item) { return item.getParticipants().stream().map(p -> new AchievementModels.ParticipantView(p.getDisplayName(), p.getLinkedProfile() == null ? null : p.getLinkedProfile().getId(), p.getLinkedProfile() == null ? null : p.getLinkedProfile().getAvatarUrl(), p.isCaptain())).toList(); }

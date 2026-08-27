@@ -35,6 +35,6 @@ public class PublicProjectTeamController {
 
     @GetMapping("/{projectId}/cover")
     public ResponseEntity<Resource> cover(@PathVariable UUID projectId) {
-        return ProjectTeamController.coverResponse(service.publicCover(projectId));
+        return ProjectTeamController.publicCoverResponse(service.publicCover(projectId));
     }
 }

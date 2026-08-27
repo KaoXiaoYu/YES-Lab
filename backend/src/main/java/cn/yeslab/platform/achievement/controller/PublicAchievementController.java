@@ -21,7 +21,7 @@ public class PublicAchievementController {
     @GetMapping("/competitions") public ApiResponse<List<AchievementModels.PublicCompetitionView>> competitions() { return ApiResponse.ok(service.publicCompetitions()); }
     @GetMapping("/competitions/countdown") public ApiResponse<AchievementModels.CompetitionCountdownView> countdown() { return ApiResponse.ok(service.publicUpcomingCompetition()); }
     @GetMapping("/competitions/{id}") public ApiResponse<AchievementModels.PublicCompetitionView> competition(@PathVariable UUID id) { return ApiResponse.ok(service.publicCompetition(id)); }
-    @GetMapping("/competitions/{id}/certificate") public ResponseEntity<Resource> certificate(@PathVariable UUID id) { return CompetitionController.file(service.publicCertificate(id)); }
-    @GetMapping("/competitions/{competitionId}/images/{imageId}") public ResponseEntity<Resource> image(@PathVariable UUID competitionId, @PathVariable UUID imageId) { return CompetitionController.file(service.publicImage(competitionId, imageId)); }
+    @GetMapping("/competitions/{id}/certificate") public ResponseEntity<Resource> certificate(@PathVariable UUID id) { return CompetitionController.publicFile(service.publicCertificate(id)); }
+    @GetMapping("/competitions/{competitionId}/images/{imageId}") public ResponseEntity<Resource> image(@PathVariable UUID competitionId, @PathVariable UUID imageId) { return CompetitionController.publicFile(service.publicImage(competitionId, imageId)); }
     @GetMapping("/news") public ApiResponse<List<AchievementModels.NewsView>> news() { return ApiResponse.ok(service.publicNews()); }
 }

@@ -6,6 +6,7 @@ import cn.yeslab.platform.common.api.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -82,10 +84,19 @@ public class CompetitionController {
     }
 
     static ResponseEntity<Resource> file(AchievementService.FileDownload file) {
+        return file(file, null);
+    }
+
+    static ResponseEntity<Resource> publicFile(AchievementService.FileDownload file) {
+        return file(file, CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable());
+    }
+
+    private static ResponseEntity<Resource> file(AchievementService.FileDownload file, CacheControl cacheControl) {
         MediaType contentType;
         try { contentType = MediaType.parseMediaType(file.contentType()); } catch (Exception ignored) { contentType = MediaType.APPLICATION_OCTET_STREAM; }
-        return ResponseEntity.ok().contentType(contentType)
-                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().filename(file.originalName(), StandardCharsets.UTF_8).build().toString())
-                .body(file.resource());
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok().contentType(contentType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().filename(file.originalName(), StandardCharsets.UTF_8).build().toString());
+        if (cacheControl != null) response.cacheControl(cacheControl);
+        return response.body(file.resource());
     }
 }

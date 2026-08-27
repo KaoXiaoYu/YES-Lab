@@ -412,7 +412,7 @@ public class ProjectTeamService {
                 project.getOutcomes(),
                 project.getGitRepositoryUrl(),
                 project.getDocumentUrl(),
-                project.getCoverStoredName() == null ? null : "/api/v1/public/project-teams/" + project.getId() + "/cover",
+                project.getCoverStoredName() == null ? null : "/api/v1/public/project-teams/" + project.getId() + "/cover?v=" + project.getUpdatedAt().toEpochMilli(),
                 project.getUpdatedAt()
         );
     }

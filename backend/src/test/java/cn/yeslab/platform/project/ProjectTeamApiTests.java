@@ -16,12 +16,15 @@ import java.util.List;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -124,12 +127,13 @@ class ProjectTeamApiTests {
                 .andExpect(jsonPath("$.data.leader.memberCode").value(nullValue()))
                 .andExpect(jsonPath("$.data.advisor.memberCode").value(nullValue()))
                 .andExpect(jsonPath("$.data.members[0].memberCode").value(nullValue()))
-                .andExpect(jsonPath("$.data.coverImageUrl").value("/api/v1/public/project-teams/" + projectId + "/cover"))
+                .andExpect(jsonPath("$.data.coverImageUrl").value(startsWith("/api/v1/public/project-teams/" + projectId + "/cover?v=")))
                 .andExpect(jsonPath("$.data.administrators").doesNotExist())
                 .andExpect(jsonPath("$.data.canEditProject").doesNotExist());
 
         mvc.perform(get("/api/v1/public/project-teams/{id}/cover", projectId))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", containsString("max-age=31536000")));
     }
 
     @Test

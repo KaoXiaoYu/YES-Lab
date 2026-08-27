@@ -1,6 +1,7 @@
 package cn.yeslab.platform.achievement;
 
 import com.jayway.jsonpath.JsonPath;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -107,12 +109,14 @@ class AchievementApiTests {
                 .andExpect(jsonPath("$.data.images.length()").value(1))
                 .andExpect(jsonPath("$.data.certificateOriginalName").value("certificate.jpg"))
                 .andExpect(jsonPath("$.data.certificateContentType").value("image/jpeg"))
-                .andExpect(jsonPath("$.data.certificateUrl").value("/api/v1/public/competitions/" + competitionId + "/certificate"))
+                .andExpect(jsonPath("$.data.certificateUrl").value(org.hamcrest.Matchers.startsWith("/api/v1/public/competitions/" + competitionId + "/certificate?v=")))
                 .andReturn().getResponse().getContentAsString();
         String publicImageUrl = JsonPath.read(publicDetail, "$.data.images[0].url");
-        mvc.perform(get(publicImageUrl)).andExpect(status().isOk()).andExpect(content().contentType("image/png"));
+        mvc.perform(get(publicImageUrl)).andExpect(status().isOk()).andExpect(content().contentType("image/png"))
+                .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("max-age=31536000")));
         mvc.perform(get("/api/v1/public/competitions/{id}/certificate", competitionId))
-                .andExpect(status().isOk()).andExpect(content().contentType("image/jpeg"));
+                .andExpect(status().isOk()).andExpect(content().contentType("image/jpeg"))
+                .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("max-age=31536000")));
         mvc.perform(get("/api/v1/public/competitions"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[*].name", hasItem("全国具身智能挑战赛")));
@@ -177,27 +181,43 @@ class AchievementApiTests {
     }
 
     @Test
-    void scannerStyleJpgUsesRestrictedCertificateAndGalleryFallback() throws Exception {
+    void bitmapMisnamedAsJpgIsConvertedToRealJpegForCertificateAndGallery() throws Exception {
         String memberToken = login("member", "YesLab-Member-2026!");
         MockMultipartFile data = jsonPart("""
                 {"name":"扫描证书兼容测试","track":"证书上传","level":"SCHOOL","lifecycle":"FINISHED",
                  "awardName":"二等奖","description":"验证非标准扫描 JPG 可以作为证书提交。",
                  "competitionDate":"2026-08-25","participants":[]}
                 """);
-        MockMultipartFile scannerJpg = new MockMultipartFile(
-                "certificate", "扫描证书.JPG", "image/pjpeg", "scanner-exported-jpeg".getBytes(StandardCharsets.UTF_8));
-        MockMultipartFile scannerGalleryJpg = new MockMultipartFile(
-                "images", "比赛现场.JPG", "image/pjpeg", "mobile-exported-jpeg".getBytes(StandardCharsets.UTF_8));
+        byte[] bitmap = bitmapBytes();
+        MockMultipartFile scannerJpg = new MockMultipartFile("certificate", "扫描证书.JPG", "image/pjpeg", bitmap);
+        MockMultipartFile scannerGalleryJpg = new MockMultipartFile("images", "比赛现场.JPG", "image/pjpeg", bitmap);
 
-        mvc.perform(multipart("/api/v1/competitions").file(data).file(scannerJpg).file(scannerGalleryJpg)
+        String created = mvc.perform(multipart("/api/v1/competitions").file(data).file(scannerJpg).file(scannerGalleryJpg)
                         .header("Authorization", bearer(memberToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.hasCertificate").value(true))
                 .andExpect(jsonPath("$.data.certificateOriginalName").value("扫描证书.JPG"))
-                .andExpect(jsonPath("$.data.images.length()").value(1));
+                .andExpect(jsonPath("$.data.images.length()").value(1))
+                .andReturn().getResponse().getContentAsString();
+
+        String competitionId = JsonPath.read(created, "$.data.id");
+        String imageId = JsonPath.read(created, "$.data.images[0].id");
+        byte[] certificateBytes = mvc.perform(get("/api/v1/competitions/{id}/certificate", competitionId)
+                        .header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk()).andExpect(content().contentType("image/jpeg"))
+                .andReturn().getResponse().getContentAsByteArray();
+        byte[] galleryBytes = mvc.perform(get("/api/v1/competitions/{id}/images/{imageId}", competitionId, imageId)
+                        .header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk()).andExpect(content().contentType("image/jpeg"))
+                .andReturn().getResponse().getContentAsByteArray();
+        Assertions.assertEquals(0xff, certificateBytes[0] & 0xff);
+        Assertions.assertEquals(0xd8, certificateBytes[1] & 0xff);
+        Assertions.assertEquals(0xff, galleryBytes[0] & 0xff);
+        Assertions.assertEquals(0xd8, galleryBytes[1] & 0xff);
+        Assertions.assertTrue(certificateBytes.length < bitmap.length);
 
         MockMultipartFile disguisedText = new MockMultipartFile(
-                "certificate", "不是证书.txt", "image/jpeg", "plain text".getBytes(StandardCharsets.UTF_8));
+                "certificate", "伪装证书.jpg", "image/jpeg", "plain text".getBytes(StandardCharsets.UTF_8));
         mvc.perform(multipart("/api/v1/competitions").file(data).file(disguisedText)
                         .header("Authorization", bearer(memberToken)))
                 .andExpect(status().isBadRequest())
@@ -272,6 +292,22 @@ class AchievementApiTests {
 
     private byte[] jpegBytes() {
         return new byte[] {(byte) 0xff, (byte) 0xd8, (byte) 0xff, (byte) 0xe0, 0, 0, 0, 0, 0, 0, 0, 0};
+    }
+
+    private byte[] bitmapBytes() throws Exception {
+        java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(1280, 830, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D graphics = image.createGraphics();
+        try {
+            graphics.setColor(java.awt.Color.WHITE);
+            graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+            graphics.setColor(new java.awt.Color(30, 58, 95));
+            graphics.fillRect(80, 80, 1120, 670);
+        } finally {
+            graphics.dispose();
+        }
+        java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(image, "bmp", output);
+        return output.toByteArray();
     }
 
     private String createAndApproveCompetition(String memberToken, String teacherToken, String name, String award, String date) throws Exception {

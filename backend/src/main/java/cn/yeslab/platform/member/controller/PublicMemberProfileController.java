@@ -9,11 +9,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 import java.util.List;
 import java.util.UUID;
@@ -49,6 +51,7 @@ public class PublicMemberProfileController {
         }
         return ResponseEntity.ok()
                 .contentType(contentType)
+                .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.inline().filename(avatar.originalName(), StandardCharsets.UTF_8).build().toString())
                 .body(avatar.resource());

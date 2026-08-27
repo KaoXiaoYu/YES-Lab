@@ -282,6 +282,7 @@ onBeforeUnmount(() => {
 
       <nav :class="['top-nav', { open: menuOpen }]" aria-label="主导航">
         <button @click="scrollTo('#projects')">研究与成果</button>
+        <button @click="scrollTo('#updates')">竞赛 / 新闻</button>
         <button @click="scrollTo('#about')">关于我们</button>
         <button @click="scrollTo('#members')">成员</button>
         <button @click="scrollTo('#partners')">赞助伙伴</button>

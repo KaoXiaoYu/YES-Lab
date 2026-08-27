@@ -6,6 +6,7 @@ import cn.yeslab.platform.project.service.ProjectTeamService;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -93,16 +95,24 @@ public class ProjectTeamController {
     }
 
     static ResponseEntity<Resource> coverResponse(ProjectTeamService.CoverDownload cover) {
+        return coverResponse(cover, false);
+    }
+
+    static ResponseEntity<Resource> publicCoverResponse(ProjectTeamService.CoverDownload cover) {
+        return coverResponse(cover, true);
+    }
+
+    private static ResponseEntity<Resource> coverResponse(ProjectTeamService.CoverDownload cover, boolean publicResource) {
         MediaType contentType;
         try {
             contentType = MediaType.parseMediaType(cover.contentType());
         } catch (Exception ignored) {
             contentType = MediaType.APPLICATION_OCTET_STREAM;
         }
-        return ResponseEntity.ok()
-                .contentType(contentType)
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok().contentType(contentType)
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.inline().filename(cover.originalName(), StandardCharsets.UTF_8).build().toString())
-                .body(cover.resource());
+                        ContentDisposition.inline().filename(cover.originalName(), StandardCharsets.UTF_8).build().toString());
+        if (publicResource) response.cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable());
+        return response.body(cover.resource());
     }
 }
