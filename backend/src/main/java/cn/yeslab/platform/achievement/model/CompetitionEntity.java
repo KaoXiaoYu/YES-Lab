@@ -158,6 +158,11 @@ public class CompetitionEntity {
         this.updatedAt = Instant.now();
     }
 
+    public void removeImage(CompetitionImageEntity image) {
+        images.remove(image);
+        this.updatedAt = Instant.now();
+    }
+
     public void updateCertificate(String storedName, String originalName, String contentType, long sizeBytes, boolean resetReview) {
         this.certificateStoredName = storedName; this.certificateOriginalName = originalName;
         this.certificateContentType = contentType; this.certificateSizeBytes = sizeBytes;

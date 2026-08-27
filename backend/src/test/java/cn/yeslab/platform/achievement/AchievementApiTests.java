@@ -12,10 +12,14 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -115,6 +119,13 @@ class AchievementApiTests {
         mvc.perform(get("/api/v1/public/member-profiles/{id}", memberId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.achievementRecords", hasItem("全国具身智能挑战赛 · 全国二等奖")));
+
+        mvc.perform(delete("/api/v1/competitions/{competitionId}/images/{imageId}", competitionId,
+                        JsonPath.read(publicDetail, "$.data.images[0].id"))
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.images.length()").value(0));
+        mvc.perform(get(publicImageUrl)).andExpect(status().isNotFound());
     }
 
     @Test
@@ -125,25 +136,48 @@ class AchievementApiTests {
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         java.util.List<String> teacherIds = JsonPath.read(options, "$.data[?(@.role == 'TEACHER')].id");
 
+        LocalDate provincialDate = LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(21);
+        LocalDate nationalDate = provincialDate.plusDays(70);
         MockMultipartFile data = jsonPart("""
                 {
                   "name":"2027 智能机器人大赛","track":"飞行巡航定点赛道","level":"PROVINCIAL",
                   "lifecycle":"PLANNED","description":"正在组队并开展飞控与视觉算法训练。",
-                  "provincialDate":"2027-05-10","nationalDate":"2027-08-12",
+                  "provincialDate":"%s","nationalDate":"%s",
                   "advisorProfileId":"%s","participants":[]
                 }
-                """.formatted(teacherIds.getFirst()));
+                """.formatted(provincialDate, nationalDate, teacherIds.getFirst()));
 
-        mvc.perform(multipart("/api/v1/competitions").file(data).header("Authorization", bearer(memberToken)))
+        String created = mvc.perform(multipart("/api/v1/competitions").file(data).header("Authorization", bearer(memberToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.lifecycle").value("PLANNED"))
                 .andExpect(jsonPath("$.data.verificationStatus").value("NOT_REQUIRED"))
                 .andExpect(jsonPath("$.data.advisor.role").value("TEACHER"))
-                .andExpect(jsonPath("$.data.nationalDate").value("2027-08-12"));
+                .andExpect(jsonPath("$.data.nationalDate").value(nationalDate.toString()))
+                .andReturn().getResponse().getContentAsString();
+        String competitionId = JsonPath.read(created, "$.data.id");
+
+        mvc.perform(get("/api/v1/public/competitions/countdown"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(competitionId))
+                .andExpect(jsonPath("$.data.stage").value("省赛"))
+                .andExpect(jsonPath("$.data.date").value(provincialDate.toString()));
+        mvc.perform(get("/api/v1/competitions/countdown").header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(competitionId));
+
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        mvc.perform(get("/api/v1/competitions/countdown").header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(competitionId));
+
+        String unrelatedAdminToken = login("core", "YesLab-Core-2026!");
+        mvc.perform(get("/api/v1/competitions/countdown").header("Authorization", bearer(unrelatedAdminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value(nullValue()));
     }
 
     @Test
-    void scannerStyleJpgCertificateUsesSafeCertificateOnlyFallback() throws Exception {
+    void scannerStyleJpgUsesRestrictedCertificateAndGalleryFallback() throws Exception {
         String memberToken = login("member", "YesLab-Member-2026!");
         MockMultipartFile data = jsonPart("""
                 {"name":"扫描证书兼容测试","track":"证书上传","level":"SCHOOL","lifecycle":"FINISHED",
@@ -152,12 +186,15 @@ class AchievementApiTests {
                 """);
         MockMultipartFile scannerJpg = new MockMultipartFile(
                 "certificate", "扫描证书.JPG", "image/pjpeg", "scanner-exported-jpeg".getBytes(StandardCharsets.UTF_8));
+        MockMultipartFile scannerGalleryJpg = new MockMultipartFile(
+                "images", "比赛现场.JPG", "image/pjpeg", "mobile-exported-jpeg".getBytes(StandardCharsets.UTF_8));
 
-        mvc.perform(multipart("/api/v1/competitions").file(data).file(scannerJpg)
+        mvc.perform(multipart("/api/v1/competitions").file(data).file(scannerJpg).file(scannerGalleryJpg)
                         .header("Authorization", bearer(memberToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.hasCertificate").value(true))
-                .andExpect(jsonPath("$.data.certificateOriginalName").value("扫描证书.JPG"));
+                .andExpect(jsonPath("$.data.certificateOriginalName").value("扫描证书.JPG"))
+                .andExpect(jsonPath("$.data.images.length()").value(1));
 
         MockMultipartFile disguisedText = new MockMultipartFile(
                 "certificate", "不是证书.txt", "image/jpeg", "plain text".getBytes(StandardCharsets.UTF_8));

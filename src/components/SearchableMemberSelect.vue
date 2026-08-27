@@ -121,11 +121,12 @@ function updateValidity() {
   <div :class="['searchable-member-select', { open, disabled }]">
     <label :for="id">{{ label }}</label>
     <div class="member-combobox">
-      <Search :size="17" aria-hidden="true" />
+      <Search class="member-combobox-search" :size="17" aria-hidden="true" />
       <input
         :id="id"
         ref="input"
         v-model="query"
+        class="member-combobox-input"
         type="search"
         role="combobox"
         autocomplete="off"
@@ -143,7 +144,7 @@ function updateValidity() {
         @invalid="beginSearch"
       />
       <button v-if="selectedOption && !disabled" type="button" :aria-label="`清除${label}`" @mousedown.prevent="clearSelection"><X :size="16" aria-hidden="true" /></button>
-      <ChevronDown v-else :size="17" aria-hidden="true" />
+      <ChevronDown v-else class="member-combobox-chevron" :size="17" aria-hidden="true" />
       <ul v-if="open" :id="`${id}-listbox`" class="member-combobox-options" role="listbox" :aria-label="`${label}待选人物`">
         <li
           v-for="(item, index) in filteredOptions"

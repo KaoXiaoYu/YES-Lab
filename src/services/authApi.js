@@ -146,6 +146,7 @@ export function replaceProjectCover(projectId, cover) {
 }
 
 export function listCompetitions() { return apiRequest('/api/v1/competitions') }
+export function getOwnCompetitionCountdown() { return apiRequest('/api/v1/competitions/countdown') }
 export function getCompetition(id) { return apiRequest(`/api/v1/competitions/${id}`) }
 export function listCompetitionMemberOptions() { return apiRequest('/api/v1/competitions/member-options') }
 export function listCompetitionProjectOptions() { return apiRequest('/api/v1/competitions/project-options') }
@@ -164,6 +165,9 @@ export function replaceCompetitionCertificate(id, certificate) {
 export function replaceCompetitionImages(id, images, descriptions = []) {
   const form = new FormData(); images.forEach((image) => form.append('images', image)); descriptions.forEach((item) => form.append('descriptions', item))
   return formRequest(`/api/v1/competitions/${id}/images`, { method: 'PUT', body: form })
+}
+export function deleteCompetitionImage(competitionId, imageId) {
+  return apiRequest(`/api/v1/competitions/${competitionId}/images/${imageId}`, { method: 'DELETE' })
 }
 export function reviewCompetition(id, payload) { return apiRequest(`/api/v1/admin/achievements/competitions/${id}/review`, { method: 'PATCH', body: payload }) }
 export function updateCompetitionDisplay(id, payload) { return apiRequest(`/api/v1/admin/achievements/competitions/${id}/display`, { method: 'PATCH', body: payload }) }

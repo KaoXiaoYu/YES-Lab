@@ -19,6 +19,7 @@ public class PublicAchievementController {
     private final AchievementService service;
     public PublicAchievementController(AchievementService service) { this.service = service; }
     @GetMapping("/competitions") public ApiResponse<List<AchievementModels.PublicCompetitionView>> competitions() { return ApiResponse.ok(service.publicCompetitions()); }
+    @GetMapping("/competitions/countdown") public ApiResponse<AchievementModels.CompetitionCountdownView> countdown() { return ApiResponse.ok(service.publicUpcomingCompetition()); }
     @GetMapping("/competitions/{id}") public ApiResponse<AchievementModels.PublicCompetitionView> competition(@PathVariable UUID id) { return ApiResponse.ok(service.publicCompetition(id)); }
     @GetMapping("/competitions/{id}/certificate") public ResponseEntity<Resource> certificate(@PathVariable UUID id) { return CompetitionController.file(service.publicCertificate(id)); }
     @GetMapping("/competitions/{competitionId}/images/{imageId}") public ResponseEntity<Resource> image(@PathVariable UUID competitionId, @PathVariable UUID imageId) { return CompetitionController.file(service.publicImage(competitionId, imageId)); }

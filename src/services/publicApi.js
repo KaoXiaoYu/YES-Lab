@@ -22,6 +22,10 @@ export async function fetchPublicCompetition(id) {
   return normalizeCompetition(item)
 }
 
+export async function fetchPublicCompetitionCountdown() {
+  return fetchPublicData('/api/v1/public/competitions/countdown')
+}
+
 export async function fetchPublicMemberProfile(profileId) {
   try {
     return await fetchPublicData(`/api/v1/public/member-profiles/${encodeURIComponent(profileId)}`)

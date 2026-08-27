@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -32,6 +33,7 @@ public class CompetitionController {
     public CompetitionController(AchievementService service) { this.service = service; }
 
     @GetMapping public ApiResponse<List<AchievementModels.CompetitionView>> list(Authentication authentication) { return ApiResponse.ok(service.listCompetitions(authentication)); }
+    @GetMapping("/countdown") public ApiResponse<AchievementModels.CompetitionCountdownView> countdown(Authentication authentication) { return ApiResponse.ok(service.ownUpcomingCompetition(authentication)); }
     @GetMapping("/member-options") public ApiResponse<List<AchievementModels.MemberOption>> memberOptions() { return ApiResponse.ok(service.memberOptions()); }
     @GetMapping("/project-options") public ApiResponse<List<AchievementModels.ProjectOption>> projectOptions(Authentication authentication) { return ApiResponse.ok(service.projectOptions(authentication)); }
     @GetMapping("/{id}") public ApiResponse<AchievementModels.CompetitionView> get(Authentication authentication, @PathVariable UUID id) { return ApiResponse.ok(service.getCompetition(authentication, id)); }
@@ -71,6 +73,12 @@ public class CompetitionController {
     @GetMapping("/{competitionId}/images/{imageId}")
     public ResponseEntity<Resource> image(Authentication authentication, @PathVariable UUID competitionId, @PathVariable UUID imageId) {
         return file(service.internalImage(authentication, competitionId, imageId));
+    }
+
+    @DeleteMapping("/{competitionId}/images/{imageId}")
+    public ApiResponse<AchievementModels.CompetitionView> deleteImage(Authentication authentication,
+            @PathVariable UUID competitionId, @PathVariable UUID imageId) {
+        return ApiResponse.ok(service.deleteImage(authentication, competitionId, imageId));
     }
 
     static ResponseEntity<Resource> file(AchievementService.FileDownload file) {

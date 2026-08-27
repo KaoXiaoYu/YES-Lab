@@ -41,16 +41,16 @@ public class AchievementFileStorageService {
     }
 
     public StoredFile storeCertificate(MultipartFile file) { return store(file, certificateDirectory, CERTIFICATE_TYPES, CERTIFICATE_LIMIT, "证书", true); }
-    public StoredFile storeImage(MultipartFile file) { return store(file, imageDirectory, IMAGE_TYPES, IMAGE_LIMIT, "比赛图片", false); }
+    public StoredFile storeImage(MultipartFile file) { return store(file, imageDirectory, IMAGE_TYPES, IMAGE_LIMIT, "比赛图片", true); }
     public Resource certificate(String storedName) { return resource(certificateDirectory, storedName); }
     public Resource image(String storedName) { return resource(imageDirectory, storedName); }
     public void deleteCertificate(String storedName) { delete(certificateDirectory, storedName); }
     public void deleteImage(String storedName) { delete(imageDirectory, storedName); }
 
-    private StoredFile store(MultipartFile file, Path directory, Set<String> allowedTypes, long limit, String label, boolean certificateJpegFallback) {
+    private StoredFile store(MultipartFile file, Path directory, Set<String> allowedTypes, long limit, String label, boolean jpegFallback) {
         if (file == null || file.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "请上传" + label);
         if (file.getSize() > limit) throw new ApiException(HttpStatus.BAD_REQUEST, label + "文件过大");
-        String contentType = detectContentType(file, label, certificateJpegFallback);
+        String contentType = detectContentType(file, label, jpegFallback);
         if (!allowedTypes.contains(contentType)) throw new ApiException(HttpStatus.BAD_REQUEST, label + "格式不支持");
         String extension = switch (contentType) {
             case "application/pdf" -> ".pdf";
@@ -68,7 +68,7 @@ public class AchievementFileStorageService {
         return new StoredFile(storedName, original, contentType, file.getSize());
     }
 
-    private String detectContentType(MultipartFile file, String label, boolean certificateJpegFallback) {
+    private String detectContentType(MultipartFile file, String label, boolean jpegFallback) {
         try (InputStream input = file.getInputStream()) {
             byte[] header = input.readNBytes(4096);
             if (header.length >= 4 && header[0] == '%' && header[1] == 'P' && header[2] == 'D' && header[3] == 'F') {
@@ -83,9 +83,9 @@ public class AchievementFileStorageService {
             if (header.length >= 12 && new String(header, 0, 4).equals("RIFF") && new String(header, 8, 4).equals("WEBP")) {
                 return "image/webp";
             }
-            if (certificateJpegFallback && hasJpegName(file.getOriginalFilename()) && JPEG_CLIENT_TYPES.contains(normalizedClientType(file.getContentType()))) {
-                // 部分扫描仪或移动端会在 JPEG 数据前写入非标准前导字节。证书仍需管理员审核，
-                // 且响应固定为 image/jpeg，因此这里只对 .jpg/.jpeg 证书做兼容，不放宽其他上传类型。
+            if (jpegFallback && hasJpegName(file.getOriginalFilename()) && JPEG_CLIENT_TYPES.contains(normalizedClientType(file.getContentType()))) {
+                // 部分扫描仪或移动端会在 JPEG 数据前写入非标准前导字节。仅对 .jpg/.jpeg
+                // 且客户端声明为 JPEG/二进制流的文件兼容，保存与响应时固定为 image/jpeg。
                 return "image/jpeg";
             }
             throw new ApiException(HttpStatus.BAD_REQUEST, label + "文件内容与格式不匹配");

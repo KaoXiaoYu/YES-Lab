@@ -10,6 +10,7 @@
 - `GET /api/v1/public/project-teams/{id}`：读取单个公开项目；不返回项目管理员和内部权限信息。
 - `GET /api/v1/public/project-teams/{id}/cover`：读取公开项目已上传的主图；无上传时由前端使用默认图。
 - `GET /api/v1/public/competitions`：读取管理员选入首页的已认证比赛，按管理员排序值排列。
+- `GET /api/v1/public/competitions/countdown`：读取全部未结束比赛中下一个省赛/国赛场次，仅返回比赛名、赛道、阶段和日期。
 - `GET /api/v1/public/competitions/{id}`：读取任意已认证比赛的图文详情。
 - `GET /api/v1/public/competitions/{id}/certificate`：内联读取已认证比赛的证书；未认证记录返回 404。
 - `GET /api/v1/public/competitions/{competitionId}/images/{imageId}`：读取已认证比赛的公开图片。
@@ -93,16 +94,18 @@ JWT 使用 HS256 签名，API 保持无状态；生产环境必须替换 `YESLAB
 ## 竞赛成果与新闻管理
 
 - `GET /api/v1/competitions`：系统管理员读取全部记录；普通成员读取已认证记录及自己担任队长或被关联的记录。
+- `GET /api/v1/competitions/countdown`：登录成员读取自己作为队长、关联队员或指导老师参与的最近未结束场次；管理员也不会因权限看到与本人无关的倒计时。
 - `POST /api/v1/competitions`：试用/正式成员提交比赛；提交账号自动成为队长。
 - `PUT /api/v1/competitions/{id}`：队长修改未认证记录，系统管理员可修改全部记录。
 - `PUT /api/v1/competitions/{id}/certificate`：队长或管理员替换证书；已结束比赛重新进入待审核。
 - `PUT /api/v1/competitions/{id}/images`：队长或管理员替换比赛图集，最多 8 张。
+- `DELETE /api/v1/competitions/{competitionId}/images/{imageId}`：队长或管理员单独删除一张比赛图集图片，并同步清理存储文件。
 - `GET /api/v1/competitions/{id}/certificate`：只有队长和系统管理员可读取私有证书。
 - `PATCH /api/v1/admin/achievements/competitions/{id}/review`：系统管理员通过或驳回已结束比赛。
 - `PATCH /api/v1/admin/achievements/competitions/{id}/display`：系统管理员维护首页开关和手动排序。
 - `/api/v1/admin/achievements/news`：系统管理员创建、读取和修改外部新闻引用。
 
-已结束比赛必须填写获奖结果和比赛日期并上传 PDF/JPG/PNG 证书；文件类型优先按内容签名识别，并为 `.jpg/.jpeg` 扫描证书提供文件名与常见 MIME 的受限兼容。未结束比赛必须填写省赛、国赛时间和指导老师。队员与指导老师可关联成员系统账号，也可只保留展示姓名；关联项目仅允许队长选择自己参与的项目。认证通过后公开详情返回证书类型与地址，前端将图片证书作为主图、PDF 证书作为内嵌文档展示；认证前证书和图集均不可公开访问。
+已结束比赛必须填写获奖结果和比赛日期并上传 PDF/JPG/PNG 证书；文件类型优先按内容签名识别，并为 `.jpg/.jpeg` 证书与比赛图片提供文件名与常见 MIME 的受限兼容。未结束比赛必须填写省赛、国赛时间和指导老师，右下角倒计时统一以上海日期边界选择下一场省赛或国赛并计算剩余天数。队员与指导老师可关联成员系统账号，也可只保留展示姓名；关联项目仅允许队长选择自己参与的项目。认证通过后公开详情返回证书类型与地址，前端将图片证书作为主图、PDF 证书作为内嵌文档展示；认证前证书和图集均不可公开访问。
 
 ## 暂不实现
 

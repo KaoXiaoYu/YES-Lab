@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -35,9 +36,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 @Service
 public class AchievementService {
+    private static final ZoneId LAB_TIME_ZONE = ZoneId.of("Asia/Shanghai");
     private final CompetitionRepository competitions;
     private final NewsRepository news;
     private final MemberProfileRepository profiles;
@@ -157,6 +160,18 @@ public class AchievementService {
         } catch (RuntimeException error) { markers.forEach(this::deleteStoredMarker); throw error; }
     }
 
+    @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")
+    @Transactional
+    public AchievementModels.CompetitionView deleteImage(Authentication authentication, UUID competitionId, UUID imageId) {
+        Actor actor = actor(authentication); CompetitionEntity item = requireCompetition(competitionId); ensureCanEdit(item, actor);
+        CompetitionImageEntity image = requireImage(item, imageId); String storedName = image.getStoredName();
+        item.removeImage(image);
+        if (!actor.systemAdmin() && item.getLifecycle() == CompetitionLifecycle.FINISHED) item.markPending();
+        CompetitionEntity saved = competitions.save(item);
+        storage.deleteImage(storedName);
+        return toView(saved, actor);
+    }
+
     @PreAuthorize("hasAuthority('ACHIEVEMENT_MANAGE')")
     @Transactional
     public AchievementModels.CompetitionView review(Authentication authentication, UUID id, AchievementModels.ReviewRequest request) {
@@ -224,6 +239,22 @@ public class AchievementService {
     @Transactional(readOnly = true)
     public AchievementModels.PublicCompetitionView publicCompetition(UUID id) {
         CompetitionEntity item = requireCompetition(id); ensurePublic(item); return toPublicView(item);
+    }
+
+    @Transactional(readOnly = true)
+    public AchievementModels.CompetitionCountdownView publicUpcomingCompetition() {
+        return nearestUpcoming(item -> true);
+    }
+
+    @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")
+    @Transactional(readOnly = true)
+    public AchievementModels.CompetitionCountdownView ownUpcomingCompetition(Authentication authentication) {
+        Actor actor = actor(authentication);
+        UUID profileId = actor.profile().getId();
+        return nearestUpcoming(item -> item.getCaptainProfile().getId().equals(profileId)
+                || item.getAdvisorProfile() != null && item.getAdvisorProfile().getId().equals(profileId)
+                || item.getParticipants().stream().anyMatch(participant -> participant.getLinkedProfile() != null
+                && participant.getLinkedProfile().getId().equals(profileId)));
     }
 
     @PreAuthorize("hasAuthority('CONTENT_MANAGE')") @Transactional(readOnly = true)
@@ -322,6 +353,28 @@ public class AchievementService {
             result.add(new CompetitionImageEntity(stored.storedName(), stored.originalName(), stored.contentType(), stored.sizeBytes(), description, i));
         }
         return result;
+    }
+
+    private AchievementModels.CompetitionCountdownView nearestUpcoming(Predicate<CompetitionEntity> visibility) {
+        LocalDate today = LocalDate.now(LAB_TIME_ZONE);
+        return competitions.findAll().stream()
+                .filter(item -> item.getLifecycle() != CompetitionLifecycle.FINISHED)
+                .filter(visibility)
+                .map(item -> countdownCandidate(item, today))
+                .filter(candidate -> candidate != null)
+                .min(Comparator.comparing(AchievementModels.CompetitionCountdownView::date)
+                        .thenComparing(AchievementModels.CompetitionCountdownView::name))
+                .orElse(null);
+    }
+
+    private AchievementModels.CompetitionCountdownView countdownCandidate(CompetitionEntity item, LocalDate today) {
+        if (item.getProvincialDate() != null && !item.getProvincialDate().isBefore(today)) {
+            return new AchievementModels.CompetitionCountdownView(item.getId(), item.getName(), item.getTrack(), "省赛", item.getProvincialDate());
+        }
+        if (item.getNationalDate() != null && !item.getNationalDate().isBefore(today)) {
+            return new AchievementModels.CompetitionCountdownView(item.getId(), item.getName(), item.getTrack(), "国赛", item.getNationalDate());
+        }
+        return null;
     }
 
     private void deleteStoredMarker(String marker) { if (marker.startsWith("c:")) storage.deleteCertificate(marker.substring(2)); else storage.deleteImage(marker.substring(2)); }

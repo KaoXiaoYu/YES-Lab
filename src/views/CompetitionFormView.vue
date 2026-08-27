@@ -1,15 +1,15 @@
 <script setup>
 import { ArrowLeft, FileBadge, ImagePlus, Plus, Save, Trash2 } from 'lucide-vue-next'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
 import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
-import { createCompetition, getCompetition, listCompetitionMemberOptions, listCompetitionProjectOptions, replaceCompetitionCertificate, replaceCompetitionImages, updateCompetition } from '../services/authApi'
+import { createCompetition, deleteCompetitionImage, getAuthenticatedFile, getCompetition, listCompetitionMemberOptions, listCompetitionProjectOptions, replaceCompetitionCertificate, replaceCompetitionImages, updateCompetition } from '../services/authApi'
 
 const route = useRoute(); const router = useRouter(); const editing = computed(() => Boolean(route.params.competitionId))
 const members = ref([]); const projects = ref([]); const existing = ref(null); const loading = ref(true); const saving = ref(false); const errorMessage = ref('')
 const certificate = ref(null); const imageFiles = ref([]); const imageDescriptions = ref([])
-const certificateError = ref('')
+const certificateError = ref(''); const imageError = ref(''); const deletingImageId = ref(null); const existingImageUrls = ref({})
 const form = reactive({ name: '', track: '', level: 'PROVINCIAL', lifecycle: 'PLANNED', awardName: '', description: '', competitionDate: '', provincialDate: '', nationalDate: '', advisorProfileId: '', advisorName: '', projectId: '', participants: [{ displayName: '', linkedProfileId: '' }] })
 const teachers = computed(() => members.value.filter((member) => member.role === 'TEACHER'))
 const finished = computed(() => form.lifecycle === 'FINISHED')
@@ -20,7 +20,7 @@ onMounted(async () => {
     const requests = [listCompetitionMemberOptions(), listCompetitionProjectOptions()]
     if (editing.value) requests.push(getCompetition(route.params.competitionId))
     const [memberData, projectData, item] = await Promise.all(requests); members.value = memberData; projects.value = projectData
-    if (item) { existing.value = item; Object.assign(form, { name: item.name, track: item.track || '', level: item.level, lifecycle: item.lifecycle, awardName: item.awardName || '', description: item.description, competitionDate: item.competitionDate || '', provincialDate: item.provincialDate || '', nationalDate: item.nationalDate || '', advisorProfileId: item.advisor?.id || '', advisorName: item.advisorName || '', projectId: item.project?.id || '', participants: item.participants.filter((p) => !p.captain).map((p) => ({ displayName: p.displayName, linkedProfileId: p.linkedProfileId || '' })) }); if (!form.participants.length) form.participants.push({ displayName: '', linkedProfileId: '' }) }
+    if (item) { existing.value = item; Object.assign(form, { name: item.name, track: item.track || '', level: item.level, lifecycle: item.lifecycle, awardName: item.awardName || '', description: item.description, competitionDate: item.competitionDate || '', provincialDate: item.provincialDate || '', nationalDate: item.nationalDate || '', advisorProfileId: item.advisor?.id || '', advisorName: item.advisorName || '', projectId: item.project?.id || '', participants: item.participants.filter((p) => !p.captain).map((p) => ({ displayName: p.displayName, linkedProfileId: p.linkedProfileId || '' })) }); if (!form.participants.length) form.participants.push({ displayName: '', linkedProfileId: '' }); await loadExistingImages(item) }
   } catch (error) { errorMessage.value = error.message } finally { loading.value = false }
 })
 
@@ -44,7 +44,49 @@ function chooseCertificate(event) {
   }
   certificate.value = file
 }
-function chooseImages(event) { imageFiles.value = [...(event.target.files || [])].slice(0, 8); imageDescriptions.value = imageFiles.value.map((_, index) => imageDescriptions.value[index] || '') }
+function chooseImages(event) {
+  imageError.value = ''
+  const files = [...(event.target.files || [])]
+  if (files.length > 8) imageError.value = '比赛图片最多选择 8 张。'
+  const selected = files.slice(0, 8)
+  const invalid = selected.find((file) => !['jpg', 'jpeg', 'png', 'webp'].includes(file.name.split('.').pop()?.toLocaleLowerCase() || ''))
+  const oversized = selected.find((file) => file.size > 8 * 1024 * 1024)
+  if (invalid) imageError.value = `图片 ${invalid.name} 格式不支持，请使用 JPG、PNG 或 WebP。`
+  else if (oversized) imageError.value = `图片 ${oversized.name} 超过 8MB。`
+  if (imageError.value) {
+    imageFiles.value = []
+    imageDescriptions.value = []
+    event.target.value = ''
+    return
+  }
+  imageFiles.value = selected
+  imageDescriptions.value = selected.map((_, index) => imageDescriptions.value[index] || '')
+}
+
+async function loadExistingImages(item) {
+  const loaded = {}
+  await Promise.all((item.images || []).map(async (image) => {
+    try { loaded[image.id] = await getAuthenticatedFile(image.url) } catch { /* 缩略图失败不影响编辑与删除 */ }
+  }))
+  existingImageUrls.value = loaded
+}
+
+async function removeExistingImage(image) {
+  if (!window.confirm(`确定删除这张比赛图片吗？\n${image.description}`)) return
+  deletingImageId.value = image.id
+  imageError.value = ''
+  try {
+    const updated = await deleteCompetitionImage(existing.value.id, image.id)
+    const url = existingImageUrls.value[image.id]
+    if (url) URL.revokeObjectURL(url)
+    const nextUrls = { ...existingImageUrls.value }
+    delete nextUrls[image.id]
+    existingImageUrls.value = nextUrls
+    existing.value = updated
+  } catch (error) { imageError.value = error.message } finally { deletingImageId.value = null }
+}
+
+onBeforeUnmount(() => Object.values(existingImageUrls.value).forEach((url) => URL.revokeObjectURL(url)))
 function payload() { return { ...form, competitionDate: form.competitionDate || null, provincialDate: form.provincialDate || null, nationalDate: form.nationalDate || null, advisorProfileId: form.advisorProfileId || null, advisorName: form.advisorName || null, projectId: form.projectId || null, awardName: form.awardName || null, track: form.track || null, participants: form.participants.filter((row) => row.displayName.trim() || row.linkedProfileId).map((row) => ({ displayName: row.displayName || '关联成员', linkedProfileId: row.linkedProfileId || null })), imageDescriptions: imageDescriptions.value } }
 
 async function submit() {
@@ -57,6 +99,7 @@ async function submit() {
       item = await updateCompetition(existing.value.id, payload())
       if (imageFiles.value.length) item = await replaceCompetitionImages(existing.value.id, imageFiles.value, imageDescriptions.value)
     }
+    window.dispatchEvent(new Event('yeslab:competitions-changed'))
     await router.push('/competitions')
   } catch (error) { errorMessage.value = error.message } finally { saving.value = false }
 }
@@ -85,7 +128,8 @@ async function submit() {
 
       <section class="competition-form-section"><header><span>03</span><div><p>EVIDENCE & GALLERY</p><h2>证书与比赛图片</h2></div></header><div class="competition-form-grid">
         <label class="file-drop full"><FileBadge :size="24" aria-hidden="true" /><span><strong>证书文件{{ finished ? '（必填）' : '（可选）' }}</strong><small>PDF、JPG、JPEG 或 PNG，最大 10MB；管理员审核通过后可在公开详情查看。</small></span><input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" :required="finished && !existing?.hasCertificate" @change="chooseCertificate" /><b>{{ certificate?.name || existing?.certificateOriginalName || '选择文件' }}</b><small v-if="certificateError" class="file-error" role="alert">{{ certificateError }}</small></label>
-        <label class="file-drop full"><ImagePlus :size="24" aria-hidden="true" /><span><strong>比赛相关图片（可选，最多 8 张）</strong><small>JPG、PNG 或 WebP；审核通过后用于公开比赛详情页。</small></span><input type="file" accept="image/jpeg,image/png,image/webp" multiple @change="chooseImages" /><b>{{ imageFiles.length ? `已选择 ${imageFiles.length} 张` : editing && existing?.images.length ? `保留现有 ${existing.images.length} 张` : '选择图片' }}</b></label>
+        <label class="file-drop full"><ImagePlus :size="24" aria-hidden="true" /><span><strong>比赛相关图片（可选，最多 8 张）</strong><small>JPG、PNG 或 WebP，单张最大 8MB；审核通过后用于公开比赛详情页。</small></span><input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple @change="chooseImages" /><b>{{ imageFiles.length ? `已选择 ${imageFiles.length} 张` : editing && existing?.images.length ? `保留现有 ${existing.images.length} 张` : '选择图片' }}</b><small v-if="imageError" class="file-error" role="alert">{{ imageError }}</small></label>
+        <section v-if="editing && existing?.images.length" class="existing-image-gallery full" aria-labelledby="existing-gallery-title"><header><div><strong id="existing-gallery-title">现有比赛图集</strong><small>可单独删除；新选择一组图片并保存时，会替换剩余图集。</small></div><span>{{ existing.images.length }} / 8</span></header><div><article v-for="image in existing.images" :key="image.id"><div class="existing-image-preview"><img v-if="existingImageUrls[image.id]" :src="existingImageUrls[image.id]" :alt="image.description" /><ImagePlus v-else :size="24" aria-hidden="true" /></div><p>{{ image.description }}</p><button type="button" :disabled="deletingImageId === image.id" :aria-label="`删除图片：${image.description}`" @click="removeExistingImage(image)"><Trash2 :size="16" aria-hidden="true" />{{ deletingImageId === image.id ? '删除中…' : '删除' }}</button></article></div></section>
         <div v-if="imageFiles.length" class="image-caption-list full"><label v-for="(file, index) in imageFiles" :key="`${file.name}-${index}`">图片 {{ index + 1 }}：{{ file.name }}<input v-model.trim="imageDescriptions[index]" maxlength="300" placeholder="填写图片说明（可选）" /></label></div>
       </div></section>
       <footer class="competition-submit"><p>已结束比赛提交后进入管理员审核；审核通过后，仅管理员可继续修改并设置首页排序。</p><button class="portal-primary" type="submit" :disabled="saving"><Save :size="17" aria-hidden="true" />{{ saving ? '保存中…' : editing ? '保存比赛记录' : '提交比赛记录' }}</button></footer>

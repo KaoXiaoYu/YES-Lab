@@ -25,6 +25,7 @@ public final class AchievementModels {
     public record ImageView(UUID id, String url, String description, int displayOrder) {}
     public record ProjectOption(UUID id, String name, String teamName) {}
     public record CompetitionShowcaseOption(UUID id, String name, String awardName, LocalDate competitionDate) {}
+    public record CompetitionCountdownView(UUID id, String name, String track, String stage, LocalDate date) {}
 
     public record CompetitionUpsertRequest(
             @NotBlank(message = "请输入比赛名称") @Size(max = 180) String name,
