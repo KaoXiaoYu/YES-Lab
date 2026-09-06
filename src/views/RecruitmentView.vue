@@ -9,14 +9,15 @@ const stageLabels = {
   SIGNUP: '报名', SCREENING: '初筛', INTERVIEW: '面试', SKILL_TEST: '技能测试',
   PROBATION: '试用期', FORMAL_MEMBER: '正式成员', REJECTED: '未通过',
 }
-const directions = ['无人机', '空地协同', '具身智能']
+const directions = ['无人机', '机器人', '视觉', '嵌入式', '硬件', '新媒体', '算法', '深度学习']
+const legacyDirections = computed(() => form.interestDirections.filter(value => !directions.includes(value)))
 const application = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const form = reactive({
-  name: '', major: '', className: '', grade: '', contact: '',
+  name: '', major: '', className: '', grade: '', email: '', phone: '', wechat: '', selfIntroduction: '',
   interestDirections: [], existingSkills: '', experience: '', intendedTags: '',
 })
 
@@ -27,7 +28,11 @@ onMounted(async () => {
   try {
     application.value = await getOwnApplication()
     if (application.value) fillForm(application.value)
-    else if (authState.account?.role === 'VISITOR') form.contact = authState.account.username || ''
+    else if (authState.account?.role === 'VISITOR') {
+      const username = authState.account.username || ''
+      if (username.includes('@')) form.email = username
+      else if (/^\+?\d+$/.test(username)) form.phone = username
+    }
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -45,7 +50,10 @@ async function submit() {
       major: form.major.trim(),
       className: form.className.trim(),
       grade: form.grade.trim() || null,
-      contact: form.contact.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim(),
+      wechat: form.wechat.trim(),
+      selfIntroduction: form.selfIntroduction.trim() || null,
       interestDirections: form.interestDirections,
       existingSkills: splitTags(form.existingSkills),
       experience: form.experience.trim() || null,
@@ -65,7 +73,10 @@ function fillForm(value) {
   form.major = value.major
   form.className = value.className
   form.grade = value.grade || ''
-  form.contact = value.contact
+  form.email = value.email || (value.contact?.includes('@') ? value.contact : '')
+  form.phone = value.phone || (/^\+?[0-9][0-9 -]{6,24}$/.test(value.contact || '') ? value.contact : '')
+  form.wechat = value.wechat || ''
+  form.selfIntroduction = value.selfIntroduction || ''
   form.interestDirections = [...value.interestDirections]
   form.existingSkills = value.existingSkills.join('、')
   form.experience = value.experience || ''
@@ -97,11 +108,15 @@ function splitTags(value) {
           <form @submit.prevent="submit">
             <div class="application-fields">
               <label>姓名<input v-model.trim="form.name" required :disabled="!editable" autocomplete="name" /></label>
-              <label>联系方式<input v-model.trim="form.contact" required :disabled="!editable" autocomplete="username" /><small v-if="!application && form.contact" class="field-help detected">已根据注册账号自动填入，可按实际需要修改。</small></label>
-              <label>专业<input v-model.trim="form.major" required :disabled="!editable" /></label>
-              <label>班级<input v-model.trim="form.className" required :disabled="!editable" /></label>
-              <label>年级<input v-model.trim="form.grade" :disabled="!editable" placeholder="例如 2025" /></label>
-              <fieldset class="full" :disabled="!editable"><legend>兴趣方向（至少一项）</legend><label v-for="direction in directions" :key="direction" class="check-option"><input v-model="form.interestDirections" type="checkbox" :value="direction" />{{ direction }}</label></fieldset>
+              <label>邮箱<input v-model.trim="form.email" type="email" required maxlength="190" :disabled="!editable" autocomplete="email" placeholder="name@example.com" /></label>
+              <label>手机号码<input v-model.trim="form.phone" type="tel" maxlength="30" :disabled="!editable" autocomplete="tel" placeholder="例如：13800138000" /></label>
+              <label>微信号<input v-model.trim="form.wechat" maxlength="80" :disabled="!editable" placeholder="请输入微信号" /></label>
+              <p v-if="application?.contact && !application?.email && !application?.phone" class="full field-help">原联系方式：{{ application.contact }}</p>
+              <label>专业<input v-model.trim="form.major" placeholder="软件工程" required :disabled="!editable" /></label>
+              <label>班级<input v-model.trim="form.className" placeholder="24软件工程1班" required :disabled="!editable" /></label>
+              <label>年级<input v-model.trim="form.grade" :disabled="!editable" placeholder="24级" /></label>
+              <fieldset class="full" :disabled="!editable"><legend>兴趣方向（至少一项）</legend><label v-for="direction in [...directions, ...legacyDirections]" :key="direction" class="check-option"><input v-model="form.interestDirections" type="checkbox" :value="direction" />{{ direction }}</label></fieldset>
+              <label class="full">自我介绍<textarea v-model="form.selfIntroduction" :disabled="!editable" rows="5" maxlength="5000" placeholder="介绍一下自己、兴趣特长，以及希望在实验室学习和参与的内容。"></textarea></label>
               <label class="full">已有技能<input v-model="form.existingSkills" :disabled="!editable" placeholder="用逗号或顿号分隔，例如 Python、嵌入式" /></label>
               <label class="full">项目 / 竞赛经历<textarea v-model="form.experience" :disabled="!editable" rows="6" placeholder="可以说明你负责的部分、使用的技术和结果。"></textarea></label>
               <label class="full">意向标签（至少一项）<input v-model="form.intendedTags" required :disabled="!editable" placeholder="例如 无人机系统、计算机视觉" /></label>

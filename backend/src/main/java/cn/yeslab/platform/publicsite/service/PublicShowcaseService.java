@@ -45,7 +45,7 @@ public class PublicShowcaseService {
                 content.updates().stream().map(item -> new PublicShowcase.Update(item.publishedAt(), item.type(), item.title(), item.slug())).toList(),
                 content.awards().stream().map(item -> new PublicShowcase.Award(item.competition(), item.category(), item.level(), item.prize())).toList(),
                 content.sponsors().stream().map(item -> new PublicShowcase.Sponsor(
-                        item.name(), item.type(), item.description(), item.focus(), item.logoUrl(), item.websiteUrl()
+                        item.name(), item.type(), item.description(), item.focus(), item.logoUrl(), item.websiteUrl(), item.cooperationDescription()
                 )).toList(),
                 content.externalLinks().stream().map(item -> new PublicShowcase.ExternalLink(
                         item.platform(), item.label(), item.url(), item.enabled()

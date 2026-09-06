@@ -7,7 +7,7 @@ import { computed, onMounted, ref } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
 import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
 import {
-  getHomepageContent, listMembers, listProjects, updateHomepageContent,
+  getHomepageContent, listMembers, listProjects, updateHomepageContent, uploadSponsorLogo,
 } from '../services/authApi'
 
 const tabs = [
@@ -26,6 +26,9 @@ const members = ref([])
 const projects = ref([])
 const loading = ref(true)
 const saving = ref(false)
+const uploadingLogo = ref(false)
+const uploadMessage = ref('')
+const uploadError = ref('')
 const message = ref('')
 const errorMessage = ref('')
 const updatedAt = ref(null)
@@ -109,14 +112,33 @@ function addUpdate() {
 }
 
 function addSponsor() {
-  content.value.sponsors.push({ name: '范桌轩大王', type: '合作伙伴', description: '范桌轩大王', focus: ['人才培养'], logoUrl: '/yes-lab-logo.png', websiteUrl: 'https://example.com' })
+  content.value.sponsors.push({ name: '', type: '合作伙伴', description: '', cooperationDescription: '', focus: [], logoUrl: '', websiteUrl: '' })
 }
 
 function addLink() {
   content.value.externalLinks.push({ platform: 'website', label: '外部入口', url: 'https://example.com', enabled: false })
 }
 
+async function chooseSponsorLogo(item, event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+  uploadError.value = ''; uploadMessage.value = ''
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 4 * 1024 * 1024) {
+    uploadError.value = '请选择不超过 4MB 的 JPG、PNG 或 WebP 图片。'
+    return
+  }
+  uploadingLogo.value = true
+  try {
+    const uploaded = await uploadSponsorLogo(file)
+    item.logoUrl = uploaded.logoUrl
+    uploadMessage.value = '图片已上传，请保存主页内容后发布到首页。'
+  } catch (error) { uploadError.value = error.message }
+  finally { uploadingLogo.value = false }
+}
+
 async function save() {
+  if (uploadingLogo.value) return
   saving.value = true
   message.value = ''
   errorMessage.value = ''
@@ -226,9 +248,12 @@ function formatTime(value) {
         </section>
 
         <section v-show="activeTab === 'sponsors'" class="homepage-editor-section">
-          <header><p>06 / PARTNERS</p><h2>赞助伙伴</h2><span>维护企业名称、说明、Logo 地址、官网和展示顺序。</span></header>
-          <div class="homepage-section-action"><span>Logo 可使用 https 地址或以 / 开头的站内路径。</span><button type="button" @click="addSponsor"><Plus :size="16" aria-hidden="true" />添加伙伴</button></div>
-          <article v-for="(item, index) in content.sponsors" :key="index" class="homepage-sponsor-editor"><header><div><span>{{ String(index + 1).padStart(2, '0') }}</span><h3>{{ item.name || '未命名伙伴' }}</h3></div><div><button type="button" :disabled="index === 0" aria-label="上移伙伴" @click="move(content.sponsors, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === content.sponsors.length - 1" aria-label="下移伙伴" @click="move(content.sponsors, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button><button type="button" aria-label="删除伙伴" @click="remove(content.sponsors, index)"><Trash2 :size="15" aria-hidden="true" /></button></div></header><div class="homepage-field-grid"><label>企业名称<input v-model.trim="item.name" required /></label><label>合作类型<input v-model.trim="item.type" required /></label><label class="full">介绍<textarea v-model.trim="item.description" required rows="4"></textarea></label><label>Logo 地址<input v-model.trim="item.logoUrl" required /></label><label>官方网站<input v-model.trim="item.websiteUrl" type="url" required /></label><label class="full">合作方向<input :value="item.focus.join('，')" placeholder="使用逗号分隔" @input="item.focus = splitList($event.target.value)" /></label></div></article>
+          <header><p>06 / PARTNERS</p><h2>赞助伙伴</h2><span>上传企业 Logo，编辑简介、合作说明、官网和展示顺序。</span></header>
+          <div class="homepage-section-action"><span>Logo 支持 JPG、PNG、WebP，最大 4MB。</span><button type="button" :disabled="content.sponsors.length >= 20 || uploadingLogo || saving" @click="addSponsor"><Plus :size="16" aria-hidden="true" />添加伙伴</button></div>
+          <p v-if="uploadMessage" class="save-message" role="status">{{ uploadMessage }}</p>
+          <p v-if="uploadError" class="form-alert" role="alert">{{ uploadError }}</p>
+          <p v-if="uploadingLogo" role="status">图片上传中…</p>
+          <article v-for="(item, index) in content.sponsors" :key="index" class="homepage-sponsor-editor"><header><div><span>{{ String(index + 1).padStart(2, '0') }}</span><h3>{{ item.name || '未命名伙伴' }}</h3></div><div><button type="button" :disabled="index === 0" aria-label="上移伙伴" @click="move(content.sponsors, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === content.sponsors.length - 1" aria-label="下移伙伴" @click="move(content.sponsors, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button><button type="button" aria-label="删除伙伴" @click="remove(content.sponsors, index)"><Trash2 :size="15" aria-hidden="true" /></button></div></header><div class="homepage-field-grid"><label>企业名称<input v-model.trim="item.name" required /></label><label>合作类型<input v-model.trim="item.type" required /></label><label class="full">介绍<textarea v-model.trim="item.description" required rows="4"></textarea></label><div class="sponsor-upload full"><img v-if="item.logoUrl" :src="item.logoUrl" :alt="`${item.name || '赞助商'} Logo 预览`" width="180" height="120" /><label>上传 Logo<input type="file" accept="image/jpeg,image/png,image/webp" :disabled="uploadingLogo || saving" @change="chooseSponsorLogo(item, $event)" /><small>图片等比例展示；建议使用清晰、留有边距的企业 Logo。</small></label></div><label class="full">Logo 地址<input v-model.trim="item.logoUrl" required maxlength="800" /></label><label class="full">合作说明<textarea v-model.trim="item.cooperationDescription" rows="3" maxlength="2000" placeholder="例如：提供飞控设备、技术支持与实践交流机会。"></textarea></label><label>官方网站<input v-model.trim="item.websiteUrl" type="url" required /></label><label class="full">合作方向<input :value="item.focus.join('，')" placeholder="使用逗号分隔" @input="item.focus = splitList($event.target.value)" /></label></div></article>
         </section>
 
         <section v-show="activeTab === 'links'" class="homepage-editor-section">
@@ -238,7 +263,7 @@ function formatTime(value) {
           <section class="homepage-module-links"><h3>其他内容管理入口</h3><div><RouterLink to="/admin/members"><UsersRound :size="19" aria-hidden="true" /><span><strong>成员管理</strong><small>成员资料、角色与公开主页</small></span></RouterLink><RouterLink to="/projects"><FolderKanban :size="19" aria-hidden="true" /><span><strong>项目团队</strong><small>项目资料、主图与公开开关</small></span></RouterLink><RouterLink to="/admin/achievements"><Award :size="19" aria-hidden="true" /><span><strong>成果管理</strong><small>比赛首页排序与新闻内容</small></span></RouterLink></div></section>
         </section>
 
-        <footer class="homepage-save-bar"><div><strong>保存整份主页配置</strong><span>所有分区会作为一个版本同时更新。</span></div><a href="/" target="_blank" rel="noopener noreferrer">预览公开首页 <ExternalLink :size="16" aria-hidden="true" /></a><button class="portal-primary" type="submit" :disabled="saving"><Save :size="17" aria-hidden="true" />{{ saving ? '保存中…' : '保存主页内容' }}</button></footer>
+        <footer class="homepage-save-bar"><div><strong>保存整份主页配置</strong><span>所有分区会作为一个版本同时更新。</span></div><a href="/" target="_blank" rel="noopener noreferrer">预览公开首页 <ExternalLink :size="16" aria-hidden="true" /></a><button class="portal-primary" type="submit" :disabled="saving || uploadingLogo"><Save :size="17" aria-hidden="true" />{{ saving ? '保存中…' : '保存主页内容' }}</button></footer>
       </main>
     </form>
   </PortalShell>

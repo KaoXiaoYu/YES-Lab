@@ -36,6 +36,7 @@ management:
 
 yeslab:
   storage:
+    sponsors-directory: ${YESLAB_SPONSORS_DIRECTORY:./data/sponsors}
     achievements-directory: ${YESLAB_ACHIEVEMENTS_DIRECTORY:./data/achievements}
     projects-directory: ${YESLAB_PROJECTS_DIRECTORY:./data/projects}
     members-directory: ${YESLAB_MEMBERS_DIRECTORY:./data/members}

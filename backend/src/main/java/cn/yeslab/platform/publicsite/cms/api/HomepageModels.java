@@ -123,8 +123,12 @@ public final class HomepageModels {
             @NotBlank @Size(max = 2000) String description,
             @NotNull @Size(max = 12) List<@NotBlank @Size(max = 100) String> focus,
             @NotBlank @Size(max = 800) String logoUrl,
-            @NotBlank @Size(max = 800) String websiteUrl
+            @NotBlank @Size(max = 800) String websiteUrl,
+            @Size(max = 2000) String cooperationDescription
     ) {
+        public SponsorItem(String name, String type, String description, List<String> focus, String logoUrl, String websiteUrl) {
+            this(name, type, description, focus, logoUrl, websiteUrl, null);
+        }
     }
 
     public record ExternalLinkItem(

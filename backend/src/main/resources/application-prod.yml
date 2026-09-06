@@ -20,6 +20,7 @@ spring:
 
 yeslab:
   storage:
+    sponsors-directory: ${YESLAB_SPONSORS_DIRECTORY:/var/lib/yeslab/uploads/sponsors}
     achievements-directory: ${YESLAB_ACHIEVEMENTS_DIRECTORY:/var/lib/yeslab/uploads/achievements}
     projects-directory: ${YESLAB_PROJECTS_DIRECTORY:/var/lib/yeslab/uploads/projects}
     members-directory: ${YESLAB_MEMBERS_DIRECTORY:/var/lib/yeslab/uploads/members}

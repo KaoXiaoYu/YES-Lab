@@ -311,3 +311,9 @@ export class ApiError extends Error {
     this.status = status
   }
 }
+
+export function uploadSponsorLogo(logo) {
+  const form = new FormData()
+  form.append('logo', logo)
+  return formRequest('/api/v1/admin/homepage/sponsors/logo', { method: 'POST', body: form })
+}

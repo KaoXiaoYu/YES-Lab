@@ -12,6 +12,7 @@ spring:
 
 yeslab:
   storage:
+    sponsors-directory: ./target/test-sponsors
     achievements-directory: ./target/test-achievements
     projects-directory: ./target/test-projects
     members-directory: ./target/test-members

@@ -98,8 +98,12 @@ public final class PublicShowcase {
             String description,
             List<String> focus,
             String logoUrl,
-            String websiteUrl
+            String websiteUrl,
+            String cooperationDescription
     ) {
+        public Sponsor(String name, String type, String description, List<String> focus, String logoUrl, String websiteUrl) {
+            this(name, type, description, focus, logoUrl, websiteUrl, null);
+        }
     }
 
     public record ExternalLink(String platform, String label, String url, boolean enabled) {

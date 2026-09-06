@@ -1,4 +1,5 @@
 <script setup>
+import ThemeToggle from '../components/ThemeToggle.vue'
 import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from 'lucide-vue-next'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -16,12 +17,6 @@ const form = reactive({ username: '', password: '', confirmPassword: '', remembe
 const isRegister = computed(() => mode.value === 'register')
 const normalizedUsername = computed(() => normalizeUsername(form.username))
 const accountType = computed(() => identifyAccountType(form.username))
-const usernameHelp = computed(() => {
-  if (!isRegister.value) return '游客使用注册邮箱或手机号；实验室成员也可使用内部账号。'
-  if (accountType.value === 'email') return '已识别为邮箱，注册后会自动填入报名联系方式。'
-  if (accountType.value === 'phone') return '已识别为手机号码，注册后会自动填入报名联系方式。'
-  return '请输入常用邮箱或手机号码；它将作为登录账号和报名联系方式。'
-})
 
 watch(() => route.path, (path) => {
   mode.value = path === '/register' ? 'register' : 'login'
@@ -33,6 +28,10 @@ async function submit() {
   errorMessage.value = ''
   fieldErrors.value = {}
   if (isRegister.value && !validateUsername()) return
+  if (isRegister.value && (form.password.length < 6 || form.password.length > 18)) {
+    fieldErrors.value = { password: '密码长度需为 6—18 位' }
+    return
+  }
   if (isRegister.value && form.password !== form.confirmPassword) {
     fieldErrors.value = { confirmPassword: '两次输入的密码不一致' }
     return
@@ -63,17 +62,16 @@ function normalizeUsername(value) {
 function identifyAccountType(value) {
   const normalized = normalizeUsername(value)
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) && normalized.length <= 190) return 'email'
-  if (/^\+?[1-9]\d{6,14}$/.test(normalized)) return 'phone'
   return null
 }
 
 function validateUsername() {
   if (!form.username.trim()) {
-    fieldErrors.value = { ...fieldErrors.value, username: '请输入邮箱或手机号码' }
+    fieldErrors.value = { ...fieldErrors.value, username: '请输入邮箱' }
     return false
   }
   if (!accountType.value) {
-    fieldErrors.value = { ...fieldErrors.value, username: '请输入有效的邮箱或手机号码' }
+    fieldErrors.value = { ...fieldErrors.value, username: '请输入有效的邮箱' }
     return false
   }
   const { username, ...remainingErrors } = fieldErrors.value
@@ -83,7 +81,7 @@ function validateUsername() {
 </script>
 
 <template>
-  <main class="auth-page">
+  <main class="auth-page"><ThemeToggle class="auth-theme" />
     <section class="auth-story">
       <RouterLink class="auth-back" to="/"><ArrowLeft :size="17" aria-hidden="true" />返回公开首页</RouterLink>
       <div>
@@ -100,25 +98,25 @@ function validateUsername() {
     <section class="auth-panel" aria-labelledby="auth-title">
       <div class="auth-tabs" role="tablist" aria-label="账号入口">
         <RouterLink to="/login" :aria-selected="!isRegister" role="tab">登录</RouterLink>
-        <RouterLink to="/register" :aria-selected="isRegister" role="tab">游客注册</RouterLink>
+        <RouterLink to="/register" :aria-selected="isRegister" role="tab">新用户注册</RouterLink>
       </div>
 
       <header>
-        <p>{{ isRegister ? 'VISITOR REGISTRATION' : 'MEMBER SIGN IN' }}</p>
+        <p>{{ isRegister ? 'NEW USER REGISTRATION' : 'MEMBER SIGN IN' }}</p>
         <h2 id="auth-title">{{ isRegister ? '创建报名账号' : '欢迎回来' }}</h2>
-        <span>{{ isRegister ? '注册后仅能填写报名表并查看审核进度。' : '使用实验室账号进入你的工作面板。' }}</span>
+        <span v-if="!isRegister">使用实验室账号进入你的工作面板。</span>
       </header>
 
       <form novalidate @submit.prevent="submit">
         <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
-        <label for="username">{{ isRegister ? '邮箱或手机号码' : '账号' }}</label>
-        <div class="input-shell" :class="{ invalid: fieldErrors.username }"><UserRound :size="18" aria-hidden="true" /><input id="username" v-model="form.username" name="username" autocomplete="username" required maxlength="190" :placeholder="isRegister ? 'name@example.com 或 13800138000' : '邮箱、手机号或实验室账号'" :aria-invalid="Boolean(fieldErrors.username)" :aria-describedby="fieldErrors.username ? 'username-help username-error' : 'username-help'" @blur="isRegister && validateUsername()" /></div>
-        <small id="username-help" class="field-help" :class="{ detected: isRegister && accountType }">{{ usernameHelp }}</small>
+        <label for="username">{{ isRegister ? '邮箱' : '账号' }}</label>
+        <div class="input-shell" :class="{ invalid: fieldErrors.username }"><UserRound :size="18" aria-hidden="true" /><input id="username" v-model="form.username" :type="isRegister ? 'email' : 'text'" name="username" autocomplete="username" required maxlength="190" :placeholder="isRegister ? 'name@example.com' : '邮箱、手机号或实验室账号'" :aria-invalid="Boolean(fieldErrors.username)" :aria-describedby="fieldErrors.username ? 'username-error' : undefined" @blur="isRegister && validateUsername()" /></div>
         <small v-if="fieldErrors.username" id="username-error" class="field-error">{{ fieldErrors.username }}</small>
 
         <label for="password">密码</label>
-        <div class="input-shell" :class="{ invalid: fieldErrors.password }"><LockKeyhole :size="18" aria-hidden="true" /><input id="password" v-model="form.password" name="password" :type="showPassword ? 'text' : 'password'" :autocomplete="isRegister ? 'new-password' : 'current-password'" required :placeholder="isRegister ? '至少 10 位，可粘贴或使用密码管理器' : '输入密码'" /><button type="button" :aria-label="showPassword ? '隐藏密码' : '显示密码'" @click="showPassword = !showPassword"><EyeOff v-if="showPassword" :size="18" aria-hidden="true" /><Eye v-else :size="18" aria-hidden="true" /></button></div>
-        <small v-if="fieldErrors.password" class="field-error">{{ fieldErrors.password }}</small>
+        <div class="input-shell" :class="{ invalid: fieldErrors.password }"><LockKeyhole :size="18" aria-hidden="true" /><input id="password" v-model="form.password" :minlength="isRegister ? 6 : undefined" :maxlength="isRegister ? 18 : undefined" :aria-invalid="Boolean(fieldErrors.password)" :aria-describedby="[isRegister ? 'password-help' : null, fieldErrors.password ? 'password-error' : null].filter(Boolean).join(' ') || undefined" name="password" :type="showPassword ? 'text' : 'password'" :autocomplete="isRegister ? 'new-password' : 'current-password'" required placeholder="输入密码" /><button type="button" :aria-label="showPassword ? '隐藏密码' : '显示密码'" @click="showPassword = !showPassword"><EyeOff v-if="showPassword" :size="18" aria-hidden="true" /><Eye v-else :size="18" aria-hidden="true" /></button></div>
+        <small v-if="isRegister" id="password-help" class="field-help">密码长度为 6—18 位。</small>
+        <small v-if="fieldErrors.password" id="password-error" class="field-error">{{ fieldErrors.password }}</small>
 
         <template v-if="isRegister">
           <label for="confirm-password">确认密码</label>
@@ -134,7 +132,7 @@ function validateUsername() {
         <button class="auth-submit" type="submit" :disabled="submitting"><span>{{ submitting ? '正在提交…' : (isRegister ? '注册并填写报名表' : '登录成员系统') }}</span><ArrowRight :size="19" aria-hidden="true" /></button>
       </form>
 
-      <p class="auth-note">教师、核心学生和正式成员账号由实验室统一维护；公开注册账号默认身份为游客。</p>
+      <p v-if="!isRegister" class="auth-note">教师、核心学生和正式成员账号由实验室统一维护；公开注册账号默认身份为游客。</p>
     </section>
   </main>
 </template>

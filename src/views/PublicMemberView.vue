@@ -1,4 +1,5 @@
 <script setup>
+import ThemeToggle from '../components/ThemeToggle.vue'
 import { ArrowLeft, Menu, X } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -42,9 +43,9 @@ onMounted(async () => {
         </RouterLink>
         <span v-else class="auth-entry"><RouterLink to="/login">登录</RouterLink><i>/</i><RouterLink to="/register">注册</RouterLink></span>
       </nav>
-      <button class="menu-button" :aria-expanded="menuOpen" :aria-label="menuOpen ? '关闭菜单' : '打开菜单'" @click="menuOpen = !menuOpen">
+      <div class="header-actions"><ThemeToggle /><button class="menu-button" :aria-expanded="menuOpen" :aria-label="menuOpen ? '关闭菜单' : '打开菜单'" @click="menuOpen = !menuOpen">
         <X v-if="menuOpen" :size="22" aria-hidden="true" /><Menu v-else :size="22" aria-hidden="true" />
-      </button>
+      </button></div>
     </header>
 
     <section id="member-profile" class="public-member-main">

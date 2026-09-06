@@ -13,6 +13,11 @@ import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
+import java.util.Base64;
+import org.springframework.mock.web.MockMultipartFile;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -97,6 +102,41 @@ class HomepageContentApiTests {
                 .andExpect(jsonPath("$.data.profile.displayName").value("管理员可维护的首页"))
                 .andExpect(jsonPath("$.data.profile.researchDirections[1]").value("具身智能"))
                 .andExpect(jsonPath("$.data.homepageContent.profile.heroTitle").value("内容管理测试"));
+    }
+
+    @Test
+    void sponsorLogoUploadIsAdminOnlyAndSavedDetailsArePublic() throws Exception {
+        String teacher = login("teacher", "YesLab-Teacher-2026!");
+        String member = login("member", "YesLab-Member-2026!");
+        byte[] png = Base64.getDecoder().decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aK1sAAAAASUVORK5CYII=");
+        var logo = new MockMultipartFile("logo", "sponsor.png", "image/png", png);
+        mvc.perform(multipart("/api/v1/admin/homepage/sponsors/logo").file(logo))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(multipart("/api/v1/admin/homepage/sponsors/logo").file(logo).header("Authorization", bearer(member)))
+                .andExpect(status().isForbidden());
+        mvc.perform(multipart("/api/v1/admin/homepage/sponsors/logo")
+                        .file(new MockMultipartFile("logo", "fake.png", "image/png", "not an image".getBytes()))
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isBadRequest());
+        mvc.perform(multipart("/api/v1/admin/homepage/sponsors/logo")
+                        .file(new MockMultipartFile("logo", "large.png", "image/png", new byte[4 * 1024 * 1024 + 1]))
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isBadRequest());
+        String response = mvc.perform(multipart("/api/v1/admin/homepage/sponsors/logo").file(logo).header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String url = JsonPath.read(response, "$.data.logoUrl");
+        mvc.perform(get(url)).andExpect(status().isOk()).andExpect(content().contentType("image/png"))
+                .andExpect(content().bytes(png)).andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("immutable")));
+        var defaults = HomepageModels.defaultContent();
+        var edited = new HomepageModels.HomepageContent(defaults.profile(), defaults.sections(), defaults.proofItems(),
+                defaults.updates(), defaults.awards(), List.of(new HomepageModels.SponsorItem("测试伙伴", "企业支持", "企业简介",
+                List.of("无人机"), url, "https://example.com", "提供设备与技术交流")), defaults.externalLinks(),
+                defaults.advisorProfileId(), defaults.featuredMemberProfileIds(), defaults.featuredProjectIds());
+        mvc.perform(put("/api/v1/admin/homepage").header("Authorization", bearer(teacher)).contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(edited))).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/public/home")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sponsors[0].logoUrl").value(url))
+                .andExpect(jsonPath("$.data.sponsors[0].cooperationDescription").value("提供设备与技术交流"));
     }
 
     private String login(String username, String password) throws Exception {

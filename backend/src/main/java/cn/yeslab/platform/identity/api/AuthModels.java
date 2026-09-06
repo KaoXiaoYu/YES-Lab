@@ -22,15 +22,15 @@ public final class AuthModels {
     }
 
     public record RegisterRequest(
-            @NotBlank(message = "请输入邮箱或手机号码")
-            @Size(max = 190, message = "邮箱或手机号码不能超过 190 位")
+            @NotBlank(message = "请输入邮箱")
+            @Size(max = 190, message = "邮箱不能超过 190 位")
             @Pattern(
-                    regexp = "(?i)^(?:[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+|\\+?[1-9](?:[ -]?\\d){6,14})$",
-                    message = "请输入有效的邮箱或手机号码"
+                    regexp = "(?i)^(?:[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+)$",
+                    message = "请输入有效的邮箱"
             )
             String username,
             @NotBlank(message = "请输入密码")
-            @Size(min = 10, max = 72, message = "密码长度需为 10—72 位")
+            @Size(min = 6, max = 18, message = "密码长度需为 6—18 位")
             String password
     ) {
     }

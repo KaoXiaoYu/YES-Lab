@@ -1,4 +1,5 @@
 <script setup>
+import ThemeToggle from '../components/ThemeToggle.vue'
 import {
   ArrowDownRight, ArrowRight, ArrowUpRight, BookOpen, ExternalLink,
   Github, Menu, Users, X,
@@ -295,9 +296,9 @@ onBeforeUnmount(() => {
         <span v-else class="auth-entry"><RouterLink to="/login">登录</RouterLink><i>/</i><RouterLink to="/register">注册</RouterLink></span>
       </nav>
 
-      <button class="menu-button" :aria-expanded="menuOpen" :aria-label="menuOpen ? '关闭菜单' : '打开菜单'" @click="menuOpen = !menuOpen">
+      <div class="header-actions"><ThemeToggle /><button class="menu-button" :aria-expanded="menuOpen" :aria-label="menuOpen ? '关闭菜单' : '打开菜单'" @click="menuOpen = !menuOpen">
         <X v-if="menuOpen" :size="22" aria-hidden="true" /><Menu v-else :size="22" aria-hidden="true" />
-      </button>
+      </button></div>
     </header>
 
     <section id="top" class="hero" tabindex="-1">
@@ -416,7 +417,7 @@ onBeforeUnmount(() => {
         <article v-for="(sponsor, index) in sponsors" :key="sponsor.name" class="sponsor-card" data-reveal>
           <div class="sponsor-index">PARTNER / {{ String(index + 1).padStart(2, '0') }}</div>
           <a class="sponsor-logo" :href="sponsor.websiteUrl" target="_blank" rel="noreferrer" :aria-label="`访问 ${sponsor.name} 官网`"><img :src="sponsor.logoUrl" :alt="`${sponsor.name} 官方 Logo`" width="512" height="512" loading="lazy" /></a>
-          <div class="sponsor-copy"><p>{{ sponsor.type }}</p><h3>{{ sponsor.name }}</h3><span>{{ sponsor.description }}</span><ul><li v-for="item in sponsor.focus" :key="item">{{ item }}</li></ul><a :href="sponsor.websiteUrl" target="_blank" rel="noreferrer">访问官方网站 <ExternalLink :size="18" aria-hidden="true" /></a></div>
+          <div class="sponsor-copy"><p>{{ sponsor.type }}</p><h3>{{ sponsor.name }}</h3><span>{{ sponsor.description }}</span><div v-if="sponsor.cooperationDescription" class="sponsor-cooperation"><h4>合作支持</h4><span>{{ sponsor.cooperationDescription }}</span></div><ul><li v-for="item in sponsor.focus" :key="item">{{ item }}</li></ul><a :href="sponsor.websiteUrl" target="_blank" rel="noreferrer">访问官方网站 <ExternalLink :size="18" aria-hidden="true" /></a></div>
         </article>
       </div>
     </section>

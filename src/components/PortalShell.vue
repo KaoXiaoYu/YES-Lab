@@ -1,4 +1,5 @@
 <script setup>
+import ThemeToggle from './ThemeToggle.vue'
 import { ClipboardList, FolderKanban, Home, LayoutTemplate, LogOut, Medal, Newspaper, ShieldCheck, UserRound, UsersRound } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
@@ -44,7 +45,7 @@ async function signOut() {
         <RouterLink v-if="authState.account?.systemAdmin" to="/admin/achievements"><Newspaper :size="17" aria-hidden="true" />成果管理</RouterLink>
         <RouterLink v-if="authState.account?.systemAdmin" to="/admin/homepage"><LayoutTemplate :size="17" aria-hidden="true" />主页编辑</RouterLink>
       </nav>
-      <div class="portal-account">
+      <div class="portal-account"><ThemeToggle />
         <RouterLink v-if="authState.account?.role !== 'VISITOR'" class="portal-account-avatar" to="/profile" aria-label="打开个人主页">
           <img v-if="authState.account?.avatarUrl" :src="authState.account.avatarUrl" alt="" />
           <b v-else>{{ accountName.slice(0, 1) }}</b>

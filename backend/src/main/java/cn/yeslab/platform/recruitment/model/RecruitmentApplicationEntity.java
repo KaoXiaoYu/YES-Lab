@@ -48,6 +48,16 @@ public class RecruitmentApplicationEntity {
     @Column(nullable = false, length = 200)
     private String contact;
 
+    @Column(length = 190)
+    private String email;
+    @Column(length = 30)
+    private String phone;
+    @Column(length = 80)
+    private String wechat;
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String selfIntroduction;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "recruitment_interest_directions", joinColumns = @JoinColumn(name = "application_id"))
     @Column(name = "direction", nullable = false, length = 80)
@@ -127,6 +137,17 @@ public class RecruitmentApplicationEntity {
     public String getClassName() { return className; }
     public String getGrade() { return grade; }
     public String getContact() { return contact; }
+    public String getEmail() { return email; }
+    public String getPhone() { return phone; }
+    public String getWechat() { return wechat; }
+    public String getSelfIntroduction() { return selfIntroduction; }
+    public void updateContactDetails(String email, String phone, String wechat, String introduction) {
+        this.email = email;
+        this.phone = phone;
+        this.wechat = wechat;
+        this.selfIntroduction = introduction;
+        this.updatedAt = Instant.now();
+    }
     public List<String> getInterestDirections() { return List.copyOf(interestDirections); }
     public List<String> getExistingSkills() { return List.copyOf(existingSkills); }
     public String getExperience() { return experience; }

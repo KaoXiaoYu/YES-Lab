@@ -2,6 +2,8 @@ package cn.yeslab.platform.recruitment.api;
 
 import cn.yeslab.platform.recruitment.model.RecruitmentStage;
 import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -22,7 +24,11 @@ public final class RecruitmentModels {
             @NotBlank(message = "请输入专业") @Size(max = 100) String major,
             @NotBlank(message = "请输入班级") @Size(max = 100) String className,
             @Size(max = 30) String grade,
-            @NotBlank(message = "请输入联系方式") @Size(max = 200) String contact,
+            @Size(max = 200) String contact,
+            @NotBlank(message = "请输入邮箱") @Email(message = "请输入有效的邮箱") @Size(max = 190) String email,
+            @Size(max = 30) @Pattern(regexp = "^$|\\+?[1-9][0-9 -]{6,24}", message = "请输入有效的手机号码") String phone,
+            @Size(max = 80) String wechat,
+            @Size(max = 5000, message = "自我介绍不能超过 5000 个字符") String selfIntroduction,
             @NotEmpty(message = "请至少选择一个兴趣方向") List<@NotBlank @Size(max = 80) String> interestDirections,
             @NotNull List<@NotBlank @Size(max = 100) String> existingSkills,
             @Size(max = 5000, message = "项目或竞赛经历不能超过 5000 个字符") String experience,
@@ -80,6 +86,7 @@ public final class RecruitmentModels {
             String className,
             String grade,
             String contact,
+            String email, String phone, String wechat, String selfIntroduction,
             List<String> interestDirections,
             List<String> existingSkills,
             String experience,

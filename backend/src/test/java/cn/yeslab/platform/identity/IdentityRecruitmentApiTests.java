@@ -3,6 +3,7 @@ package cn.yeslab.platform.identity;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -61,12 +62,16 @@ class IdentityRecruitmentApiTests {
                         .content("""
                                 {
                                   "name":"新成员大王","major":"计算机科学","className":"计科 2501","grade":"2025",
-                                  "contact":"new@yes-lab.internal","interestDirections":["无人机"],
+                                  "email":"new@yes-lab.internal","phone":"13800138000","wechat":"yeslab-new","selfIntroduction":"喜欢机器人与视觉研究。","interestDirections":["无人机"],
                                   "existingSkills":["Python"],"experience":"参加过校级机器人项目", "intendedTags":["无人机系统"]
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.stage").value("SIGNUP"))
+                .andExpect(jsonPath("$.data.email").value("new@yes-lab.internal"))
+                .andExpect(jsonPath("$.data.phone").value("13800138000"))
+                .andExpect(jsonPath("$.data.wechat").value("yeslab-new"))
+                .andExpect(jsonPath("$.data.selfIntroduction").value("喜欢机器人与视觉研究。"))
                 .andExpect(jsonPath("$.data.history.length()").value(1))
                 .andReturn().getResponse().getContentAsString();
         String applicationId = JsonPath.read(applicationResponse, "$.data.id");
@@ -74,7 +79,9 @@ class IdentityRecruitmentApiTests {
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
         mvc.perform(get("/api/v1/admin/recruitment/applications").header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[*].applicantUsername", hasItem("visitorflow@example.com")));
+                .andExpect(jsonPath("$.data[*].applicantUsername", hasItem("visitorflow@example.com")))
+                .andExpect(jsonPath("$.data[*].phone", hasItem("13800138000")))
+                .andExpect(jsonPath("$.data[*].selfIntroduction", hasItem("喜欢机器人与视觉研究。")));
 
         changeStage(applicationId, teacherToken, "SCREENING");
         mvc.perform(put("/api/v1/admin/recruitment/applications/{id}/interview", applicationId)
@@ -109,30 +116,27 @@ class IdentityRecruitmentApiTests {
     }
 
     @Test
-    void visitorRegistrationAcceptsOnlyEmailOrMobileAndNormalizesMobile() throws Exception {
-        mvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"username":"plain-visitor-name","password":"Visitor-Flow-2026!"}
-                                """))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.fields.username").value("请输入有效的邮箱或手机号码"));
-
-        mvc.perform(post("/api/v1/auth/register")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"username":"+86 138-0013-8000","password":"Visitor-Phone-2026!"}
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.account.username").value("+8613800138000"));
-
-        mvc.perform(post("/api/v1/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"username":"+86 138 0013 8000","password":"Visitor-Phone-2026!"}
-                                """))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.account.username").value("+8613800138000"));
+    void registrationRequiresEmailAndPasswordBetweenSixAndEighteenCharacters() throws Exception {
+        for (String username : List.of("plain-visitor-name", "+86 138-0013-8000", "broken@example")) {
+            mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"username\":\"" + username + "\",\"password\":\"Valid123\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fields.username").value("请输入有效的邮箱"));
+        }
+        for (String password : List.of("12345", "1234567890123456789")) {
+            mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"username\":\"bad-length@example.com\",\"password\":\"" + password + "\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fields.password").value("密码长度需为 6—18 位"));
+        }
+        for (String password : List.of("123456", "123456789012345678")) {
+            String email = "length-" + password.length() + "@example.com";
+            mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"username\":\"" + email.toUpperCase() + "\",\"password\":\"" + password + "\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.account.username").value(email));
+            login(email, password);
+        }
     }
 
     @Test

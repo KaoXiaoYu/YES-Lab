@@ -73,7 +73,7 @@ public class RecruitmentService {
         if (application == null) {
             application = applications.save(new RecruitmentApplicationEntity(
                     account, request.name().trim(), request.major().trim(), request.className().trim(), normalize(request.grade()),
-                    request.contact().trim(), cleanList(request.interestDirections()), cleanList(request.existingSkills()),
+                    request.email().trim().toLowerCase(java.util.Locale.ROOT), cleanList(request.interestDirections()), cleanList(request.existingSkills()),
                     normalize(request.experience()), cleanList(request.intendedTags())
             ));
             histories.save(new RecruitmentStatusHistoryEntity(
@@ -82,12 +82,14 @@ public class RecruitmentService {
         } else {
             application.updateApplication(
                     request.name().trim(), request.major().trim(), request.className().trim(), normalize(request.grade()),
-                    request.contact().trim(), cleanList(request.interestDirections()), cleanList(request.existingSkills()),
+                    request.email().trim().toLowerCase(java.util.Locale.ROOT), cleanList(request.interestDirections()), cleanList(request.existingSkills()),
                     normalize(request.experience()), cleanList(request.intendedTags())
             );
             application = applications.save(application);
         }
-        return toView(application);
+        application.updateContactDetails(request.email().trim().toLowerCase(java.util.Locale.ROOT),
+                normalize(request.phone()), normalize(request.wechat()), normalize(request.selfIntroduction()));
+        return toView(applications.save(application));
     }
 
     @PreAuthorize("hasAuthority('RECRUITMENT_MANAGE')")
@@ -227,7 +229,8 @@ public class RecruitmentService {
         return new RecruitmentModels.ApplicationView(
                 application.getId(), application.getApplicant().getId(), application.getApplicant().getUsername(),
                 application.getName(), application.getMajor(), application.getClassName(), application.getGrade(),
-                application.getContact(), application.getInterestDirections(), application.getExistingSkills(),
+                application.getContact(), application.getEmail(), application.getPhone(), application.getWechat(),
+                application.getSelfIntroduction(), application.getInterestDirections(), application.getExistingSkills(),
                 application.getExperience(), application.getIntendedTags(), application.getStage(), interview,
                 application.getLinkedQuizId(), application.getConvertedMemberId(), application.getCreatedAt(),
                 application.getUpdatedAt(), history
