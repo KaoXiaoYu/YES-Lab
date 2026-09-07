@@ -185,9 +185,12 @@ COMPOSE=(docker compose --env-file "$ENV_FILE")
 
 if ! "${COMPOSE[@]}" pull; then
   cat >&2 <<'EOF'
-无法拉取 GHCR 镜像。请先确认 GitHub Actions 已成功发布两个镜像，并将
-yes-lab-api 与 yes-lab-web 软件包设为 Public；若保持 Private，请先使用
-具有 read:packages 权限的 GitHub classic PAT 执行 docker login ghcr.io。
+无法拉取私有 GHCR 镜像。请在执行本脚本的同一个 Linux 用户下，使用
+GitHub 用户名 KaoXiaoYu 和具有 read:packages 权限的 classic PAT 执行
+docker login ghcr.io，然后原样重跑本脚本。
+
+不要删除 /opt/yes-lab 或 deploy/.env.production；本次停止不会删除数据库
+或上传文件。完整步骤见 docs/production-deployment.md 的首次安装章节。
 EOF
   exit 1
 fi

@@ -50,7 +50,90 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 
 Git 只同步代码和数据库迁移脚本，不同步账号、报名、成员、项目、比赛、主页配置和上传文件等业务数据。`backend/data/` 已加入 `.gitignore`，因此服务器执行 `git pull` 不会覆盖当前 H2 数据库和上传文件；但不应删除、重建或用新目录覆盖该持久化目录。
 
-正式部署已配置 MySQL 8.4 + Flyway、仓库外持久目录、升级前备份、Caddy HTTPS、GitHub Actions 镜像构建和 Docker Compose。Ubuntu 24.04 服务器可在 SSH 中运行 `sudo ./deploy/scripts/bootstrap-ubuntu.sh --domain 你的域名` 完成首次安装；完整安装、发布、备份和回滚方法见 [正式部署手册](docs/production-deployment.md)。
+正式部署已配置 MySQL 8.4 + Flyway、仓库外持久目录、升级前备份、Caddy HTTPS、GitHub Actions 镜像构建和 Docker Compose。当前 Git 仓库与 GHCR 镜像均按私有资源部署：新服务器必须先把本机 Deploy Key 公钥绑定到仓库并克隆代码，再用具有 `read:packages` 权限的 GitHub classic PAT 登录 GHCR，最后在仓库目录运行引导脚本。不要在克隆失败后直接运行相对路径脚本，也不要为了重试删除已经生成的 `.env.production`。完整命令、报错对照、发布、备份和回滚方法见 [正式部署手册](docs/production-deployment.md)。
+
+## 从旧服务器迁移正式数据
+
+新服务器已经部署完成时，推荐迁移 MySQL 逻辑备份和完整上传目录，不要直接复制正在运行的 MySQL 数据目录。账号、报名、成员、项目、比赛和主页配置位于数据库中；头像、证书、比赛图片、项目封面和赞助商 Logo 位于上传目录中，两部分都要迁移。
+
+先在新服务器创建接收目录：
+
+```bash
+install -d -m 0750 /srv/yeslab/migration
+```
+
+在旧服务器停止外部写入并生成最终备份。MySQL 必须保持运行，不能在执行备份脚本前停止：
+
+```bash
+cd /opt/yes-lab
+docker compose --env-file deploy/.env.production stop web api
+./deploy/scripts/backup.sh
+ls -lah /srv/yeslab/backups
+```
+
+记下最新的 UTC 时间目录，例如 `20260907T120000Z`，然后仍在旧服务器执行：
+
+```bash
+scp -r /srv/yeslab/backups/20260907T120000Z \
+  root@新服务器IP:/srv/yeslab/migration/
+```
+
+接下来所有命令都在新服务器执行。先校验备份并停止新站：
+
+```bash
+cd /srv/yeslab/migration/20260907T120000Z
+sed -E 's#  .*/#  #' SHA256SUMS | sha256sum -c -
+
+cd /opt/yes-lab
+docker compose --env-file deploy/.env.production stop web api
+./deploy/scripts/backup.sh
+```
+
+这条校验命令同时兼容旧版备份脚本写入的绝对路径和新版脚本写入的相对路径。正常结果应显示 `uploads.tar.gz: OK` 和 `yeslab.sql: OK`。
+
+这一步先为新服务器当前状态留一份可恢复备份。随后恢复上传目录。以下路径使用默认的 `YESLAB_DATA_ROOT=/srv/yeslab/data`；如果生产配置使用其他路径，请同步替换：
+
+```bash
+if [ -d /srv/yeslab/data/uploads ]; then
+  mv /srv/yeslab/data/uploads \
+    /srv/yeslab/data/uploads.before-migration-$(date -u +%Y%m%dT%H%M%SZ)
+fi
+if [ -f /srv/yeslab/migration/20260907T120000Z/uploads.tar.gz ]; then
+  tar -C /srv/yeslab/data -xzf \
+    /srv/yeslab/migration/20260907T120000Z/uploads.tar.gz
+else
+  install -d -m 0750 /srv/yeslab/data/uploads
+fi
+chown -R 10001:10001 /srv/yeslab/data/uploads
+```
+
+下面的命令会删除新服务器当前的 `yeslab` 数据库，再导入旧服务器数据。执行前必须确认当前 SSH 会话连接的是新服务器，而且新库中没有需要保留的数据：
+
+```bash
+cd /opt/yes-lab
+docker compose --env-file deploy/.env.production exec -T mysql sh -c \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --user=root -e "DROP DATABASE IF EXISTS yeslab; CREATE DATABASE yeslab CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"'
+
+docker compose --env-file deploy/.env.production exec -T mysql sh -c \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --user=root yeslab' \
+  < /srv/yeslab/migration/20260907T120000Z/yeslab.sql
+```
+
+恢复时继续使用新服务器现有的 `deploy/.env.production`。不要在 MySQL 已经初始化后用旧服务器的整份环境文件覆盖它，否则环境文件中的旧数据库密码可能与新服务器 MySQL 已创建的账号不一致。业务账号和密码哈希已经包含在 `yeslab.sql` 中；如果未迁移旧 JWT 密钥，用户可能需要重新登录。
+
+最后启动服务并验证：
+
+```bash
+cd /opt/yes-lab
+docker compose --env-file deploy/.env.production up -d --wait --wait-timeout 240 mysql api
+docker compose --env-file deploy/.env.production logs --tail 120 api
+docker compose --env-file deploy/.env.production exec -T api \
+  curl --fail http://127.0.0.1:8080/actuator/health
+docker compose --env-file deploy/.env.production up -d web
+docker compose --env-file deploy/.env.production ps
+```
+
+检查登录、成员头像、竞赛成果图片、赞助商图片和后台上传后，再把域名 A/AAAA 记录切换到新服务器。旧服务器的 Web/API 应继续保持停止，避免两个数据库同时接收写入。完整检查、可选 JWT 配置迁移和回滚边界见 [正式部署手册](docs/production-deployment.md#从旧服务器迁移正式数据)。
 
 ## 本地演示账号
 

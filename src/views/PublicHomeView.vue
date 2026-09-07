@@ -1,5 +1,6 @@
 <script setup>
 import ThemeToggle from '../components/ThemeToggle.vue'
+import ResearchVisual from '../components/ResearchVisual.vue'
 import {
   ArrowDownRight, ArrowRight, ArrowUpRight, BookOpen, ExternalLink,
   Github, Menu, Users, X,
@@ -14,8 +15,10 @@ const activeProjectFilter = ref('全部')
 const selectedProject = ref(null)
 const modalClose = ref(null)
 const homepageReady = ref(false)
+const homeElement = ref(null)
 let revealObserver
 let rankingsRefreshTimer
+let homeUnmounted = false
 const publicHomeSnapshotKey = 'yeslab_public_home_snapshot_v1'
 const publicHomeSnapshotMaxAge = 7 * 24 * 60 * 60 * 1000
 
@@ -245,8 +248,10 @@ watch(selectedProject, async (project) => {
   }
 })
 
-onMounted(async () => {
-  document.addEventListener('keydown', handleKeydown)
+function initializeReveals() {
+  if (revealObserver || !homeElement.value || !homepageReady.value) return
+  if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  homeElement.value.classList.add('reveal-ready')
   revealObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       if (!entry.isIntersecting) return
@@ -254,13 +259,22 @@ onMounted(async () => {
       revealObserver.unobserve(entry.target)
     })
   }, { threshold: 0.12 })
-  document.querySelectorAll('[data-reveal]').forEach((element) => revealObserver.observe(element))
+  homeElement.value.querySelectorAll('[data-reveal]').forEach((element) => revealObserver.observe(element))
+}
 
+onMounted(async () => {
+  document.addEventListener('keydown', handleKeydown)
+  initializeReveals()
   await syncPublicHome()
+  if (homeUnmounted) return
+  await nextTick()
+  if (homeUnmounted) return
+  initializeReveals()
   rankingsRefreshTimer = window.setInterval(syncPublicHome, 30_000)
 })
 
 onBeforeUnmount(() => {
+  homeUnmounted = true
   document.removeEventListener('keydown', handleKeydown)
   document.body.classList.remove('modal-open')
   revealObserver?.disconnect()
@@ -269,7 +283,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main :class="['site-shell', { 'awaiting-home': !homepageReady }]">
+  <main ref="homeElement" :class="['site-shell', { 'awaiting-home': !homepageReady }]">
     <div v-if="!homepageReady" class="home-bootstrap-state" role="status" aria-live="polite">
       <img src="/yes-lab-logo.png" alt="" width="900" height="506" />
       <p>正在同步 YES Lab 最新公开内容…</p>
@@ -313,11 +327,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="hero-identity">
-          <span class="identity-index">Y / E / S</span>
-          <img src="/yes-lab-logo.png" alt="YES Lab，Y 为蓝色、E 为黄色、S 为红色" width="900" height="506" />
-          <p>{{ profile.fullName?.toUpperCase() || 'YICHUN EMBODIED SCIENCE' }}</p>
-        </div>
+        <ResearchVisual v-if="homepageReady" :full-name="profile.fullName" />
       </div>
 
       <div class="hero-directory" data-reveal>

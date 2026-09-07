@@ -49,6 +49,13 @@ if [[ -d "$DATA_ROOT/uploads" ]]; then
   tar -C "$DATA_ROOT" -czf "$DESTINATION/uploads.tar.gz" uploads
 fi
 
-sha256sum "$DESTINATION"/* > "$DESTINATION/SHA256SUMS"
+backup_files=(yeslab.sql)
+if [[ -f "$DESTINATION/uploads.tar.gz" ]]; then
+  backup_files+=(uploads.tar.gz)
+fi
+(
+  cd "$DESTINATION"
+  sha256sum "${backup_files[@]}" > SHA256SUMS
+)
 find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -mtime "+$RETENTION_DAYS" -print -exec rm -rf -- {} +
 echo "备份完成：$DESTINATION"
