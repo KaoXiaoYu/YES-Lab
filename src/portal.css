@@ -277,6 +277,45 @@
 .check-option { display: inline-flex !important; align-items: center !important; flex-direction: row !important; gap: 8px !important; min-height: 38px; margin-right: 18px; font-size: 11px !important; font-weight: 500 !important; }
 .check-option input { width: 18px !important; min-height: 18px !important; margin: 0; }
 .application-card .portal-primary { margin-top: 24px; }
+.form-section-title { display: flex; align-items: center; gap: 12px; margin: 24px 0 2px; padding: 18px 0 10px; border-top: 1px solid var(--color-border); color: var(--color-primary); font-size: 18px; }
+.form-section-title span { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 50%; color: var(--color-card); background: var(--color-primary); font-size: 10px; }
+.form-section-title small { margin-left: auto; color: var(--color-muted-foreground); font-size: 10px; font-weight: 500; }
+.portfolio-uploader, .media-links-editor, .technical-question-list { display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid var(--color-border); border-radius: 10px; }
+.portfolio-uploader > header, .media-links-editor > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.portfolio-uploader header > div, .media-links-editor header > div { display: flex; flex-direction: column; gap: 5px; }
+.portfolio-uploader strong, .media-links-editor strong { display: flex; align-items: center; gap: 7px; color: var(--color-text-strong); font-size: 12px; }
+.portfolio-uploader small, .media-links-editor small, .portfolio-uploader > p, .media-links-editor > p { margin: 0; color: var(--color-muted-foreground); font-size: 10px; }
+.portfolio-uploader header label, .media-links-editor header button { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-primary); background: var(--color-card); font-size: 11px; font-weight: 700; cursor: pointer; }
+.portfolio-uploader header input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.portfolio-preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.portfolio-preview-grid figure { position: relative; margin: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-muted); }
+.portfolio-preview-grid img, .portfolio-preview-grid .authenticated-image-fallback { display: grid; place-items: center; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; color: var(--color-muted-foreground); font-size: 10px; }
+.portfolio-preview-grid figcaption { overflow: hidden; padding: 8px 9px; color: var(--color-text-secondary); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.portfolio-preview-grid figure > button { position: absolute; top: 7px; right: 7px; display: grid; place-items: center; width: 31px; height: 31px; border: 0; border-radius: 50%; color: #fff; background: rgba(15,23,42,.72); cursor: pointer; }
+.media-link-row { display: grid; grid-template-columns: 120px 150px minmax(0,1fr) 38px; gap: 8px; }
+.application-fields .media-link-row input { min-height: 42px; }
+.media-link-row > button { display: grid; place-items: center; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-danger); background: var(--color-card); }
+.technical-question-list { padding: 0; border: 0; }
+.technical-question-list > label { display: flex; flex-direction: column; gap: 10px; padding: 18px; border: 1px solid var(--color-border); border-radius: 10px; }
+.technical-question-list > label > span { display: flex; align-items: baseline; gap: 10px; color: var(--color-text-strong); font-size: 13px; line-height: 1.65; }
+.technical-question-list > label b { color: var(--color-accent); font-size: 9px; letter-spacing: .12em; }
+.answer-progress { display: flex; justify-content: space-between; padding: 13px 16px; border-radius: 8px; color: var(--color-warning); background: var(--color-warning-surface); font-size: 11px; }
+.answer-progress.complete { color: var(--color-success); background: var(--color-success-surface); }
+.admin-showcase-review { margin-top: 22px; padding: 24px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-card); }
+.admin-showcase-review > header { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 18px; }
+.admin-showcase-review > header p { margin: 0; color: var(--color-accent); font-size: 9px; font-weight: 800; letter-spacing: .14em; }
+.admin-showcase-review > header h3 { margin: 0; color: var(--color-primary); font-size: 22px; }
+.admin-showcase-review > header span { margin-left: auto; color: var(--color-muted-foreground); font-size: 10px; }
+.admin-portfolio-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }
+.admin-portfolio-grid figure { margin: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: 8px; }
+.admin-portfolio-grid img, .admin-portfolio-grid .authenticated-image-fallback { display: grid; place-items: center; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.admin-portfolio-grid figcaption { overflow: hidden; padding: 8px; color: var(--color-muted-foreground); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-media-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.admin-media-links a { display: flex; flex-direction: column; gap: 4px; min-width: 130px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-primary); text-decoration: none; }
+.admin-media-links span { color: var(--color-muted-foreground); font-size: 9px; }
+.admin-technical-answer { padding: 15px 0; border-top: 1px solid var(--color-border-faint); }
+.admin-technical-answer strong { color: var(--color-text-strong); font-size: 12px; }
+.admin-technical-answer p { margin: 8px 0 0; color: var(--color-text-secondary); font-size: 11px; line-height: 1.75; white-space: pre-wrap; }
 .application-history { padding: 28px; }
 .application-history h2 { font-size: 34px; }
 .application-history ol, .admin-history ol { margin: 24px 0 0; padding: 0; list-style: none; }
@@ -336,8 +375,10 @@
 .portal-project-card > p { margin: 34px 0 8px; color: var(--color-accent); font-size: 9px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
 .portal-project-card h2 { margin: 0; color: var(--color-primary); font-size: clamp(28px, 3vw, 38px); line-height: 1.15; }
 .portal-project-card-description { display: -webkit-box; margin: 14px 0 18px; overflow: hidden; color: var(--color-text-secondary); font-size: 12px; line-height: 1.75; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.portal-project-card > .project-cover-image { width: 100%; aspect-ratio: 16 / 10; margin: 22px 0 0; border: 1px solid var(--color-border-soft); object-fit: cover; background: #0f2340; }
-.portal-project-card > .project-cover-image.is-default { padding: 13%; object-fit: contain; }
+.portal-project-card-cover { position: relative; width: 100%; aspect-ratio: 16 / 10; margin: 22px 0 0; overflow: hidden; border: 1px solid var(--color-border-soft); border-radius: 12px; background: #0f2340; }
+.portal-project-card-cover > .project-cover-image { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform 420ms ease; }
+.portal-project-card-cover > .project-cover-image.is-default { padding: 13%; object-fit: contain; }
+.portal-project-card-cover > span { position: absolute; right: 10px; bottom: 10px; padding: 5px 7px; border-radius: 5px; color: #fff; background: rgba(12, 27, 48, .76); font-size: 8px; font-weight: 800; letter-spacing: .12em; backdrop-filter: blur(6px); }
 .portal-project-tag-list { display: flex; flex-wrap: wrap; gap: 7px; margin: 0; padding: 0; list-style: none; }
 .portal-project-tag-list li { padding: 6px 9px; border: 1px solid var(--color-border-soft); border-radius: 999px; color: var(--color-muted-foreground); background: var(--color-background); font-size: 9px; }
 .portal-project-card dl { display: grid; grid-template-columns: repeat(3, 1fr); margin: auto 0 0; padding-top: 24px; border-top: 1px solid var(--color-border-faint); }
@@ -553,6 +594,7 @@
   .portal-primary:hover, .detail-actions button:not(.danger):hover { background: #152d4b; }
   .applicant-list > button:hover, .member-admin-rows > button:hover { background: var(--color-background); }
   .portal-project-card:hover { border-color: #93a9c2; box-shadow: 0 14px 36px rgba(15,23,42,.1); transform: translateY(-2px); }
+  .portal-project-card:hover .portal-project-card-cover > .project-cover-image { transform: scale(1.035); }
   .project-workspace-actions button:hover { background: rgba(255,255,255,.17); }
   .project-links a:hover { border-color: #93a9c2; background: var(--color-background); }
   .homepage-editor-nav > button:hover, .homepage-array-block > header button:hover, .homepage-section-action button:hover, .homepage-selection-card > header a:hover, .homepage-section-action a:hover, .homepage-module-links a:hover { border-color: #93a9c2; color: var(--color-primary); background: var(--color-surface-soft); }
@@ -582,4 +624,15 @@
 
 @media (prefers-reduced-motion: reduce) {
   .portal-page *, .auth-page * { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+
+@media (max-width: 760px) {
+  .form-section-title { align-items: flex-start; flex-wrap: wrap; }
+  .form-section-title small { width: 100%; margin-left: 41px; }
+  .portfolio-uploader > header, .media-links-editor > header { align-items: flex-start; flex-direction: column; }
+  .portfolio-preview-grid { grid-template-columns: repeat(2, 1fr); }
+  .media-link-row { grid-template-columns: minmax(0, 1fr) 42px; }
+  .media-link-row input { grid-column: 1; }
+  .media-link-row > button { grid-column: 2; grid-row: 1 / 4; }
+  .answer-progress { flex-direction: column; gap: 5px; }
 }

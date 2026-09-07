@@ -162,6 +162,46 @@ const researchDirections = computed(() => {
   if (configured?.length) return configured
   return (profile.value.researchDirections || []).map((name) => ({ name, url: '' }))
 })
+const liveProofItems = computed(() => {
+  const configured = homepageContent.value.proofItems || []
+  const labelAt = (index, fallback) => configured[index]?.label || fallback
+  const awardLevels = [...new Set(competitionResults.value.map((item) => competitionLevelLabels[item.level] || item.level).filter(Boolean))]
+  const directionNames = [...new Set(researchDirections.value.map((item) => item.name).filter(Boolean))]
+  const partnerTypes = [...new Set(sponsors.value.map((item) => item.type).filter(Boolean))]
+  const projectStatuses = [...new Set(projects.value.map((item) => item.status).filter(Boolean))]
+  const isBuilding = projects.value.some((item) => ['研究中', '重点方向', '方向建设', '进行中', 'ACTIVE', 'PLANNING'].includes(item.status))
+
+  return [
+    {
+      label: labelAt(0, '01 / AWARDS'),
+      value: `${competitionResults.value.length} 项奖项`,
+      detail: awardLevels.join(' / ') || '成果持续更新',
+      target: '#updates',
+      sectionName: '竞赛成果',
+    },
+    {
+      label: labelAt(1, '02 / FOCUS'),
+      value: `${directionNames.length} 个方向`,
+      detail: directionNames.join(' / ') || '研究方向持续更新',
+      target: '#projects',
+      sectionName: '研究项目',
+    },
+    {
+      label: labelAt(2, '03 / PARTNER'),
+      value: sponsors.value.length === 1 ? sponsors.value[0].name : `${sponsors.value.length} 家伙伴`,
+      detail: partnerTypes.join(' / ') || '合作伙伴持续更新',
+      target: '#partners',
+      sectionName: '赞助伙伴',
+    },
+    {
+      label: labelAt(3, '04 / STATUS'),
+      value: isBuilding ? '持续建设' : '筹备中',
+      detail: projectStatuses.join(' / ') || '开放、实践、成长',
+      target: '#projects',
+      sectionName: '项目状态',
+    },
+  ]
+})
 const externalIcon = (platform) => ({ github: Github, wechat: BookOpen }[platform?.toLowerCase()] || ExternalLink)
 
 const scrollTo = (id) => {
@@ -228,6 +268,10 @@ const syncPublicHome = async () => {
   homepageReady.value = true
 }
 
+const refreshVisibleHome = () => {
+  if (document.visibilityState === 'visible') syncPublicHome()
+}
+
 const cachedPublicHome = readPublicHomeSnapshot()
 if (cachedPublicHome) {
   applyCompleteHome(cachedPublicHome)
@@ -264,6 +308,8 @@ function initializeReveals() {
 
 onMounted(async () => {
   document.addEventListener('keydown', handleKeydown)
+  document.addEventListener('visibilitychange', refreshVisibleHome)
+  window.addEventListener('focus', refreshVisibleHome)
   initializeReveals()
   await syncPublicHome()
   if (homeUnmounted) return
@@ -276,6 +322,8 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   homeUnmounted = true
   document.removeEventListener('keydown', handleKeydown)
+  document.removeEventListener('visibilitychange', refreshVisibleHome)
+  window.removeEventListener('focus', refreshVisibleHome)
   document.body.classList.remove('modal-open')
   revealObserver?.disconnect()
   window.clearInterval(rankingsRefreshTimer)
@@ -321,6 +369,12 @@ onBeforeUnmount(() => {
     </header>
 
     <section id="top" class="hero" tabindex="-1">
+      <div class="hero-brand-field" aria-hidden="true">
+        <img class="hero-brand-mark mark-one" src="/yes-lab-logo.png" alt="" />
+        <img class="hero-brand-mark mark-two" src="/yes-lab-logo.png" alt="" />
+        <img class="hero-brand-mark mark-three" src="/yes-lab-logo.png" alt="" />
+        <span class="hero-brand-orbit orbit-one"></span><span class="hero-brand-orbit orbit-two"></span>
+      </div>
       <div class="hero-main" data-reveal>
         <div class="hero-intro">
           <p class="eyebrow">{{ homepageContent.profile.heroEyebrow }}</p>
@@ -342,7 +396,7 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="proof-bar" aria-label="实验室成果概览">
-      <div v-for="item in homepageContent.proofItems" :key="`${item.label}-${item.value}`"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.detail }}</small></div>
+      <a v-for="item in liveProofItems" :key="item.label" :href="item.target" :aria-label="`${item.label}：${item.value}，跳转到${item.sectionName}`" @click.prevent="scrollTo(item.target)"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.detail }}</small><ArrowDownRight :size="18" aria-hidden="true" /></a>
     </section>
 
     <section class="section projects-section">

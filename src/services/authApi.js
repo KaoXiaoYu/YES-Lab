@@ -186,8 +186,22 @@ export function getOwnApplication() {
   return apiRequest('/api/v1/recruitment/me')
 }
 
+export function getRecruitmentQuestions() {
+  return apiRequest('/api/v1/recruitment/me/questions')
+}
+
 export function saveOwnApplication(payload) {
   return apiRequest('/api/v1/recruitment/me', { method: 'PUT', body: payload })
+}
+
+export function uploadRecruitmentPortfolioImages(images) {
+  const form = new FormData()
+  images.forEach(image => form.append('images', image))
+  return formRequest('/api/v1/recruitment/me/portfolio-images', { method: 'POST', body: form })
+}
+
+export function deleteRecruitmentPortfolioImage(imageId) {
+  return apiRequest(`/api/v1/recruitment/me/portfolio-images/${imageId}`, { method: 'DELETE' })
 }
 
 export function listRecruitmentApplications() {

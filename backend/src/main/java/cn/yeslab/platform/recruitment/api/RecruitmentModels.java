@@ -32,9 +32,30 @@ public final class RecruitmentModels {
             @NotEmpty(message = "请至少选择一个兴趣方向") List<@NotBlank @Size(max = 80) String> interestDirections,
             @NotNull List<@NotBlank @Size(max = 100) String> existingSkills,
             @Size(max = 5000, message = "项目或竞赛经历不能超过 5000 个字符") String experience,
-            @NotEmpty(message = "请至少选择一个意向标签") List<@NotBlank @Size(max = 80) String> intendedTags
+            @NotEmpty(message = "请至少选择一个意向标签") List<@NotBlank @Size(max = 80) String> intendedTags,
+            @Size(max = 3000, message = "个人展示介绍不能超过 3000 个字符") String portfolioIntroduction,
+            @NotNull @Size(max = 8, message = "个人链接最多填写 8 个") List<@NotNull MediaLinkRequest> mediaLinks,
+            @NotNull @Size(min = 5, max = 5, message = "技术认知题目必须为 5 道") List<@NotBlank String> technicalQuestionIds,
+            @NotNull @Size(min = 3, max = 5, message = "请选择至少 3 道技术认知题作答") List<@NotNull TechnicalAnswerRequest> technicalAnswers
     ) {
     }
+
+    public record MediaLinkRequest(
+            @NotBlank @Size(max = 40) String platform,
+            @Size(max = 100) String account,
+            @NotBlank @Size(max = 500) String url
+    ) { }
+
+    public record TechnicalAnswerRequest(
+            @NotBlank String questionId,
+            @NotBlank(message = "技术认知回答不能为空") @Size(max = 2000) String answer
+    ) { }
+
+    public record TechnicalQuestionView(String id, String prompt) { }
+
+    public record PortfolioImageView(
+            UUID id, String originalName, String contentType, long sizeBytes, int displayOrder, String url
+    ) { }
 
     public record StageChangeRequest(
             @NotNull RecruitmentStage stage,
@@ -91,6 +112,11 @@ public final class RecruitmentModels {
             List<String> existingSkills,
             String experience,
             List<String> intendedTags,
+            String portfolioIntroduction,
+            List<MediaLinkRequest> mediaLinks,
+            List<TechnicalQuestionView> technicalQuestions,
+            List<TechnicalAnswerRequest> technicalAnswers,
+            List<PortfolioImageView> portfolioImages,
             RecruitmentStage stage,
             InterviewView interview,
             String linkedQuizId,

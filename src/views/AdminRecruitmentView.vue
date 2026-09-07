@@ -1,6 +1,7 @@
 <script setup>
 import { ArrowRight, CheckCircle2, Search, UserCheck, UserPlus, XCircle } from 'lucide-vue-next'
 import { computed, onMounted, reactive, ref } from 'vue'
+import AuthenticatedImage from '../components/AuthenticatedImage.vue'
 import PortalShell from '../components/PortalShell.vue'
 import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
 import {
@@ -131,6 +132,21 @@ function splitTags(value) {
 
         <section class="detail-grid">
           <article><p>邮箱</p><strong>{{ selected.email || '未填写' }}</strong></article><article><p>手机号码</p><strong>{{ selected.phone || '未填写' }}</strong></article><article><p>微信号</p><strong>{{ selected.wechat || '未填写' }}</strong></article><article v-if="!selected.email && !selected.phone && selected.contact"><p>原联系方式</p><strong>{{ selected.contact }}</strong></article><article class="full"><p>自我介绍</p><span class="application-introduction">{{ selected.selfIntroduction || '未填写自我介绍。' }}</span></article><article><p>INTEREST</p><div class="detail-tags"><span v-for="item in selected.interestDirections" :key="item">{{ item }}</span></div></article><article><p>EXISTING SKILLS</p><div class="detail-tags"><span v-for="item in selected.existingSkills" :key="item">{{ item }}</span><small v-if="!selected.existingSkills.length">暂无</small></div></article><article><p>INTENDED TAGS</p><div class="detail-tags"><span v-for="item in selected.intendedTags" :key="item">{{ item }}</span></div></article><article class="full"><p>PROJECT / COMPETITION EXPERIENCE</p><span>{{ selected.experience || '未填写项目或竞赛经历。' }}</span></article>
+        </section>
+
+        <section class="admin-showcase-review">
+          <header><p>PERSONAL SHOWCASE</p><h3>个人展示</h3></header>
+          <p class="application-introduction">{{ selected.portfolioIntroduction || '未填写作品介绍。' }}</p>
+          <div v-if="selected.portfolioImages?.length" class="admin-portfolio-grid">
+            <figure v-for="image in selected.portfolioImages" :key="image.id"><AuthenticatedImage :src="image.url" :alt="image.originalName" /><figcaption>{{ image.originalName }}</figcaption></figure>
+          </div>
+          <div v-if="selected.mediaLinks?.length" class="admin-media-links"><a v-for="link in selected.mediaLinks" :key="`${link.platform}-${link.url}`" :href="link.url" target="_blank" rel="noopener noreferrer"><strong>{{ link.platform }}</strong><span>{{ link.account || '打开个人主页' }}</span></a></div>
+          <div v-if="!selected.portfolioImages?.length && !selected.mediaLinks?.length" class="empty-note">未上传作品图片或个人链接。</div>
+        </section>
+
+        <section class="admin-showcase-review">
+          <header><p>TECHNICAL AWARENESS</p><h3>技术认知</h3><span>已回答 {{ selected.technicalAnswers?.length || 0 }} / 5</span></header>
+          <article v-for="question in selected.technicalQuestions" :key="question.id" class="admin-technical-answer"><strong>{{ question.prompt }}</strong><p>{{ selected.technicalAnswers?.find(answer => answer.questionId === question.id)?.answer || '该题未作答' }}</p></article>
         </section>
 
         <section v-if="['SCREENING', 'INTERVIEW'].includes(selected.stage)" class="admin-form-card">

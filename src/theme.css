@@ -63,7 +63,12 @@
   --color-accent-border: #78623d;
   --color-muted: #24354b;
 }
-.theme-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; min-width: 44px; min-height: 44px; padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-primary); background: var(--color-card); font-family: 'Noto Sans SC', sans-serif; font-size: 12px; cursor: pointer; transition: transform 160ms ease-out; }
+.theme-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; flex-shrink: 0; min-width: 44px; min-height: 44px; padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-primary); background: var(--color-card); font-family: 'Noto Sans SC', sans-serif; font-size: 12px; cursor: pointer; transition: color 220ms ease, background-color 220ms ease, transform 160ms ease-out; }
+.theme-toggle-icon { display: grid; width: 18px; height: 18px; place-items: center; }
+.theme-toggle-icon svg { grid-area: 1 / 1; }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) { z-index: 9999; }
 .theme-toggle:active { transform: scale(.97); }
 .auth-theme { position: absolute; z-index: 5; top: 16px; right: 20px; }
 .auth-panel > header { margin-bottom: 28px; }

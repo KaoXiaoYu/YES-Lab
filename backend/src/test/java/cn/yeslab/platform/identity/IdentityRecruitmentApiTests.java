@@ -56,22 +56,36 @@ class IdentityRecruitmentApiTests {
         mvc.perform(get("/api/v1/member/profile").header("Authorization", bearer(visitorToken)))
                 .andExpect(status().isForbidden());
 
+        String questionsResponse = mvc.perform(get("/api/v1/recruitment/me/questions").header("Authorization", bearer(visitorToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(5))
+                .andReturn().getResponse().getContentAsString();
+        List<String> questionIds = JsonPath.read(questionsResponse, "$.data[*].id");
+        String questionJson = questionIds.stream().map(id -> "\"" + id + "\"").collect(java.util.stream.Collectors.joining(","));
+        String answerJson = questionIds.stream().limit(3)
+                .map(id -> "{\"questionId\":\"" + id + "\",\"answer\":\"测试回答\"}")
+                .collect(java.util.stream.Collectors.joining(","));
+
         String applicationResponse = mvc.perform(put("/api/v1/recruitment/me")
                         .header("Authorization", bearer(visitorToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
+                        .content(("""
                                 {
                                   "name":"新成员大王","major":"计算机科学","className":"计科 2501","grade":"2025",
                                   "email":"new@yes-lab.internal","phone":"13800138000","wechat":"yeslab-new","selfIntroduction":"喜欢机器人与视觉研究。","interestDirections":["无人机"],
-                                  "existingSkills":["Python"],"experience":"参加过校级机器人项目", "intendedTags":["无人机系统"]
+                                  "existingSkills":["Python"],"experience":"参加过校级机器人项目", "intendedTags":["无人机系统"],
+                                  "portfolioIntroduction":"我的无人机作品","mediaLinks":[{"platform":"GitHub","account":"visitor","url":"https://github.com/example"}],
+                                  "technicalQuestionIds":[%s],"technicalAnswers":[%s]
                                 }
-                                """))
+                                """).formatted(questionJson, answerJson)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.stage").value("SIGNUP"))
                 .andExpect(jsonPath("$.data.email").value("new@yes-lab.internal"))
                 .andExpect(jsonPath("$.data.phone").value("13800138000"))
                 .andExpect(jsonPath("$.data.wechat").value("yeslab-new"))
                 .andExpect(jsonPath("$.data.selfIntroduction").value("喜欢机器人与视觉研究。"))
+                .andExpect(jsonPath("$.data.technicalQuestions.length()").value(5))
+                .andExpect(jsonPath("$.data.technicalAnswers.length()").value(3))
                 .andExpect(jsonPath("$.data.history.length()").value(1))
                 .andReturn().getResponse().getContentAsString();
         String applicationId = JsonPath.read(applicationResponse, "$.data.id");

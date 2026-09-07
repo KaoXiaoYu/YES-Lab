@@ -1,0 +1,4 @@
+Model source: google-deepmind/mujoco_menagerie, revision 8161bba264d7fa7c99ca301e91e7fb44737676ad
+Go2: Unitree Robotics BSD-3-Clause. Skydio X2: Apache-2.0.
+Modified: assembled visual meshes in standing pose, converted OBJ to GLB, PBR materials for browser rendering.
+These are visualizations, not physics simulations or endorsements.

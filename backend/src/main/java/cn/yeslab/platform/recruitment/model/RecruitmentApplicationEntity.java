@@ -77,6 +77,22 @@ public class RecruitmentApplicationEntity {
     @Column(name = "tag", nullable = false, length = 80)
     private List<String> intendedTags = new ArrayList<>();
 
+    @Lob
+    @Column(name = "portfolio_introduction", columnDefinition = "LONGTEXT")
+    private String portfolioIntroduction;
+
+    @Lob
+    @Column(name = "media_links_json", columnDefinition = "LONGTEXT")
+    private String mediaLinksJson;
+
+    @Lob
+    @Column(name = "technical_question_ids_json", columnDefinition = "LONGTEXT")
+    private String technicalQuestionIdsJson;
+
+    @Lob
+    @Column(name = "technical_answers_json", columnDefinition = "LONGTEXT")
+    private String technicalAnswersJson;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private RecruitmentStage stage = RecruitmentStage.SIGNUP;
@@ -152,6 +168,10 @@ public class RecruitmentApplicationEntity {
     public List<String> getExistingSkills() { return List.copyOf(existingSkills); }
     public String getExperience() { return experience; }
     public List<String> getIntendedTags() { return List.copyOf(intendedTags); }
+    public String getPortfolioIntroduction() { return portfolioIntroduction; }
+    public String getMediaLinksJson() { return mediaLinksJson; }
+    public String getTechnicalQuestionIdsJson() { return technicalQuestionIdsJson; }
+    public String getTechnicalAnswersJson() { return technicalAnswersJson; }
     public RecruitmentStage getStage() { return stage; }
     public UUID getInterviewerAccountId() { return interviewerAccountId; }
     public String getInterviewerName() { return interviewerName; }
@@ -184,6 +204,15 @@ public class RecruitmentApplicationEntity {
         this.existingSkills = new ArrayList<>(existingSkills);
         this.experience = experience;
         this.intendedTags = new ArrayList<>(intendedTags);
+        this.updatedAt = Instant.now();
+    }
+
+    public void updatePersonalShowcase(String portfolioIntroduction, String mediaLinksJson,
+                                       String technicalQuestionIdsJson, String technicalAnswersJson) {
+        this.portfolioIntroduction = portfolioIntroduction;
+        this.mediaLinksJson = mediaLinksJson;
+        this.technicalQuestionIdsJson = technicalQuestionIdsJson;
+        this.technicalAnswersJson = technicalAnswersJson;
         this.updatedAt = Instant.now();
     }
 

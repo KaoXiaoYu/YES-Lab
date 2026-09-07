@@ -53,7 +53,10 @@ function dateRange(project) {
           <span>{{ typeLabels[project.type] }}</span>
           <b :data-status="project.status">{{ statusLabels[project.status] }}</b>
         </header>
-        <ProjectCoverImage :cover-url="project.coverImageUrl" :alt="`${project.projectName}项目主图`" />
+        <div class="portal-project-card-cover">
+          <ProjectCoverImage :cover-url="project.coverImageUrl" :alt="`${project.projectName}项目主图`" />
+          <span>PROJECT IMAGE</span>
+        </div>
         <p>{{ project.teamName }}</p>
         <h2>{{ project.projectName }}</h2>
         <div class="portal-project-card-description">{{ project.description }}</div>
