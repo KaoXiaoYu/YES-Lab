@@ -278,6 +278,78 @@ docker compose --env-file deploy/.env.production ps
 4. 管理后台能读取报名、项目和比赛记录；
 5. 新上传一张临时图片后可以读取，确认上传目录权限正确。
 
+#### 迁移后登录返回 401
+
+如果首页和健康检查正常，但提交登录后返回 `401` 与“账号或密码错误”，先在新服务器只读检查迁移后的账号：
+
+```bash
+cd /opt/yes-lab
+docker compose --env-file deploy/.env.production exec -T mysql sh -c \
+  'MYSQL_PWD="$MYSQL_PASSWORD" mysql --table --user="$MYSQL_USER" "$MYSQL_DATABASE" -e "SELECT username, role, enabled + 0 AS enabled, CHAR_LENGTH(password_hash) AS hash_length FROM accounts ORDER BY role, username;"'
+```
+
+BCrypt 密码哈希正常长度为 60。按结果处理：
+
+- 旧账号存在、`enabled=1`、`hash_length=60`：数据库和密码哈希已经迁移；使用该账号在旧服务器上的原密码。恢复旧数据库会覆盖新服务器首次部署时创建的同名管理员记录，因此新服务器首次部署时显示的随机密码可能不再有效。
+- 账号不存在：确认导入的是旧服务器最终备份，并检查导入命令是否成功；不要在错误数据库中反复尝试密码。
+- `enabled=0`：该账号已被停用，需要由另一名教师或核心学生管理员在成员管理中启用。
+- 哈希长度不是 60：停止登录尝试，检查 SQL 备份和导入过程，不要直接把明文密码写入数据库。
+
+`POST /api/v1/auth/login` 本身允许匿名访问，因此正确到达该接口后出现上述 JSON 401 通常不是 DNS、Caddy、CORS 或 JWT 密钥导致。更换 JWT 密钥会使旧访问令牌失效，但不会改变数据库中账号密码；用户使用正确账号密码重新登录后会获得新令牌。
+
+账号状态正常时，在新服务器通过隐藏输入直接测试容器内登录接口，避免把密码写入命令历史或输出：
+
+```bash
+cd /opt/yes-lab
+read -r -p "登录账号: " AUTH_USER
+read -r -s -p "登录密码: " AUTH_PASS
+echo
+AUTH_USER="$AUTH_USER" AUTH_PASS="$AUTH_PASS" \
+python3 -c 'import json,os; print(json.dumps({"username":os.environ["AUTH_USER"],"password":os.environ["AUTH_PASS"],"rememberMe":False}))' |
+docker compose --env-file deploy/.env.production exec -T api \
+  curl -sS -o /dev/null -w 'HTTP %{http_code}\n' \
+  -H 'Content-Type: application/json' \
+  --data-binary @- http://127.0.0.1:8080/api/v1/auth/login
+unset AUTH_USER AUTH_PASS
+```
+
+- 返回 `HTTP 200`：账号密码在后端有效，清除浏览器中 `yeslab.tech` 的 Cookie/站点数据并硬刷新后重试。
+- 返回 `HTTP 401`：输入密码与当前数据库哈希不匹配。分别在旧、新服务器运行下面的只读指纹查询；两边结果相同表示密码数据确实相同，旧浏览器可能只是依靠已有刷新会话保持登录，并未重新验证当前输入的密码；结果不同则应检查是否导入了错误或过早的备份。
+
+```bash
+cd /opt/yes-lab
+docker compose --env-file deploy/.env.production exec -T mysql sh -c \
+  'MYSQL_PWD="$MYSQL_PASSWORD" mysql --batch --skip-column-names --user="$MYSQL_USER" "$MYSQL_DATABASE" -e "SELECT SHA2(GROUP_CONCAT(SHA2(CONCAT(username, password_hash), 256) ORDER BY username), 256) FROM accounts;"'
+```
+
+该命令只输出整张账号凭据表的一个校验指纹，不输出密码或单个密码哈希。如果旧密码无法确认且系统内没有其他可登录管理员，先运行 `backup.sh`，再通过应用内置的生产管理员初始化器创建一个恢复管理员；它使用 Spring Security 生成 BCrypt 哈希，不修改已有账号，也不拉取或升级镜像：
+
+```bash
+cd /opt/yes-lab
+./deploy/scripts/backup.sh
+
+RECOVERY_PASSWORD="$(openssl rand -base64 24 | tr -d '\n')"
+RECOVERY_CODE="T-RECOVERY-$(date +%s)"
+printf '恢复管理员账号：recovery-admin\n恢复管理员密码：%s\n' "$RECOVERY_PASSWORD"
+
+YESLAB_INITIAL_ADMIN_ENABLED=true \
+YESLAB_INITIAL_ADMIN_USERNAME=recovery-admin \
+YESLAB_INITIAL_ADMIN_PASSWORD="$RECOVERY_PASSWORD" \
+YESLAB_INITIAL_ADMIN_DISPLAY_NAME='迁移恢复管理员' \
+YESLAB_INITIAL_ADMIN_MEMBER_CODE="$RECOVERY_CODE" \
+docker compose --env-file deploy/.env.production \
+  up -d --force-recreate --wait --wait-timeout 240 api
+
+docker compose --env-file deploy/.env.production exec -T mysql sh -c \
+  'MYSQL_PWD="$MYSQL_PASSWORD" mysql --table --user="$MYSQL_USER" "$MYSQL_DATABASE" -e "SELECT username, role, enabled + 0 AS enabled FROM accounts WHERE username = '\''recovery-admin'\'';"'
+
+docker compose --env-file deploy/.env.production \
+  up -d --force-recreate --wait --wait-timeout 240 api
+unset RECOVERY_PASSWORD RECOVERY_CODE
+```
+
+先保存终端显示的随机密码。第一次重建 API 会创建 `recovery-admin`，查询结果应显示角色 `TEACHER` 且 `enabled=1`；第二次重建 API 会恢复环境文件中默认关闭的初始化状态，避免初始化密码继续保留在容器环境中。随后使用恢复管理员登录并检查业务数据。不要直接在 MySQL 中写入明文密码或手工拼接 BCrypt 哈希。
+
 确认后再把域名 A/AAAA 记录切到新服务器，并从公网执行：
 
 ```bash
@@ -285,6 +357,10 @@ curl --fail https://yeslab.tech/actuator/health
 ```
 
 旧服务器应至少保留数天，但 Web/API 继续保持停止。新服务器开始接收写入后，不能只把 DNS 指回旧服务器；如果必须回滚，需要先停止新服务器写入并把新服务器最新数据库和上传文件迁回，否则切换后产生的数据会丢失。
+
+更新
+cd /opt/yes-lab
+./deploy/scripts/deploy.sh
 
 ### G. 腾讯云域名指向其他厂商服务器
 

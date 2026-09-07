@@ -171,7 +171,7 @@ const scrollTo = (id) => {
 
   const headerHeight = document.querySelector('.site-header')?.getBoundingClientRect().height ?? 80
   const targetTop = target.getBoundingClientRect().top + window.scrollY - headerHeight
-  window.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
+  window.scrollTo({ top: Math.max(0, targetTop), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
 }
 
 const handleDirectionClick = (event, url) => {
@@ -295,24 +295,29 @@ onBeforeUnmount(() => {
         <span>PUBLIC SHOWCASE</span>
       </a>
 
-      <nav :class="['top-nav', { open: menuOpen }]" aria-label="主导航">
-        <button @click="scrollTo('#projects')">研究与成果</button>
-        <button @click="scrollTo('#updates')">竞赛 / 新闻</button>
-        <button @click="scrollTo('#about')">关于我们</button>
-        <button @click="scrollTo('#members')">成员</button>
-        <button @click="scrollTo('#partners')">赞助伙伴</button>
-        <span class="nav-divider" aria-hidden="true"></span>
-        <span class="future-link" aria-disabled="true">协作平台 <small>预留</small></span>
+      <div class="header-navigation">
+        <ThemeToggle />
+        <nav id="homepage-navigation" :class="['top-nav', { open: menuOpen }]" aria-label="主导航">
+          <button @click="scrollTo('#projects')">研究与成果</button>
+          <button @click="scrollTo('#updates')">竞赛 / 新闻</button>
+          <button @click="scrollTo('#about')">关于我们</button>
+          <button @click="scrollTo('#members')">成员</button>
+          <button @click="scrollTo('#partners')">赞助伙伴</button>
+          <span class="nav-divider" aria-hidden="true"></span>
+          <span class="future-link" aria-disabled="true">协作平台 <small>预留</small></span>
+        </nav>
+        <button class="menu-button" aria-controls="homepage-navigation" :aria-expanded="menuOpen" :aria-label="menuOpen ? '关闭栏目导航' : '打开栏目导航'" @click="menuOpen = !menuOpen">
+          <X v-if="menuOpen" :size="18" aria-hidden="true" /><Menu v-else :size="18" aria-hidden="true" /><span>栏目导航</span>
+        </button>
+      </div>
+
+      <div class="header-account">
         <RouterLink v-if="authState.account" class="public-account-chip" :to="accountDestination" :aria-label="`进入${accountName}的成员页面`">
           <span class="public-account-avatar"><img v-if="authState.account.avatarUrl" :src="authState.account.avatarUrl" alt="" /><b v-else>{{ accountName.slice(0, 1) }}</b></span>
           <strong>{{ accountName }}</strong>
         </RouterLink>
-        <span v-else class="auth-entry"><RouterLink to="/login">登录</RouterLink><i>/</i><RouterLink to="/register">注册</RouterLink></span>
-      </nav>
-
-      <div class="header-actions"><ThemeToggle /><button class="menu-button" :aria-expanded="menuOpen" :aria-label="menuOpen ? '关闭菜单' : '打开菜单'" @click="menuOpen = !menuOpen">
-        <X v-if="menuOpen" :size="22" aria-hidden="true" /><Menu v-else :size="22" aria-hidden="true" />
-      </button></div>
+        <div v-else class="auth-entry"><RouterLink to="/login">登录</RouterLink><RouterLink class="header-register" to="/register">注册</RouterLink></div>
+      </div>
     </header>
 
     <section id="top" class="hero" tabindex="-1">
@@ -435,8 +440,8 @@ onBeforeUnmount(() => {
     <section class="section updates-section">
       <header id="updates" class="section-header" data-reveal><div><p class="section-index">{{ homepageContent.sections.achievements.eyebrow }}</p><h2>{{ homepageContent.sections.achievements.title }}</h2></div><p>{{ homepageContent.sections.achievements.description }}</p></header>
       <div class="achievement-columns" data-reveal>
-        <section class="home-news-column"><header><span>NEWS / 时间排序</span><h3>相关新闻</h3></header><div><component :is="item.url ? 'a' : 'article'" v-for="(item, index) in newsItems" :key="item.id || item.title" :href="item.url || undefined" :target="item.url ? '_blank' : undefined" :rel="item.url ? 'noopener noreferrer' : undefined"><time>{{ item.date }}</time><small>{{ item.type }}</small><h4>{{ item.title }}</h4><p v-if="item.summary">{{ item.summary }}</p><ArrowUpRight :size="18" aria-hidden="true" /></component></div></section>
-        <section class="home-competition-column"><header><span>COMPETITIONS / 手动排序</span><h3>比赛成果</h3></header><div><component :is="item.id ? 'RouterLink' : 'article'" v-for="(item, index) in competitionResults" :key="item.id || `${item.name}-${index}`" :to="item.id ? `/competition-results/${item.id}` : undefined"><span>{{ String(index + 1).padStart(2, '0') }}</span><div><small>{{ competitionLevelLabels[item.level] || item.level }} · {{ item.competitionDate }}</small><h4>{{ item.name }}</h4><p>{{ item.track || '综合赛道' }}</p></div><strong>{{ item.awardName }}</strong><ArrowRight v-if="item.id" :size="18" aria-hidden="true" /></component></div></section>
+        <section class="home-news-column"><header><span>NEWS / 实验室动态</span><h3>相关新闻</h3></header><div><component :is="item.url ? 'a' : 'article'" v-for="(item, index) in newsItems" :key="item.id || item.title" :href="item.url || undefined" :target="item.url ? '_blank' : undefined" :rel="item.url ? 'noopener noreferrer' : undefined"><time>{{ item.date }}</time><small>{{ item.type }}</small><h4>{{ item.title }}</h4><p v-if="item.summary">{{ item.summary }}</p><ArrowUpRight :size="18" aria-hidden="true" /></component></div></section>
+        <section class="home-competition-column"><header><span>COMPETITIONS / 竞赛成果</span><h3>比赛成果</h3></header><div><component :is="item.id ? 'RouterLink' : 'article'" v-for="(item, index) in competitionResults" :key="item.id || `${item.name}-${index}`" :to="item.id ? `/competition-results/${item.id}` : undefined"><span>{{ String(index + 1).padStart(2, '0') }}</span><div><small>{{ competitionLevelLabels[item.level] || item.level }} · {{ item.competitionDate }}</small><h4>{{ item.name }}</h4><p>{{ item.track || '综合赛道' }}</p></div><strong>{{ item.awardName }}</strong><ArrowRight v-if="item.id" :size="18" aria-hidden="true" /></component></div></section>
       </div>
     </section>
 
