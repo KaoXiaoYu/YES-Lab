@@ -24,6 +24,7 @@ yeslab:
     achievements-directory: ${YESLAB_ACHIEVEMENTS_DIRECTORY:/var/lib/yeslab/uploads/achievements}
     projects-directory: ${YESLAB_PROJECTS_DIRECTORY:/var/lib/yeslab/uploads/projects}
     members-directory: ${YESLAB_MEMBERS_DIRECTORY:/var/lib/yeslab/uploads/members}
+    recruitment-directory: ${YESLAB_RECRUITMENT_DIRECTORY:/var/lib/yeslab/uploads/recruitment}
   cors:
     allowed-origins: ${YESLAB_CORS_ALLOWED_ORIGINS}
   security:

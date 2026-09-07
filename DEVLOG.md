@@ -719,3 +719,15 @@
 - 新增鉴权图片上传、读取与删除接口、文件签名校验、本地存储和 V6 数据库迁移；旧报名数据保持兼容。
 - 前端生产构建通过（1660 模块），后端完整测试通过；运行态 API 验证 5 题分配稳定、2 题提交返回 400、3 题提交成功、自媒体链接与作品图片上传成功。
 - 浏览器实际注册访客并进入报名页，确认个人展示、图片选择、自媒体链接、随机 5 题与“已回答 3 / 5”的实时进度正常；本地前后端服务继续运行，未发布线上。
+
+## 2026-09-07：桌面项目本地运行
+- 按用户要求切换到 `C:\Users\FUNSKII\Desktop\YES-Lab` 并启动项目。
+- 后端使用 Java 21 运行 `backend\mvnw.cmd -q spring-boot:run`，Tomcat 监听 `http://127.0.0.1:8080`，运行态健康检查 `/actuator/health` 返回 `UP`。
+- 前端使用 `pnpm exec vite --host 127.0.0.1` 启动 Vite，监听 `http://127.0.0.1:5173/`。
+- 验证结果：前端首页 HTTP 200，代理接口 `/api/v1/public/home` HTTP 200；项目当前保持本地运行。
+
+## 2026-09-07：修复服务器更新启动失败
+- 根据服务器日志定位到 `RecruitmentPortfolioStorageService` 初始化作品图片目录失败；容器开启 `read_only: true`，默认 `./data/recruitment` 在生产环境解析到 `/app/data/recruitment`，不可写。
+- 新增生产配置 `yeslab.storage.recruitment-directory=${YESLAB_RECRUITMENT_DIRECTORY:/var/lib/yeslab/uploads/recruitment}`，并在 `compose.yaml` 的 api 服务中注入 `YESLAB_RECRUITMENT_DIRECTORY=/var/lib/yeslab/uploads/recruitment`。
+- 修复后作品图片目录落到已有可写卷 `${YESLAB_DATA_ROOT:-/srv/yeslab/data}/uploads:/var/lib/yeslab/uploads` 下，和 sponsors/achievements/projects/members 上传目录保持一致。
+- 验证：后端 `mvnw.cmd -q test` 通过，前端 `pnpm run build` 通过；补丁、修改副本、验证记录和回滚脚本保存于 `.codex-run/server-storage-fix`。

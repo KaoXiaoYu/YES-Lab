@@ -57,6 +57,7 @@ services:
       YESLAB_ACHIEVEMENTS_DIRECTORY: /var/lib/yeslab/uploads/achievements
       YESLAB_PROJECTS_DIRECTORY: /var/lib/yeslab/uploads/projects
       YESLAB_MEMBERS_DIRECTORY: /var/lib/yeslab/uploads/members
+      YESLAB_RECRUITMENT_DIRECTORY: /var/lib/yeslab/uploads/recruitment
       JAVA_TOOL_OPTIONS: -Xms96m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:MaxDirectMemorySize=64m -Xss512k -XX:+UseSerialGC
       TZ: Asia/Shanghai
     volumes:
