@@ -238,6 +238,7 @@
 - GitHub 仓库可见性为 `PRIVATE`；Actions 运行 `32951964039` 总结论为 `success`，三个任务均为 `success`。
 - 本次仅完成远程状态核验与部署故障诊断，未连接生产服务器，也未改动生产配置或用户数据。
 - 服务器实测 `mysql:8.4` 可完整拉取，而 `yes-lab-web:latest` 与 `yes-lab-api:latest` 均返回 `denied`，进一步排除公网连接、Docker daemon 和 Docker Hub 故障，确认问题仅限私有 GHCR 认证。
+
 - 本地 GitHub CLI 在未授权 `read:packages` 时访问两个包同样返回 HTTP 403，和服务器症状一致；应新建仅含 `read:packages` 的 GitHub classic PAT，不能使用 Fine-grained token、GitHub 密码或仓库 Deploy Key 代替。
 - 服务器令牌响应头实测为 `x-oauth-scopes: repo`，确认所用 classic PAT 未授予 `read:packages`；需要新建正确的只读 Packages 令牌，成功后撤销权限过宽的旧令牌。
 - 后续拉取从 `root` 切换到 `ubuntu` 用户后出现 Docker socket `permission denied`；部署引导需要 root 权限，GHCR 登录信息也按 Linux 用户隔离，因此应在同一个 root shell 中完成 `docker login`、镜像拉取和部署，避免不同用户凭据不一致。
@@ -731,3 +732,37 @@
 - 新增生产配置 `yeslab.storage.recruitment-directory=${YESLAB_RECRUITMENT_DIRECTORY:/var/lib/yeslab/uploads/recruitment}`，并在 `compose.yaml` 的 api 服务中注入 `YESLAB_RECRUITMENT_DIRECTORY=/var/lib/yeslab/uploads/recruitment`。
 - 修复后作品图片目录落到已有可写卷 `${YESLAB_DATA_ROOT:-/srv/yeslab/data}/uploads:/var/lib/yeslab/uploads` 下，和 sponsors/achievements/projects/members 上传目录保持一致。
 - 验证：后端 `mvnw.cmd -q test` 通过，前端 `pnpm run build` 通过；补丁、修改副本、验证记录和回滚脚本保存于 `.codex-run/server-storage-fix`。
+
+## 2026-09-09：面试预约、站内消息与讨论板
+
+### 完成内容
+
+- 招新管理新增线下面试场次：指导老师和核心成员可发布未来 14 天内的日期、具体时间、地点、人数与多名无主次面试官；发布者强制参与，场次的任一面试官都可编辑、取消、叫号、记录缺席、提交结果或提前结束。
+- 简历通过且尚未面试的报名者可按日期查看场次，在开始前 1 小时以前预约；候选列表隐藏发布者、面试官和地点，预约成功后展示地点、自己的面试号与当前叫号。每人只允许一个预约，主动取消后才能重新预约。
+- 队列每次只叫一人；缺席者移至队尾并获得新的递增号码，已使用号码不复用。场次取消或提前结束会释放所有尚未完成的预约，并由“梅琳娜”通知报名者重新预约。
+- 面试结论要求填写简评，通过后进入原有技能测验阶段，未通过进入淘汰阶段，并继续写入原有面试结果字段以兼容已有招新页面与接口；结果由“梅琳娜”发送站内信。
+- 无可预约场次时提示报名者稍后再试，并向全部指导老师和核心成员推送发布提醒；相同提醒 24 小时内去重。
+- 新增只读式站内信入口，业务消息只能由系统机器人“梅琳娜”生成，没有成员发送接口；支持单条已读、全部已读、未读数、15 秒轮询、5 秒摘要弹窗及多消息折叠。讨论点赞消息在未读期间聚合，聚合数量或更新时间变化也会再次触发弹窗。
+- 新增成员讨论板，指导老师、核心成员和正式成员可发帖、一级回复及点赞；不能给自己点赞，作者可编辑或删除自己的内容，指导老师和核心成员可执行内容治理；回复和点赞会触发站内消息。
+- 新增 V7 数据库迁移，仅创建通知、面试场次/面试官/预约、讨论帖/回复/点赞等新表，不删除、改名或修改既有表；原有接口、字段和权限声明继续保留，便于新旧应用版本按正常发布顺序切换。
+- 更新访问控制、模块边界、README 与生产发布文档，补充备份、迁移和回滚约束。
+
+### 验证结果
+
+- 前端 `npm run build` 通过，共转换 1663 个模块；仅保留既有 Three.js 分块大于 500 kB 的构建警告。
+- 后端 Java 21 编译通过；新增 `CollaborationApiTests` 与更新后的 `RolePermissionTests` 共 4 项测试全部通过，覆盖场次权限和隐私、取消后重约、队尾重排、单人叫号、面试结论、提前结束、讨论互动、消息聚合及禁止人工发送站内信。
+- 扩大回归范围共执行 26 项测试，其中 23 项通过；3 项既有 `InitialAdminBootstrapConfigTests` 因当前 macOS/JDK 环境的 Mockito/ByteBuddy 无法自附加而报错，与本次业务代码无关。默认完整测试还会在既有 AWT 文件服务测试处触发本机进程异常，已单独记录为环境限制。
+- 使用 H2 内存数据库启动后端并检查 `/actuator/health`，结果为 `UP`；验证服务随后已停止。当前工具环境没有可用浏览器，因此未完成真实浏览器视觉验收。
+- 未连接线上数据库、未执行部署、未调用托管发布能力，也未修改线上服务。`npm install` 仅为补齐本地已声明的 Three.js 依赖，锁文件机械变化已还原；未执行 `npm audit fix`，避免无关依赖升级。
+
+### 发布待办
+
+- 正式发布前在生产数据库备份或快照后验证 V7 迁移，并按“数据库迁移 → 后端 → 前端”的顺序走现有发布流程；若只回退应用版本，可保留新增空闲表，不执行破坏性回滚。
+- 在具备浏览器的预发布环境补做桌面端与移动端视觉验收，并检查站内消息轮询在实际反向代理下的表现。
+
+## 2026-09-09：确认本次服务器更新方式
+
+- 本次仍沿用 `deploy/scripts/deploy.sh`：本地提交并推送 `main`，等待 GitHub Actions 测试及 API/Web 镜像发布成功后，在服务器 `/opt/yes-lab` 执行部署脚本。
+- 正式发布建议把 `deploy/.env.production` 的 `YESLAB_IMAGE_TAG` 固定为本次提交完整 SHA，避免 `latest` 标签缓存或镜像更新时序造成版本不确定。
+- V7 由 API 启动时的 Flyway 自动执行，不手工运行 SQL；部署脚本会先备份 MySQL 和上传文件，API 健康后才更新 Web。禁止执行 `docker compose down -v`，发布失败时可回退 API/Web 镜像并保留 V7 新增表。
+- 本轮仅核对仓库脚本、Compose、GitHub Actions 与生产手册并提供操作说明，未连接服务器、未推送代码、未拉取镜像或执行线上部署。

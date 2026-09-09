@@ -27,8 +27,10 @@ class RolePermissionTests {
     @Test
     void memberAndVisitorPermissionsStaySeparated() {
         assertThat(Role.MEMBER.permissions()).contains(Permission.PROFILE_SELF_EDIT, Permission.QUIZ_PARTICIPATE, Permission.QUESTION_WRITE);
+        assertThat(Role.MEMBER.permissions()).contains(Permission.DISCUSSION_ACCESS, Permission.NOTIFICATION_VIEW);
         assertThat(Role.MEMBER.permissions()).doesNotContain(Permission.RECRUITMENT_MANAGE);
-        assertThat(Role.VISITOR.permissions()).containsExactlyInAnyOrder(Permission.RECRUITMENT_SELF_EDIT, Permission.RECRUITMENT_SELF_VIEW);
-        assertThat(Role.VISITOR.permissions()).doesNotContain(Permission.PROFILE_SELF_EDIT);
+        assertThat(Role.VISITOR.permissions()).containsExactlyInAnyOrder(
+                Permission.RECRUITMENT_SELF_EDIT, Permission.RECRUITMENT_SELF_VIEW, Permission.NOTIFICATION_VIEW);
+        assertThat(Role.VISITOR.permissions()).doesNotContain(Permission.PROFILE_SELF_EDIT, Permission.DISCUSSION_ACCESS);
     }
 }

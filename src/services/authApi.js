@@ -224,6 +224,65 @@ export function convertRecruitmentToMember(applicationId, payload) {
   return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/convert`, { method: 'POST', body: payload })
 }
 
+export function getInterviewSchedule() { return apiRequest('/api/v1/recruitment/interviews') }
+export function bookInterviewSession(sessionId) {
+  return apiRequest(`/api/v1/recruitment/interviews/sessions/${sessionId}/book`, { method: 'POST' })
+}
+export function cancelInterviewBooking() {
+  return apiRequest('/api/v1/recruitment/interviews/booking', { method: 'DELETE' })
+}
+export function listInterviewSessions() { return apiRequest('/api/v1/admin/recruitment/interview-sessions') }
+export function createInterviewSession(payload) {
+  return apiRequest('/api/v1/admin/recruitment/interview-sessions', { method: 'POST', body: payload })
+}
+export function updateInterviewSession(sessionId, payload) {
+  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}`, { method: 'PUT', body: payload })
+}
+export function cancelInterviewSession(sessionId) {
+  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}`, { method: 'DELETE' })
+}
+export function callNextInterview(sessionId) {
+  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/call-next`, { method: 'POST' })
+}
+export function startScheduledInterview(sessionId, bookingId) {
+  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/bookings/${bookingId}/start`, { method: 'POST' })
+}
+export function markInterviewNoShow(sessionId, bookingId) {
+  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/bookings/${bookingId}/no-show`, { method: 'POST' })
+}
+export function completeScheduledInterview(sessionId, bookingId, payload) {
+  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/bookings/${bookingId}/complete`, { method: 'POST', body: payload })
+}
+export function endInterviewSessionEarly(sessionId) {
+  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/end-early`, { method: 'POST' })
+}
+
+export function getNotifications() { return apiRequest('/api/v1/notifications') }
+export function markNotificationRead(notificationId) {
+  return apiRequest(`/api/v1/notifications/${notificationId}/read`, { method: 'PATCH' })
+}
+export function markAllNotificationsRead() {
+  return apiRequest('/api/v1/notifications/read-all', { method: 'PATCH' })
+}
+
+export function listDiscussions() { return apiRequest('/api/v1/discussions') }
+export function createDiscussion(payload) { return apiRequest('/api/v1/discussions', { method: 'POST', body: payload }) }
+export function updateDiscussion(postId, payload) { return apiRequest(`/api/v1/discussions/${postId}`, { method: 'PUT', body: payload }) }
+export function deleteDiscussion(postId) { return apiRequest(`/api/v1/discussions/${postId}`, { method: 'DELETE' }) }
+export function toggleDiscussionLike(postId) { return apiRequest(`/api/v1/discussions/${postId}/like`, { method: 'PATCH' }) }
+export function createDiscussionReply(postId, payload) {
+  return apiRequest(`/api/v1/discussions/${postId}/replies`, { method: 'POST', body: payload })
+}
+export function updateDiscussionReply(replyId, payload) {
+  return apiRequest(`/api/v1/discussions/replies/${replyId}`, { method: 'PUT', body: payload })
+}
+export function deleteDiscussionReply(replyId) {
+  return apiRequest(`/api/v1/discussions/replies/${replyId}`, { method: 'DELETE' })
+}
+export function toggleDiscussionReplyLike(replyId) {
+  return apiRequest(`/api/v1/discussions/replies/${replyId}/like`, { method: 'PATCH' })
+}
+
 async function apiRequest(path, options = {}) {
   const headers = { Accept: 'application/json' }
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'

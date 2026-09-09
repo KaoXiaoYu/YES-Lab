@@ -1,19 +1,19 @@
 <script setup>
-import { ArrowRight, CheckCircle2, Search, UserCheck, UserPlus, XCircle } from 'lucide-vue-next'
+import { ArrowRight, Search, UserPlus, XCircle } from 'lucide-vue-next'
 import { computed, onMounted, reactive, ref } from 'vue'
 import AuthenticatedImage from '../components/AuthenticatedImage.vue'
+import InterviewSessionManager from '../components/InterviewSessionManager.vue'
 import PortalShell from '../components/PortalShell.vue'
-import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
 import {
   changeRecruitmentStage, convertRecruitmentToMember, listInterviewers,
-  listRecruitmentApplications, saveInterview,
+  listRecruitmentApplications,
 } from '../services/authApi'
 
 const stageLabels = {
   SIGNUP: '报名', SCREENING: '初筛', INTERVIEW: '面试', SKILL_TEST: '技能测试',
   PROBATION: '试用期', FORMAL_MEMBER: '正式成员', REJECTED: '未通过',
 }
-const nextStages = { SIGNUP: 'SCREENING', INTERVIEW: 'SKILL_TEST', SKILL_TEST: 'PROBATION' }
+const nextStages = { SIGNUP: 'SCREENING', SCREENING: 'INTERVIEW', SKILL_TEST: 'PROBATION' }
 const applications = ref([])
 const interviewers = ref([])
 const selected = ref(null)
@@ -23,7 +23,6 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const query = ref('')
 const stageFilter = ref('ALL')
-const interviewForm = reactive({ interviewerUsername: '', score: '', evaluation: '', suggestedTags: '', passed: null })
 const convertForm = reactive({ memberCode: '', skillTags: '' })
 
 const filteredApplications = computed(() => applications.value.filter((application) => {
@@ -55,11 +54,6 @@ function selectApplication(application) {
   selected.value = application || null
   successMessage.value = ''
   errorMessage.value = ''
-  interviewForm.interviewerUsername = application?.interview?.interviewerName || interviewers.value[0]?.username || ''
-  interviewForm.score = application?.interview?.score ?? ''
-  interviewForm.evaluation = application?.interview?.evaluation || ''
-  interviewForm.suggestedTags = application?.interview?.suggestedTags?.join('、') || application?.intendedTags?.join('、') || ''
-  interviewForm.passed = application?.interview?.passed ?? null
   convertForm.memberCode = ''
   convertForm.skillTags = application?.interview?.suggestedTags?.join('、') || application?.intendedTags?.join('、') || ''
 }
@@ -73,16 +67,6 @@ async function advance() {
 async function rejectApplication() {
   if (!window.confirm(`确认结束 ${selected.value.name} 的本轮招新流程吗？`)) return
   await runAction(() => changeRecruitmentStage(selected.value.id, { stage: 'REJECTED', note: '本轮招新未通过', linkedQuizId: null }), '报名流程已结束。')
-}
-
-async function submitInterview() {
-  await runAction(() => saveInterview(selected.value.id, {
-    interviewerUsername: interviewForm.interviewerUsername,
-    score: interviewForm.score === '' ? null : Number(interviewForm.score),
-    evaluation: interviewForm.evaluation || null,
-    suggestedTags: splitTags(interviewForm.suggestedTags),
-    passed: interviewForm.passed,
-  }), '面试分配与评价已保存。')
 }
 
 async function convertMember() {
@@ -115,6 +99,7 @@ function splitTags(value) {
 
 <template>
   <PortalShell eyebrow="ADMIN / RECRUITMENT" title="招新管理" description="教师与核心学生拥有相同的系统管理员权限。所有阶段变化都会记录时间和操作账号。">
+    <InterviewSessionManager :interviewers="interviewers" @completed="refresh" />
     <div v-if="errorMessage && !selected" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <section v-else class="admin-recruitment-layout">
       <aside class="applicant-list">
@@ -147,12 +132,6 @@ function splitTags(value) {
         <section class="admin-showcase-review">
           <header><p>TECHNICAL AWARENESS</p><h3>技术认知</h3><span>已回答 {{ selected.technicalAnswers?.length || 0 }} / 5</span></header>
           <article v-for="question in selected.technicalQuestions" :key="question.id" class="admin-technical-answer"><strong>{{ question.prompt }}</strong><p>{{ selected.technicalAnswers?.find(answer => answer.questionId === question.id)?.answer || '该题未作答' }}</p></article>
-        </section>
-
-        <section v-if="['SCREENING', 'INTERVIEW'].includes(selected.stage)" class="admin-form-card">
-          <header><UserCheck :size="22" aria-hidden="true" /><div><p>INTERVIEW</p><h3>面试分配与评价</h3></div></header>
-          <div class="admin-form-grid"><SearchableMemberSelect v-model="interviewForm.interviewerUsername" :options="interviewers" value-key="username" label="面试官" empty-label="请选择面试官" /><label>评分（0—100）<input v-model="interviewForm.score" type="number" min="0" max="100" /></label><label class="full">面试评价<textarea v-model="interviewForm.evaluation" rows="4"></textarea></label><label class="full">建议标签<input v-model="interviewForm.suggestedTags" placeholder="用逗号或顿号分隔" /></label><fieldset class="full"><legend>面试结论</legend><label class="check-option"><input v-model="interviewForm.passed" type="radio" :value="true" />建议通过</label><label class="check-option"><input v-model="interviewForm.passed" type="radio" :value="false" />建议不通过</label></fieldset></div>
-          <button class="portal-primary" type="button" :disabled="working || !interviewForm.interviewerUsername" @click="submitInterview"><CheckCircle2 :size="18" aria-hidden="true" />保存面试记录</button>
         </section>
 
         <section v-if="selected.stage === 'PROBATION'" class="admin-form-card conversion-card">

@@ -1,9 +1,9 @@
 <script setup>
-import { Check, Circle, Clock3, ImagePlus, Link2, Plus, Send, Trash2 } from 'lucide-vue-next'
+import { CalendarDays, Check, Circle, Clock3, ImagePlus, Link2, MapPin, Plus, Send, TicketCheck, Trash2 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import AuthenticatedImage from '../components/AuthenticatedImage.vue'
 import PortalShell from '../components/PortalShell.vue'
-import { authState, deleteRecruitmentPortfolioImage, getOwnApplication, getRecruitmentQuestions, saveOwnApplication, uploadRecruitmentPortfolioImages } from '../services/authApi'
+import { authState, bookInterviewSession, cancelInterviewBooking, deleteRecruitmentPortfolioImage, getInterviewSchedule, getOwnApplication, getRecruitmentQuestions, saveOwnApplication, uploadRecruitmentPortfolioImages } from '../services/authApi'
 
 const stages = ['SIGNUP', 'SCREENING', 'INTERVIEW', 'SKILL_TEST', 'PROBATION', 'FORMAL_MEMBER']
 const stageLabels = { SIGNUP: '报名', SCREENING: '初筛', INTERVIEW: '面试', SKILL_TEST: '技能测试', PROBATION: '试用期', FORMAL_MEMBER: '正式成员', REJECTED: '未通过' }
@@ -15,6 +15,9 @@ const loading = ref(true)
 const saving = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const interviewSchedule = ref(null)
+const interviewLoading = ref(false)
+let interviewPollTimer
 const form = reactive({
   name: '', major: '', className: '', grade: '', email: '', phone: '', wechat: '', selfIntroduction: '',
   interestDirections: [], existingSkills: '', experience: '', intendedTags: '', portfolioIntroduction: '',
@@ -25,6 +28,15 @@ const editable = computed(() => !application.value || application.value.stage ==
 const currentStageIndex = computed(() => stages.indexOf(application.value?.stage || 'SIGNUP'))
 const answeredCount = computed(() => questions.value.filter(question => form.technicalAnswers[question.id]?.trim()).length)
 const remainingImageSlots = computed(() => Math.max(0, 6 - (application.value?.portfolioImages?.length || 0) - selectedImages.value.length))
+const groupedInterviewSessions = computed(() => {
+  const groups = new Map()
+  for (const session of interviewSchedule.value?.availableSessions || []) {
+    const date = new Date(session.startAt).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
+    if (!groups.has(date)) groups.set(date, [])
+    groups.get(date).push(session)
+  }
+  return [...groups.entries()].map(([date, sessions]) => ({ date, sessions }))
+})
 
 onMounted(async () => {
   try {
@@ -37,10 +49,52 @@ onMounted(async () => {
       if (username.includes('@')) form.email = username
       else if (/^\+?\d+$/.test(username)) form.phone = username
     }
+    if (ownApplication?.stage === 'INTERVIEW') {
+      await refreshInterviewSchedule()
+      interviewPollTimer = window.setInterval(refreshInterviewSchedule, 10000)
+    }
   } catch (error) { errorMessage.value = error.message }
   finally { loading.value = false }
 })
-onBeforeUnmount(() => selectedImages.value.forEach(item => URL.revokeObjectURL(item.preview)))
+onBeforeUnmount(() => {
+  selectedImages.value.forEach(item => URL.revokeObjectURL(item.preview))
+  window.clearInterval(interviewPollTimer)
+})
+
+async function refreshInterviewSchedule() {
+  interviewLoading.value = !interviewSchedule.value
+  try {
+    interviewSchedule.value = await getInterviewSchedule()
+    if (interviewSchedule.value?.eligible === false && application.value?.stage === 'INTERVIEW') {
+      const latestApplication = await getOwnApplication()
+      if (latestApplication) {
+        application.value = latestApplication
+        fillForm(latestApplication)
+      }
+    }
+  }
+  catch (error) { errorMessage.value = error.message }
+  finally { interviewLoading.value = false }
+}
+
+async function bookInterview(sessionId) {
+  saving.value = true; errorMessage.value = ''; successMessage.value = ''
+  try { interviewSchedule.value = await bookInterviewSession(sessionId); successMessage.value = '面试预约成功，你的面试号已经生成。' }
+  catch (error) { errorMessage.value = error.message }
+  finally { saving.value = false }
+}
+
+async function cancelInterview() {
+  if (!window.confirm('确认取消当前面试预约吗？取消后需要重新选择场次。')) return
+  saving.value = true; errorMessage.value = ''; successMessage.value = ''
+  try { interviewSchedule.value = await cancelInterviewBooking(); successMessage.value = '面试预约已取消。' }
+  catch (error) { errorMessage.value = error.message }
+  finally { saving.value = false }
+}
+
+function formatInterviewTime(value) {
+  return new Date(value).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
 
 async function submit() {
   errorMessage.value = ''; successMessage.value = ''
@@ -106,6 +160,23 @@ async function deleteExistingImage(imageId) {
         <header><div><p>CURRENT STAGE</p><h2>{{ stageLabels[application?.stage || 'SIGNUP'] }}</h2></div><span v-if="application">最后更新 {{ new Date(application.updatedAt).toLocaleString('zh-CN') }}</span><span v-else>尚未提交报名表</span></header>
         <ol v-if="application?.stage !== 'REJECTED'" class="stage-track"><li v-for="(stage, index) in stages" :key="stage" :class="{ done: index < currentStageIndex, active: index === currentStageIndex }"><span><Check v-if="index < currentStageIndex" :size="15" /><Clock3 v-else-if="index === currentStageIndex" :size="15" /><Circle v-else :size="13" /></span><strong>{{ stageLabels[stage] }}</strong></li></ol>
         <div v-else class="rejected-state">本轮招新流程已结束。如需了解评价或重新报名，请联系实验室管理员。</div>
+      </section>
+
+      <section v-if="application?.stage === 'INTERVIEW'" class="interview-booking-card">
+        <header><div><p>INTERVIEW APPOINTMENT</p><h2>面试预约</h2></div><span>面试开始前 1 小时停止预约</span></header>
+        <div v-if="interviewLoading" class="empty-note">正在读取面试场次…</div>
+        <template v-else-if="interviewSchedule?.booking">
+          <div class="booking-ticket">
+            <div class="booking-number"><small>你的面试号</small><strong>{{ interviewSchedule.booking.queueNumber }}</strong><span v-if="interviewSchedule.booking.currentlyCalledNumber">当前叫到 {{ interviewSchedule.booking.currentlyCalledNumber }} 号</span><span v-else>尚未开始叫号</span></div>
+            <div class="booking-details"><p><CalendarDays :size="18" /><span>{{ new Date(interviewSchedule.booking.startAt).toLocaleDateString('zh-CN') }} · {{ formatInterviewTime(interviewSchedule.booking.startAt) }}—{{ formatInterviewTime(interviewSchedule.booking.endAt) }}</span></p><p><MapPin :size="18" /><span>{{ interviewSchedule.booking.location }}</span></p><p><TicketCheck :size="18" /><span>每次叫号 1 人；请留意当前叫号状态。</span></p></div>
+          </div>
+          <button v-if="interviewSchedule.booking.canCancel" class="portal-secondary danger" type="button" :disabled="saving" @click="cancelInterview">取消预约</button>
+        </template>
+        <template v-else>
+          <p class="interview-booking-message">{{ interviewSchedule?.message }}</p>
+          <div v-for="group in groupedInterviewSessions" :key="group.date" class="interview-date-group"><h3>{{ group.date }}</h3><div class="interview-session-options"><article v-for="session in group.sessions" :key="session.id"><div><strong>{{ formatInterviewTime(session.startAt) }}—{{ formatInterviewTime(session.endAt) }}</strong><span>剩余 {{ session.remainingPlaces }} 个名额</span></div><button type="button" :disabled="saving" @click="bookInterview(session.id)">选择此场次</button></article></div></div>
+          <div v-if="!groupedInterviewSessions.length" class="empty-note">梅琳娜已经提醒指导老师和核心成员发布新的面试场次。</div>
+        </template>
       </section>
 
       <div class="recruitment-layout">

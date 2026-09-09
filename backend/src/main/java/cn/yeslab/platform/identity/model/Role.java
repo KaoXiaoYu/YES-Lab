@@ -9,12 +9,15 @@ public enum Role {
     CORE_STUDENT(adminPermissions()),
     MEMBER(EnumSet.of(
             Permission.PROFILE_SELF_EDIT,
+            Permission.DISCUSSION_ACCESS,
+            Permission.NOTIFICATION_VIEW,
             Permission.QUIZ_PARTICIPATE,
             Permission.QUESTION_WRITE
     )),
     VISITOR(EnumSet.of(
             Permission.RECRUITMENT_SELF_EDIT,
-            Permission.RECRUITMENT_SELF_VIEW
+            Permission.RECRUITMENT_SELF_VIEW,
+            Permission.NOTIFICATION_VIEW
     ));
 
     private final Set<Permission> permissions;
@@ -43,6 +46,8 @@ public enum Role {
                 Permission.ACHIEVEMENT_MANAGE,
                 Permission.CONTENT_MANAGE,
                 Permission.PROFILE_SELF_EDIT,
+                Permission.DISCUSSION_ACCESS,
+                Permission.NOTIFICATION_VIEW,
                 Permission.QUIZ_PARTICIPATE,
                 Permission.QUESTION_WRITE
         );

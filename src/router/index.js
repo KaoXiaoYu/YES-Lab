@@ -14,6 +14,7 @@ const routes = [
   { path: '/projects/new', name: 'project-create', component: () => import('../views/ProjectCreateView.vue'), meta: { roles: ['TEACHER', 'CORE_STUDENT'] } },
   { path: '/projects/:projectId', name: 'project-workspace', component: () => import('../views/ProjectWorkspaceView.vue'), meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] } },
   { path: '/competitions', name: 'competitions', component: () => import('../views/CompetitionsView.vue'), meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] } },
+  { path: '/discussions', name: 'discussions', component: () => import('../views/DiscussionView.vue'), meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] } },
   { path: '/competitions/new', name: 'competition-create', component: () => import('../views/CompetitionFormView.vue'), meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] } },
   { path: '/competitions/:competitionId/edit', name: 'competition-edit', component: () => import('../views/CompetitionFormView.vue'), meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] } },
   { path: '/application', name: 'application', component: () => import('../views/RecruitmentView.vue'), meta: { roles: ['VISITOR'] } },

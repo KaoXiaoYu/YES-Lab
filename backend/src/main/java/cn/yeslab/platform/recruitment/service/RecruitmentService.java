@@ -267,6 +267,29 @@ public class RecruitmentService {
         return toView(applications.save(application));
     }
 
+    @Transactional
+    public RecruitmentModels.ApplicationView recordScheduledInterview(
+            AccountEntity operator,
+            UUID applicationId,
+            Integer score,
+            String evaluation,
+            List<String> suggestedTags,
+            boolean passed
+    ) {
+        RecruitmentApplicationEntity application = requireApplication(applicationId);
+        if (application.getStage() != RecruitmentStage.INTERVIEW) {
+            throw new ApiException(HttpStatus.CONFLICT, "只有面试阶段可以提交面试结论");
+        }
+        String cleanEvaluation = normalize(evaluation);
+        if (passed && cleanEvaluation == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "通过面试时必须填写简评");
+        }
+        application.recordInterview(operator, score, cleanEvaluation, cleanList(suggestedTags), passed);
+        changeStage(application, passed ? RecruitmentStage.SKILL_TEST : RecruitmentStage.REJECTED,
+                operator, passed ? "面试通过" : "面试未通过");
+        return toView(applications.save(application));
+    }
+
     @PreAuthorize("hasAuthority('RECRUITMENT_MANAGE') and hasAuthority('MEMBER_MANAGE')")
     @Transactional
     public RecruitmentModels.ApplicationView convertToMember(
