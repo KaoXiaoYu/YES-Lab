@@ -265,7 +265,9 @@ export function markAllNotificationsRead() {
   return apiRequest('/api/v1/notifications/read-all', { method: 'PATCH' })
 }
 
-export function listDiscussions() { return apiRequest('/api/v1/discussions') }
+export function listDiscussions(sort = 'NEWEST') {
+  return apiRequest(`/api/v1/discussions?sort=${encodeURIComponent(sort)}`, { optionalAuthentication: true })
+}
 export function createDiscussion(payload) { return apiRequest('/api/v1/discussions', { method: 'POST', body: payload }) }
 export function updateDiscussion(postId, payload) { return apiRequest(`/api/v1/discussions/${postId}`, { method: 'PUT', body: payload }) }
 export function deleteDiscussion(postId) { return apiRequest(`/api/v1/discussions/${postId}`, { method: 'DELETE' }) }
@@ -286,7 +288,9 @@ export function toggleDiscussionReplyLike(replyId) {
 async function apiRequest(path, options = {}) {
   const headers = { Accept: 'application/json' }
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
-  if (options.authenticated !== false && authState.token) headers.Authorization = `Bearer ${authState.token}`
+  const useAuthentication = options.authenticated !== false
+  if (useAuthentication && authState.token) headers.Authorization = `Bearer ${authState.token}`
+  const refreshOnUnauthorized = useAuthentication && (!options.optionalAuthentication || Boolean(authState.token))
 
   let response
   try {
@@ -294,14 +298,14 @@ async function apiRequest(path, options = {}) {
       method: options.method || 'GET',
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    }, options.authenticated !== false)
+    }, refreshOnUnauthorized)
   } catch {
     throw new ApiError('无法连接后端服务，请确认 Spring Boot 已启动。')
   }
 
   const payload = await response.json().catch(() => null)
   if (!response.ok) {
-    if (response.status === 401 && options.authenticated !== false) clearSession()
+    if (response.status === 401 && refreshOnUnauthorized) clearSession()
     throw new ApiError(payload?.message || `请求失败（${response.status}）`, payload?.fields || {}, response.status)
   }
   return payload?.data ?? null

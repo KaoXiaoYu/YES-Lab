@@ -2,63 +2,107 @@ package cn.yeslab.platform.discussion.service;
 
 import cn.yeslab.platform.common.error.ApiException;
 import cn.yeslab.platform.discussion.api.DiscussionModels;
+import cn.yeslab.platform.discussion.model.DiscussionContentNumberEntity;
+import cn.yeslab.platform.discussion.model.DiscussionContentType;
 import cn.yeslab.platform.discussion.model.DiscussionPostEntity;
 import cn.yeslab.platform.discussion.model.DiscussionPostLikeEntity;
 import cn.yeslab.platform.discussion.model.DiscussionReplyEntity;
 import cn.yeslab.platform.discussion.model.DiscussionReplyLikeEntity;
+import cn.yeslab.platform.discussion.repository.DiscussionContentNumberRepository;
 import cn.yeslab.platform.discussion.repository.DiscussionPostLikeRepository;
 import cn.yeslab.platform.discussion.repository.DiscussionPostRepository;
 import cn.yeslab.platform.discussion.repository.DiscussionReplyLikeRepository;
 import cn.yeslab.platform.discussion.repository.DiscussionReplyRepository;
 import cn.yeslab.platform.identity.model.AccountEntity;
 import cn.yeslab.platform.identity.model.MemberProfileEntity;
+import cn.yeslab.platform.identity.model.MemberStatus;
 import cn.yeslab.platform.identity.repository.MemberProfileRepository;
 import cn.yeslab.platform.identity.service.AuthService;
 import cn.yeslab.platform.notification.service.NotificationService;
+import org.owasp.html.HtmlPolicyBuilder;
+import org.owasp.html.PolicyFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class DiscussionService {
+    private static final PolicyFactory DISCUSSION_HTML_POLICY = new HtmlPolicyBuilder()
+            .allowElements("p", "h2", "h3", "blockquote", "ul", "ol", "li", "strong", "em", "s",
+                    "code", "pre", "br", "hr", "a", "img")
+            .allowWithoutAttributes("p", "h2", "h3", "blockquote", "ul", "ol", "li", "strong", "em", "s",
+                    "code", "pre", "br", "hr")
+            .allowUrlProtocols("http", "https")
+            .allowAttributes("href").onElements("a")
+            .allowAttributes("src", "alt", "title").onElements("img")
+            .requireRelNofollowOnLinks()
+            .toFactory();
     private final DiscussionPostRepository posts;
     private final DiscussionReplyRepository replies;
     private final DiscussionPostLikeRepository postLikes;
     private final DiscussionReplyLikeRepository replyLikes;
+    private final DiscussionContentNumberRepository contentNumbers;
     private final MemberProfileRepository profiles;
     private final AuthService authService;
     private final NotificationService notificationService;
 
     public DiscussionService(DiscussionPostRepository posts, DiscussionReplyRepository replies,
                              DiscussionPostLikeRepository postLikes, DiscussionReplyLikeRepository replyLikes,
-                             MemberProfileRepository profiles, AuthService authService,
+                             DiscussionContentNumberRepository contentNumbers, MemberProfileRepository profiles, AuthService authService,
                              NotificationService notificationService) {
         this.posts = posts;
         this.replies = replies;
         this.postLikes = postLikes;
         this.replyLikes = replyLikes;
+        this.contentNumbers = contentNumbers;
         this.profiles = profiles;
         this.authService = authService;
         this.notificationService = notificationService;
     }
 
-    @PreAuthorize("hasAnyRole('TEACHER','CORE_STUDENT','MEMBER')")
-    @Transactional(readOnly = true)
-    public List<DiscussionModels.PostView> list(Authentication authentication) {
-        AccountEntity viewer = authService.requireAccount(authentication);
-        return posts.findTop50ByOrderByCreatedAtDesc().stream().map(post -> toView(post, viewer)).toList();
+    @Transactional
+    public List<DiscussionModels.PostView> list(Authentication authentication, DiscussionModels.SortMode sort) {
+        AccountEntity viewer = authenticatedAccount(authentication);
+        List<DiscussionModels.PostView> views = posts.findAll().stream().map(post -> toView(post, viewer)).toList();
+        return views.stream().sorted(postComparator(sort)).toList();
+    }
+
+    @Transactional
+    public List<DiscussionModels.ContributionView> contributions(UUID profileId) {
+        MemberProfileEntity profile = profiles.findById(profileId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "成员资料不存在"));
+        if (profile.getStatus() != MemberStatus.OFFICIAL) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "该成员主页暂未公开");
+        }
+
+        List<DiscussionModels.ContributionView> contributions = new ArrayList<>();
+        posts.findByAuthorIdOrderByCreatedAtDesc(profile.getAccount().getId()).forEach(post ->
+                contributions.add(new DiscussionModels.ContributionView(
+                        numberFor(DiscussionContentType.POST, post.getId(), post.getCreatedAt()), "POST",
+                        post.getId(), post.getTitle(), safeForRead(post.getContent()), post.getCreatedAt())));
+        replies.findByAuthorIdOrderByCreatedAtDesc(profile.getAccount().getId()).forEach(reply ->
+                contributions.add(new DiscussionModels.ContributionView(
+                        numberFor(DiscussionContentType.REPLY, reply.getId(), reply.getCreatedAt()), "REPLY",
+                        reply.getPost().getId(), reply.getPost().getTitle(), safeForRead(reply.getContent()), reply.getCreatedAt())));
+        return contributions.stream()
+                .sorted(Comparator.comparing(DiscussionModels.ContributionView::createdAt).reversed()
+                        .thenComparing(Comparator.comparingLong(DiscussionModels.ContributionView::contentNumber).reversed()))
+                .toList();
     }
 
     @PreAuthorize("hasAnyRole('TEACHER','CORE_STUDENT','MEMBER')")
     @Transactional
     public DiscussionModels.PostView create(Authentication authentication, DiscussionModels.PostRequest request) {
         AccountEntity author = authService.requireAccount(authentication);
-        DiscussionPostEntity post = posts.save(new DiscussionPostEntity(author, request.title().trim(), request.content().trim()));
+        DiscussionPostEntity post = posts.saveAndFlush(new DiscussionPostEntity(author, request.title().trim(), cleanContent(request.content())));
+        numberFor(DiscussionContentType.POST, post.getId(), post.getCreatedAt());
         return toView(post, author);
     }
 
@@ -68,7 +112,7 @@ public class DiscussionService {
         AccountEntity operator = authService.requireAccount(authentication);
         DiscussionPostEntity post = requirePost(postId);
         requireOwner(post.getAuthor(), operator, false);
-        post.update(request.title().trim(), request.content().trim());
+        post.update(request.title().trim(), cleanContent(request.content()));
         return toView(posts.save(post), operator);
     }
 
@@ -109,7 +153,8 @@ public class DiscussionService {
     public DiscussionModels.PostView reply(Authentication authentication, UUID postId, DiscussionModels.ReplyRequest request) {
         AccountEntity author = authService.requireAccount(authentication);
         DiscussionPostEntity post = requirePost(postId);
-        DiscussionReplyEntity reply = replies.save(new DiscussionReplyEntity(post, author, request.content().trim()));
+        DiscussionReplyEntity reply = replies.saveAndFlush(new DiscussionReplyEntity(post, author, cleanContent(request.content())));
+        numberFor(DiscussionContentType.REPLY, reply.getId(), reply.getCreatedAt());
         if (!post.getAuthor().getId().equals(author.getId())) {
             notificationService.send(post.getAuthor(), "DISCUSSION_REPLY", "有人回复了你的讨论",
                     displayName(author) + "：" + excerpt(reply.getContent(), 120), "/discussions#post-" + postId);
@@ -124,7 +169,7 @@ public class DiscussionService {
         AccountEntity operator = authService.requireAccount(authentication);
         DiscussionReplyEntity reply = requireReply(replyId);
         requireOwner(reply.getAuthor(), operator, false);
-        reply.update(request.content().trim());
+        reply.update(cleanContent(request.content()));
         replies.save(reply);
         return toView(reply.getPost(), operator);
     }
@@ -162,20 +207,53 @@ public class DiscussionService {
     }
 
     private DiscussionModels.PostView toView(DiscussionPostEntity post, AccountEntity viewer) {
-        boolean admin = viewer.getRole().isSystemAdmin();
+        boolean signedIn = viewer != null;
+        boolean admin = signedIn && viewer.getRole().isSystemAdmin();
         List<DiscussionModels.ReplyView> replyViews = replies.findByPostIdOrderByCreatedAtAsc(post.getId()).stream()
-                .map(reply -> new DiscussionModels.ReplyView(reply.getId(), toAuthor(reply.getAuthor()), reply.getContent(),
-                        replyLikes.countByReplyId(reply.getId()), replyLikes.existsByReplyIdAndAccountId(reply.getId(), viewer.getId()),
-                        reply.getAuthor().getId().equals(viewer.getId()), admin || reply.getAuthor().getId().equals(viewer.getId()),
+                .map(reply -> new DiscussionModels.ReplyView(reply.getId(),
+                        numberFor(DiscussionContentType.REPLY, reply.getId(), reply.getCreatedAt()),
+                        toAuthor(reply.getAuthor()), safeForRead(reply.getContent()),
+                        replyLikes.countByReplyId(reply.getId()), signedIn && replyLikes.existsByReplyIdAndAccountId(reply.getId(), viewer.getId()),
+                        signedIn && reply.getAuthor().getId().equals(viewer.getId()),
+                        admin || signedIn && reply.getAuthor().getId().equals(viewer.getId()),
                         reply.getCreatedAt(), reply.getUpdatedAt())).toList();
-        return new DiscussionModels.PostView(post.getId(), toAuthor(post.getAuthor()), post.getTitle(), post.getContent(),
-                postLikes.countByPostId(post.getId()), postLikes.existsByPostIdAndAccountId(post.getId(), viewer.getId()),
-                post.getAuthor().getId().equals(viewer.getId()), admin || post.getAuthor().getId().equals(viewer.getId()),
+        return new DiscussionModels.PostView(post.getId(),
+                numberFor(DiscussionContentType.POST, post.getId(), post.getCreatedAt()),
+                toAuthor(post.getAuthor()), post.getTitle(), safeForRead(post.getContent()),
+                postLikes.countByPostId(post.getId()), signedIn && postLikes.existsByPostIdAndAccountId(post.getId(), viewer.getId()),
+                signedIn && post.getAuthor().getId().equals(viewer.getId()),
+                admin || signedIn && post.getAuthor().getId().equals(viewer.getId()),
                 post.getCreatedAt(), post.getUpdatedAt(), replyViews);
     }
 
     private DiscussionModels.AuthorView toAuthor(AccountEntity account) {
-        return new DiscussionModels.AuthorView(account.getId(), displayName(account), account.getRole().name());
+        MemberProfileEntity profile = profiles.findByAccountId(account.getId()).orElse(null);
+        return new DiscussionModels.AuthorView(account.getId(), profile == null ? null : profile.getId(),
+                profile == null ? account.getUsername() : profile.getName(),
+                account.getRole().name(), profile == null ? null : profile.getAvatarUrl());
+    }
+
+    private long numberFor(DiscussionContentType type, UUID contentId, java.time.Instant createdAt) {
+        return contentNumbers.findByContentId(contentId)
+                .orElseGet(() -> contentNumbers.saveAndFlush(new DiscussionContentNumberEntity(type, contentId, createdAt)))
+                .getSequenceNumber();
+    }
+
+    private static Comparator<DiscussionModels.PostView> postComparator(DiscussionModels.SortMode sort) {
+        Comparator<DiscussionModels.PostView> newest = Comparator
+                .comparing(DiscussionModels.PostView::createdAt).reversed()
+                .thenComparing(Comparator.comparingLong(DiscussionModels.PostView::contentNumber).reversed());
+        return switch (sort) {
+            case OLDEST -> Comparator.comparing(DiscussionModels.PostView::createdAt)
+                    .thenComparingLong(DiscussionModels.PostView::contentNumber);
+            case ID_ASC -> Comparator.comparingLong(DiscussionModels.PostView::contentNumber);
+            case ID_DESC -> Comparator.comparingLong(DiscussionModels.PostView::contentNumber).reversed();
+            case MOST_LIKED -> Comparator.comparingLong(DiscussionModels.PostView::likeCount).reversed()
+                    .thenComparing(newest);
+            case MOST_REPLIED -> Comparator.comparingInt((DiscussionModels.PostView view) -> view.replies().size()).reversed()
+                    .thenComparing(newest);
+            case NEWEST -> newest;
+        };
     }
 
     private String displayName(AccountEntity account) {
@@ -197,6 +275,29 @@ public class DiscussionService {
     }
 
     private static String excerpt(String value, int max) {
-        return value.length() <= max ? value : value.substring(0, max) + "…";
+        String text = safeForRead(value).replaceAll("<[^>]+>", " ")
+                .replace("&nbsp;", " ").replace("&lt;", "<").replace("&gt;", ">")
+                .replace("&amp;", "&").replace("&quot;", "\"").replace("&#39;", "'")
+                .replaceAll("\\s+", " ").trim();
+        return text.length() <= max ? text : text.substring(0, max) + "…";
+    }
+
+    private AccountEntity authenticatedAccount(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getPrincipal())) return null;
+        return authService.requireAccount(authentication);
+    }
+
+    private static String cleanContent(String value) {
+        String safe = safeForRead(value == null ? "" : value.trim());
+        String text = safe.replaceAll("<[^>]+>", "").replace("&nbsp;", "").trim();
+        if (text.isEmpty() && !safe.contains("<img")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "请输入有效的讨论内容");
+        }
+        return safe;
+    }
+
+    private static String safeForRead(String value) {
+        return DISCUSSION_HTML_POLICY.sanitize(value == null ? "" : value);
     }
 }

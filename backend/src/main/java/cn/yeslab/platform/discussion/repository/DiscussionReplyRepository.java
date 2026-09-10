@@ -8,5 +8,6 @@ import java.util.UUID;
 
 public interface DiscussionReplyRepository extends JpaRepository<DiscussionReplyEntity, UUID> {
     List<DiscussionReplyEntity> findByPostIdOrderByCreatedAtAsc(UUID postId);
+    List<DiscussionReplyEntity> findByAuthorIdOrderByCreatedAtDesc(UUID authorId);
     void deleteByPostId(UUID postId);
 }

@@ -19,10 +19,20 @@ public final class DiscussionModels {
             @NotBlank(message = "请输入回复内容") @Size(max = 2000) String content
     ) { }
 
-    public record AuthorView(UUID accountId, String name, String role) { }
+    public enum SortMode {
+        NEWEST,
+        OLDEST,
+        ID_ASC,
+        ID_DESC,
+        MOST_LIKED,
+        MOST_REPLIED
+    }
+
+    public record AuthorView(UUID accountId, UUID profileId, String name, String role, String avatarUrl) { }
 
     public record ReplyView(
             UUID id,
+            long contentNumber,
             AuthorView author,
             String content,
             long likeCount,
@@ -35,6 +45,7 @@ public final class DiscussionModels {
 
     public record PostView(
             UUID id,
+            long contentNumber,
             AuthorView author,
             String title,
             String content,
@@ -45,5 +56,14 @@ public final class DiscussionModels {
             Instant createdAt,
             Instant updatedAt,
             List<ReplyView> replies
+    ) { }
+
+    public record ContributionView(
+            long contentNumber,
+            String type,
+            UUID postId,
+            String postTitle,
+            String content,
+            Instant createdAt
     ) { }
 }

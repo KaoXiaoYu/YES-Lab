@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -25,8 +26,14 @@ public class DiscussionController {
     public DiscussionController(DiscussionService service) { this.service = service; }
 
     @GetMapping
-    public ApiResponse<List<DiscussionModels.PostView>> list(Authentication authentication) {
-        return ApiResponse.ok(service.list(authentication));
+    public ApiResponse<List<DiscussionModels.PostView>> list(Authentication authentication,
+            @RequestParam(defaultValue = "NEWEST") DiscussionModels.SortMode sort) {
+        return ApiResponse.ok(service.list(authentication, sort));
+    }
+
+    @GetMapping("/authors/{profileId}")
+    public ApiResponse<List<DiscussionModels.ContributionView>> contributions(@PathVariable UUID profileId) {
+        return ApiResponse.ok(service.contributions(profileId));
     }
 
     @PostMapping

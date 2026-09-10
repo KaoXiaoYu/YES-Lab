@@ -1,14 +1,15 @@
 <script setup>
 import ThemeToggle from '../components/ThemeToggle.vue'
-import { ArrowLeft, Menu, X } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, MessageSquareText, Menu, Reply, X } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import MemberProfileDisplay from '../components/MemberProfileDisplay.vue'
 import { authState } from '../services/authApi'
-import { fetchPublicMemberProfile } from '../services/publicApi'
+import { fetchPublicMemberDiscussions, fetchPublicMemberProfile } from '../services/publicApi'
 
 const route = useRoute()
 const profile = ref(null)
+const discussionActivity = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
 const menuOpen = ref(false)
@@ -19,12 +20,16 @@ onMounted(async () => {
   try {
     profile.value = await fetchPublicMemberProfile(route.params.profileId)
     if (!profile.value) errorMessage.value = '该成员主页不存在、尚未公开，或后端服务未启动。'
+    else discussionActivity.value = await fetchPublicMemberDiscussions(route.params.profileId).catch(() => [])
   } catch (error) {
     errorMessage.value = error.message
   } finally {
     loading.value = false
   }
 })
+
+function contentNumber(value) { return `#D${String(value).padStart(6, '0')}` }
+function formatTime(value) { return new Date(value).toLocaleString('zh-CN') }
 </script>
 
 <template>
@@ -52,7 +57,21 @@ onMounted(async () => {
       <header class="public-member-heading"><p>YES LAB / PEOPLE</p><h1>{{ profile?.name || '成员主页' }}</h1><span>成员公开档案 · 项目、能力与成长记录</span></header>
       <div v-if="loading" class="portal-state">正在读取公开成员资料…</div>
       <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}<RouterLink to="/">返回首页</RouterLink></div>
-      <MemberProfileDisplay v-else-if="profile" :profile="profile" />
+      <template v-else-if="profile">
+        <MemberProfileDisplay :profile="profile" />
+        <section class="profile-discussion-card" aria-labelledby="profile-discussion-title">
+          <header><div><p>DISCUSSION ACTIVITY</p><h2 id="profile-discussion-title">讨论板内容</h2></div><span>{{ discussionActivity.length }} 条公开内容</span></header>
+          <div v-if="discussionActivity.length" class="profile-discussion-list">
+            <article v-for="item in discussionActivity" :key="`${item.type}-${item.contentNumber}`">
+              <div class="profile-discussion-meta"><span><MessageSquareText v-if="item.type === 'POST'" :size="16" aria-hidden="true" /><Reply v-else :size="16" aria-hidden="true" />{{ item.type === 'POST' ? '发布讨论' : '参与回复' }}</span><b>{{ contentNumber(item.contentNumber) }}</b><time :datetime="item.createdAt">{{ formatTime(item.createdAt) }}</time></div>
+              <h3>{{ item.type === 'POST' ? item.postTitle : `回复《${item.postTitle}》` }}</h3>
+              <div class="discussion-rich-content profile-discussion-content" v-html="item.content"></div>
+              <RouterLink :to="{ path: '/discussions', hash: `#post-${item.postId}` }">查看所在讨论<ArrowRight :size="15" aria-hidden="true" /></RouterLink>
+            </article>
+          </div>
+          <p v-else class="profile-discussion-empty">这位成员还没有发布讨论或回复。</p>
+        </section>
+      </template>
     </section>
   </main>
 </template>

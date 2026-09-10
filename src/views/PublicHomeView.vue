@@ -352,7 +352,7 @@ onBeforeUnmount(() => {
           <button @click="scrollTo('#members')">成员</button>
           <button @click="scrollTo('#partners')">赞助伙伴</button>
           <span class="nav-divider" aria-hidden="true"></span>
-          <span class="future-link" aria-disabled="true">协作平台 <small>预留</small></span>
+          <RouterLink class="public-discussion-link" to="/discussions">讨论板</RouterLink>
         </nav>
         <button class="menu-button" aria-controls="homepage-navigation" :aria-expanded="menuOpen" :aria-label="menuOpen ? '关闭栏目导航' : '打开栏目导航'" @click="menuOpen = !menuOpen">
           <X v-if="menuOpen" :size="18" aria-hidden="true" /><Menu v-else :size="18" aria-hidden="true" /><span>栏目导航</span>

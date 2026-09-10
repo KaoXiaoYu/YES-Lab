@@ -7,5 +7,5 @@ import java.util.List;
 import java.util.UUID;
 
 public interface DiscussionPostRepository extends JpaRepository<DiscussionPostEntity, UUID> {
-    List<DiscussionPostEntity> findTop50ByOrderByCreatedAtDesc();
+    List<DiscussionPostEntity> findByAuthorIdOrderByCreatedAtDesc(UUID authorId);
 }

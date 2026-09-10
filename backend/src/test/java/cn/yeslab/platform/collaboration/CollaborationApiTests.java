@@ -1,6 +1,7 @@
 package cn.yeslab.platform.collaboration;
 
 import cn.yeslab.platform.identity.repository.AccountRepository;
+import cn.yeslab.platform.identity.repository.MemberProfileRepository;
 import cn.yeslab.platform.recruitment.model.RecruitmentApplicationEntity;
 import cn.yeslab.platform.recruitment.model.RecruitmentStage;
 import cn.yeslab.platform.recruitment.repository.InterviewSessionRepository;
@@ -21,6 +22,9 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -34,6 +38,7 @@ class CollaborationApiTests {
 
     @Autowired private WebApplicationContext context;
     @Autowired private AccountRepository accounts;
+    @Autowired private MemberProfileRepository profiles;
     @Autowired private RecruitmentApplicationRepository applications;
     @Autowired private InterviewSessionRepository sessions;
 
@@ -165,13 +170,36 @@ class CollaborationApiTests {
         String coreToken = login("core", "YesLab-Core-2026!");
         String memberToken = login("member", "YesLab-Member-2026!");
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        String visitorToken = register("discussion-visitor-" + UUID.randomUUID().toString().substring(0, 8) + "@example.com");
+
+        var core = accounts.findByUsernameIgnoreCase("core").orElseThrow();
+        var coreProfile = profiles.findByAccountId(core.getId()).orElseThrow();
+        coreProfile.updateAvatarUrl("/api/v1/public/member-profiles/" + coreProfile.getId() + "/avatar?v=test");
+        profiles.saveAndFlush(coreProfile);
 
         String postResponse = mvc.perform(post("/api/v1/discussions")
                         .header("Authorization", bearer(coreToken)).contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"title\":\"飞控参数讨论\",\"content\":\"如何统一新机型的调参记录？\"}"))
+                        .content("{\"title\":\"飞控参数讨论\",\"content\":\"<p>如何统一<strong>调参记录</strong>？</p><img src=\\\"https://example.com/demo.png\\\" alt=\\\"调参图\\\" onerror=\\\"alert(1)\\\"><script>alert(1)</script><pre><code>rate = 1</code></pre>\"}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", containsString("<strong>调参记录</strong>")))
+                .andExpect(jsonPath("$.data.content", containsString("https://example.com/demo.png")))
+                .andExpect(jsonPath("$.data.content", not(containsString("onerror"))))
+                .andExpect(jsonPath("$.data.content", not(containsString("<script"))))
+                .andExpect(jsonPath("$.data.contentNumber", greaterThan(0)))
+                .andExpect(jsonPath("$.data.author.profileId").value(coreProfile.getId().toString()))
                 .andReturn().getResponse().getContentAsString();
         String postId = JsonPath.read(postResponse, "$.data.id");
+        int postNumber = JsonPath.read(postResponse, "$.data.contentNumber");
+
+        mvc.perform(get("/api/v1/discussions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].author.avatarUrl").value(coreProfile.getAvatarUrl()))
+                .andExpect(jsonPath("$.data[0].contentNumber").value(postNumber))
+                .andExpect(jsonPath("$.data[0].likedByMe").value(false))
+                .andExpect(jsonPath("$.data[0].canEdit").value(false));
+
+        mvc.perform(patch("/api/v1/discussions/{id}/like", postId).header("Authorization", bearer(visitorToken)))
+                .andExpect(status().isForbidden());
 
         mvc.perform(patch("/api/v1/discussions/{id}/like", postId).header("Authorization", bearer(memberToken)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.likeCount").value(1));
@@ -181,7 +209,33 @@ class CollaborationApiTests {
                         .header("Authorization", bearer(memberToken)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"content\":\"建议按机架版本建立参数模板。\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.replies", hasSize(1)));
+                .andExpect(jsonPath("$.data.replies", hasSize(1)))
+                .andExpect(jsonPath("$.data.replies[0].contentNumber", greaterThan(postNumber)));
+
+        var member = accounts.findByUsernameIgnoreCase("member").orElseThrow();
+        var memberProfile = profiles.findByAccountId(member.getId()).orElseThrow();
+        mvc.perform(get("/api/v1/discussions/authors/{profileId}", memberProfile.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].type").value("REPLY"))
+                .andExpect(jsonPath("$.data[0].postId").value(postId))
+                .andExpect(jsonPath("$.data[0].contentNumber", greaterThan(postNumber)));
+
+        mvc.perform(get("/api/v1/discussions/authors/{profileId}", coreProfile.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].type").value("POST"))
+                .andExpect(jsonPath("$.data[0].postId").value(postId))
+                .andExpect(jsonPath("$.data[0].contentNumber").value(postNumber));
+
+        mvc.perform(post("/api/v1/discussions")
+                        .header("Authorization", bearer(memberToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"项目周报\",\"content\":\"<p>本周完成联调。</p>\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.contentNumber", greaterThan(postNumber)));
+        mvc.perform(get("/api/v1/discussions").param("sort", "MOST_LIKED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(postId));
 
         mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(coreToken)))
                 .andExpect(status().isOk())

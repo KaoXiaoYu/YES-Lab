@@ -37,23 +37,24 @@ async function signOut() {
       </RouterLink>
       <nav aria-label="成员系统导航">
         <RouterLink to="/"><Home :size="17" aria-hidden="true" />公开首页</RouterLink>
-        <RouterLink v-if="authState.account?.role !== 'VISITOR'" to="/profile"><UserRound :size="17" aria-hidden="true" />个人主页</RouterLink>
-        <RouterLink v-if="authState.account?.role !== 'VISITOR'" to="/projects"><FolderKanban :size="17" aria-hidden="true" />项目团队</RouterLink>
-        <RouterLink v-if="authState.account?.role !== 'VISITOR'" to="/competitions"><Medal :size="17" aria-hidden="true" />竞赛成果</RouterLink>
-        <RouterLink v-if="authState.account?.role !== 'VISITOR'" to="/discussions"><MessageSquareText :size="17" aria-hidden="true" />讨论板</RouterLink>
+        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/profile"><UserRound :size="17" aria-hidden="true" />个人主页</RouterLink>
+        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/projects"><FolderKanban :size="17" aria-hidden="true" />项目团队</RouterLink>
+        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/competitions"><Medal :size="17" aria-hidden="true" />竞赛成果</RouterLink>
+        <RouterLink to="/discussions"><MessageSquareText :size="17" aria-hidden="true" />讨论板</RouterLink>
         <RouterLink v-if="authState.account?.role === 'VISITOR'" to="/application"><ClipboardList :size="17" aria-hidden="true" />我的报名</RouterLink>
         <RouterLink v-if="authState.account?.systemAdmin" to="/admin/members"><UsersRound :size="17" aria-hidden="true" />成员管理</RouterLink>
         <RouterLink v-if="authState.account?.systemAdmin" to="/admin/recruitment"><ShieldCheck :size="17" aria-hidden="true" />招新管理</RouterLink>
         <RouterLink v-if="authState.account?.systemAdmin" to="/admin/achievements"><Newspaper :size="17" aria-hidden="true" />成果管理</RouterLink>
         <RouterLink v-if="authState.account?.systemAdmin" to="/admin/homepage"><LayoutTemplate :size="17" aria-hidden="true" />主页编辑</RouterLink>
       </nav>
-      <div class="portal-account"><ThemeToggle /><NotificationCenter />
-        <RouterLink v-if="authState.account?.role !== 'VISITOR'" class="portal-account-avatar" to="/profile" aria-label="打开个人主页">
+      <div class="portal-account"><ThemeToggle /><NotificationCenter v-if="authState.account" />
+        <div v-if="!authState.account" class="portal-guest-actions"><RouterLink to="/login">登录</RouterLink><RouterLink class="register" to="/register">注册</RouterLink></div>
+        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" class="portal-account-avatar" to="/profile" aria-label="打开个人主页">
           <img v-if="authState.account?.avatarUrl" :src="authState.account.avatarUrl" alt="" />
           <b v-else>{{ accountName.slice(0, 1) }}</b>
         </RouterLink>
-        <span><strong>{{ accountName }}</strong><small>{{ accountLabel }}</small></span>
-        <button type="button" aria-label="退出登录" @click="signOut"><LogOut :size="18" aria-hidden="true" /></button>
+        <span v-if="authState.account"><strong>{{ accountName }}</strong><small>{{ accountLabel }}</small></span>
+        <button v-if="authState.account" type="button" aria-label="退出登录" @click="signOut"><LogOut :size="18" aria-hidden="true" /></button>
       </div>
     </header>
 
