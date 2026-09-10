@@ -8,11 +8,6 @@ CREATE TABLE discussion_content_numbers (
     INDEX idx_discussion_content_type_number (content_type, sequence_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-ALTER TABLE discussion_posts
-    ADD COLUMN announcement BOOLEAN NOT NULL DEFAULT FALSE AFTER content,
-    ADD COLUMN pinned BOOLEAN NOT NULL DEFAULT FALSE AFTER announcement,
-    ADD COLUMN pinned_at DATETIME(6) NULL AFTER pinned;
-
 INSERT INTO discussion_content_numbers (content_type, content_id, created_at)
 SELECT content_type, content_id, created_at
 FROM (

@@ -13,7 +13,7 @@ public final class DiscussionModels {
     public record PostRequest(
             @NotBlank(message = "请输入标题") @Size(max = 160) String title,
             @NotBlank(message = "请输入讨论内容") @Size(max = 5000) String content,
-            boolean announcement
+            Boolean announcement
     ) { }
 
     public record ReplyRequest(

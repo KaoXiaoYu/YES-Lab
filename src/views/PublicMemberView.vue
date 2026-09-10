@@ -3,6 +3,7 @@ import ThemeToggle from '../components/ThemeToggle.vue'
 import { ArrowLeft, ArrowRight, MessageSquareText, Menu, Reply, X } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import DiscussionCollapsibleContent from '../components/DiscussionCollapsibleContent.vue'
 import MemberProfileDisplay from '../components/MemberProfileDisplay.vue'
 import { authState } from '../services/authApi'
 import { fetchPublicMemberDiscussions, fetchPublicMemberProfile } from '../services/publicApi'
@@ -65,7 +66,7 @@ function formatTime(value) { return new Date(value).toLocaleString('zh-CN') }
             <article v-for="item in discussionActivity" :key="`${item.type}-${item.contentNumber}`">
               <div class="profile-discussion-meta"><span><MessageSquareText v-if="item.type === 'POST'" :size="16" aria-hidden="true" /><Reply v-else :size="16" aria-hidden="true" />{{ item.type === 'POST' ? '发布讨论' : '参与回复' }}</span><b>{{ contentNumber(item.contentNumber) }}</b><time :datetime="item.createdAt">{{ formatTime(item.createdAt) }}</time></div>
               <h3>{{ item.type === 'POST' ? item.postTitle : `回复《${item.postTitle}》` }}</h3>
-              <div class="discussion-rich-content profile-discussion-content" v-html="item.content"></div>
+              <DiscussionCollapsibleContent :html="item.content" :max-height="220" label="讨论内容" compact />
               <RouterLink :to="{ path: '/discussions', hash: `#post-${item.postId}` }">查看所在讨论<ArrowRight :size="15" aria-hidden="true" /></RouterLink>
             </article>
           </div>

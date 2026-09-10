@@ -1,0 +1,4 @@
+ALTER TABLE discussion_posts
+    ADD COLUMN announcement BOOLEAN NOT NULL DEFAULT FALSE AFTER content,
+    ADD COLUMN pinned BOOLEAN NOT NULL DEFAULT FALSE AFTER announcement,
+    ADD COLUMN pinned_at DATETIME(6) NULL AFTER pinned;

@@ -1,5 +1,5 @@
 <script setup>
-import { ArrowDownWideNarrow, ChevronDown, ChevronUp, Heart, LockKeyhole, Megaphone, MessageCircle, Pencil, Pin, PinOff, Send, Trash2, UserPlus, X } from 'lucide-vue-next'
+import { ArrowDownWideNarrow, ChevronDown, ChevronUp, Heart, LockKeyhole, Megaphone, MessageCircle, Pencil, Pin, PinOff, Search, Send, Trash2, UserPlus, X } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DiscussionCollapsibleContent from '../components/DiscussionCollapsibleContent.vue'
@@ -28,6 +28,7 @@ const editingReply = reactive({ content: '', length: { text: 0, html: 0 } })
 const gate = reactive({ open: false, guest: false, title: '', message: '' })
 const gatePrimary = ref(null)
 const pinsExpanded = ref(false)
+const searchQuery = ref('')
 let gateReturnFocus = null
 
 const participatingRoles = ['TEACHER', 'CORE_STUDENT', 'MEMBER']
@@ -44,6 +45,17 @@ const sortMode = ref(validSortModes.has(route.query.sort) ? route.query.sort : '
 const canParticipate = computed(() => participatingRoles.includes(authState.account?.role))
 const pinnedPosts = computed(() => posts.value.filter(post => post.pinned)
   .sort((left, right) => new Date(right.pinnedAt) - new Date(left.pinnedAt) || right.contentNumber - left.contentNumber))
+const filteredPosts = computed(() => {
+  const terms = searchQuery.value.trim().toLocaleLowerCase('zh-CN').split(/\s+/).filter(Boolean)
+  if (!terms.length) return posts.value
+  return posts.value.filter(post => {
+    const number = String(post.contentNumber)
+    const paddedNumber = `d${number.padStart(6, '0')}`
+    const text = `${post.title} ${plainText(post.content)} ${number} ${paddedNumber} #${paddedNumber}`
+      .toLocaleLowerCase('zh-CN')
+    return terms.every(term => text.includes(term))
+  })
+})
 const roleLabels = { TEACHER: '指导老师', CORE_STUDENT: '核心成员', MEMBER: '成员' }
 
 onMounted(async () => {
@@ -216,10 +228,11 @@ function sortPosts() {
 function authorPath(author) { return author.profileId ? `/members/${author.profileId}` : null }
 function contentNumber(value) { return `#D${String(value).padStart(6, '0')}` }
 function formatTime(value) { return new Date(value).toLocaleString('zh-CN') }
+function plainText(value) { return (value || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ') }
 </script>
 
 <template>
-  <PortalShell eyebrow="PUBLIC / DISCUSSION" title="讨论板" description="所有人都可以浏览讨论；正式成员登录后可以发布、回复与点赞。">
+  <PortalShell eyebrow="PUBLIC / DISCUSSION" title="讨论板">
     <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
 
     <section class="discussion-compose">
@@ -250,14 +263,18 @@ function formatTime(value) { return new Date(value).toLocaleString('zh-CN') }
     </section>
 
     <section class="discussion-browser-bar" aria-labelledby="discussion-browser-title">
-      <div><p>DISCUSSION INDEX</p><h2 id="discussion-browser-title">浏览讨论</h2><span>{{ posts.length }} 个主题 · 帖子与回复共用连续编号</span></div>
-      <label><ArrowDownWideNarrow :size="18" aria-hidden="true" /><span>排序方式</span><select v-model="sortMode" :disabled="loading" @change="changeSort"><option v-for="option in sortOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
+      <div><h2 id="discussion-browser-title">浏览讨论</h2></div>
+      <div class="discussion-browser-controls">
+        <label class="discussion-search"><Search :size="18" aria-hidden="true" /><span class="sr-only">搜索讨论</span><input v-model="searchQuery" type="search" placeholder="搜索标题、正文或编号" autocomplete="off" /></label>
+        <label class="discussion-sort"><ArrowDownWideNarrow :size="18" aria-hidden="true" /><span>排序方式</span><select v-model="sortMode" :disabled="loading" @change="changeSort"><option v-for="option in sortOptions" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
+      </div>
     </section>
 
     <div v-if="loading" class="portal-state">正在读取讨论…</div>
     <div v-else-if="!posts.length" class="portal-state">还没有讨论。</div>
+    <div v-else-if="!filteredPosts.length" class="portal-state discussion-search-empty">没有找到相关讨论。<button type="button" @click="searchQuery = ''">清除搜索</button></div>
     <section v-else class="discussion-list" aria-label="讨论列表">
-      <article v-for="post in posts" :id="`post-${post.id}`" :key="post.id" :class="['discussion-post', { 'is-announcement': post.announcement, 'is-pinned': post.pinned }]">
+      <article v-for="post in filteredPosts" :id="`post-${post.id}`" :key="post.id" :class="['discussion-post', { 'is-announcement': post.announcement, 'is-pinned': post.pinned }]">
         <header class="discussion-author">
           <RouterLink v-if="authorPath(post.author)" class="discussion-author-link" :to="authorPath(post.author)" :aria-label="`查看${post.author.name}的个人主页`">
             <span class="discussion-avatar"><img v-if="post.author.avatarUrl" :src="post.author.avatarUrl" alt="" loading="lazy" /><b v-else>{{ post.author.name.slice(0, 1) }}</b></span>

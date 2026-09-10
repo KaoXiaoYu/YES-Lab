@@ -102,7 +102,7 @@ public class DiscussionService {
     public DiscussionModels.PostView create(Authentication authentication, DiscussionModels.PostRequest request) {
         AccountEntity author = authService.requireAccount(authentication);
         DiscussionPostEntity post = posts.saveAndFlush(new DiscussionPostEntity(
-                author, request.title().trim(), cleanContent(request.content()), request.announcement()));
+                author, request.title().trim(), cleanContent(request.content()), Boolean.TRUE.equals(request.announcement())));
         numberFor(DiscussionContentType.POST, post.getId(), post.getCreatedAt());
         if (post.isAnnouncement()) {
             notificationService.broadcastDiscussionAnnouncement("讨论板公告：" + post.getTitle(),

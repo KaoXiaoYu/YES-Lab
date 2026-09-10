@@ -30,6 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -242,6 +243,40 @@ class CollaborationApiTests {
                 .andExpect(jsonPath("$.data.unreadCount").value(2))
                 .andExpect(jsonPath("$.data.messages[?(@.type == 'DISCUSSION_LIKE')].aggregationCount", hasItem(2)))
                 .andExpect(jsonPath("$.data.messages[?(@.type == 'DISCUSSION_LIKE')].title", hasItem("你的讨论获得了 2 个赞")));
+
+        String announcementResponse = mvc.perform(post("/api/v1/discussions")
+                        .header("Authorization", bearer(memberToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"实验室开放日\",\"content\":\"<p>本周六开放参观。</p>\",\"announcement\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.announcement").value(true))
+                .andExpect(jsonPath("$.data.pinned").value(false))
+                .andExpect(jsonPath("$.data.canEdit").value(false))
+                .andReturn().getResponse().getContentAsString();
+        String announcementId = JsonPath.read(announcementResponse, "$.data.id");
+
+        mvc.perform(put("/api/v1/discussions/{id}", announcementId)
+                        .header("Authorization", bearer(memberToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"修改公告\",\"content\":\"<p>不能修改</p>\"}"))
+                .andExpect(status().isConflict());
+        mvc.perform(patch("/api/v1/discussions/{id}/pin", announcementId)
+                        .header("Authorization", bearer(memberToken)))
+                .andExpect(status().isForbidden());
+        mvc.perform(patch("/api/v1/discussions/{id}/pin", announcementId)
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pinned").value(true))
+                .andExpect(jsonPath("$.data.canPin").value(true))
+                .andExpect(jsonPath("$.data.pinnedAt").exists());
+        mvc.perform(get("/api/v1/discussions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.id == '" + announcementId + "')].announcement", hasItem(true)))
+                .andExpect(jsonPath("$.data[?(@.id == '" + announcementId + "')].pinned", hasItem(true)))
+                .andExpect(jsonPath("$.data[?(@.id == '" + announcementId + "')].canPin", hasItem(false)));
+        mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(coreToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.messages[?(@.type == 'DISCUSSION_ANNOUNCEMENT')].senderName", hasItem("梅琳娜")))
+                .andExpect(jsonPath("$.data.messages[?(@.type == 'DISCUSSION_ANNOUNCEMENT')].targetPath",
+                        hasItem("/discussions#post-" + announcementId)));
 
         mvc.perform(post("/api/v1/notifications").header("Authorization", bearer(memberToken))
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
