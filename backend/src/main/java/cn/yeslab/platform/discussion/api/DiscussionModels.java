@@ -12,7 +12,8 @@ public final class DiscussionModels {
 
     public record PostRequest(
             @NotBlank(message = "请输入标题") @Size(max = 160) String title,
-            @NotBlank(message = "请输入讨论内容") @Size(max = 5000) String content
+            @NotBlank(message = "请输入讨论内容") @Size(max = 5000) String content,
+            boolean announcement
     ) { }
 
     public record ReplyRequest(
@@ -53,6 +54,10 @@ public final class DiscussionModels {
             boolean likedByMe,
             boolean canEdit,
             boolean canDelete,
+            boolean announcement,
+            boolean pinned,
+            boolean canPin,
+            Instant pinnedAt,
             Instant createdAt,
             Instant updatedAt,
             List<ReplyView> replies

@@ -86,6 +86,15 @@ public class NotificationService {
     }
 
     @Transactional
+    public void broadcastDiscussionAnnouncement(String title, String summary, String targetPath) {
+        List<NotificationEntity> messages = accounts.findByEnabledTrue().stream()
+                .map(account -> new NotificationEntity(account, "DISCUSSION_ANNOUNCEMENT",
+                        limit(title, 160), limit(summary, 500), targetPath, null))
+                .toList();
+        notifications.saveAll(messages);
+    }
+
+    @Transactional
     public void notifyAdminsNoInterviewSlots(UUID applicationId, String applicantName) {
         String groupKey = "NO_INTERVIEW_SLOTS:" + applicationId;
         Instant cutoff = Instant.now().minus(Duration.ofHours(24));

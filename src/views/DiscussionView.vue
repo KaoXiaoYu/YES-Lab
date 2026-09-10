@@ -1,12 +1,13 @@
 <script setup>
-import { ArrowDownWideNarrow, Heart, LockKeyhole, MessageCircle, Pencil, Send, Trash2, UserPlus, X } from 'lucide-vue-next'
+import { ArrowDownWideNarrow, ChevronDown, ChevronUp, Heart, LockKeyhole, Megaphone, MessageCircle, Pencil, Pin, PinOff, Send, Trash2, UserPlus, X } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import DiscussionCollapsibleContent from '../components/DiscussionCollapsibleContent.vue'
 import DiscussionRichTextEditor from '../components/DiscussionRichTextEditor.vue'
 import PortalShell from '../components/PortalShell.vue'
 import {
   authState, createDiscussion, createDiscussionReply, deleteDiscussion, deleteDiscussionReply,
-  listDiscussions, toggleDiscussionLike, toggleDiscussionReplyLike,
+  listDiscussions, toggleDiscussionLike, toggleDiscussionPin, toggleDiscussionReplyLike,
   updateDiscussion, updateDiscussionReply,
 } from '../services/authApi'
 
@@ -16,7 +17,7 @@ const posts = ref([])
 const loading = ref(true)
 const working = ref(false)
 const errorMessage = ref('')
-const form = reactive({ title: '', content: '', length: { text: 0, html: 0 } })
+const form = reactive({ title: '', content: '', announcement: false, length: { text: 0, html: 0 } })
 const replyDrafts = reactive({})
 const replyLengths = reactive({})
 const replyingPostId = ref(null)
@@ -26,6 +27,7 @@ const editingReplyId = ref(null)
 const editingReply = reactive({ content: '', length: { text: 0, html: 0 } })
 const gate = reactive({ open: false, guest: false, title: '', message: '' })
 const gatePrimary = ref(null)
+const pinsExpanded = ref(false)
 let gateReturnFocus = null
 
 const participatingRoles = ['TEACHER', 'CORE_STUDENT', 'MEMBER']
@@ -40,6 +42,8 @@ const sortOptions = [
 const validSortModes = new Set(sortOptions.map(option => option.value))
 const sortMode = ref(validSortModes.has(route.query.sort) ? route.query.sort : 'NEWEST')
 const canParticipate = computed(() => participatingRoles.includes(authState.account?.role))
+const pinnedPosts = computed(() => posts.value.filter(post => post.pinned)
+  .sort((left, right) => new Date(right.pinnedAt) - new Date(left.pinnedAt) || right.contentNumber - left.contentNumber))
 const roleLabels = { TEACHER: '指导老师', CORE_STUDENT: '核心成员', MEMBER: '成员' }
 
 onMounted(async () => {
@@ -59,11 +63,12 @@ async function refresh() {
 async function submitPost() {
   if (!requireParticipation()) return
   if (!validRichContent(form.content, form.length, 5000)) return
+  if (form.announcement && !window.confirm('公告发布后不能修改，并会由梅琳娜推送给所有站内账号。确认发布吗？')) return
   await run(async () => {
-    const created = await createDiscussion({ title: form.title.trim(), content: form.content })
+    const created = await createDiscussion({ title: form.title.trim(), content: form.content, announcement: form.announcement })
     posts.value.push(created)
     sortPosts()
-    form.title = ''; form.content = ''; form.length = { text: 0, html: 0 }
+    form.title = ''; form.content = ''; form.announcement = false; form.length = { text: 0, html: 0 }
   })
 }
 
@@ -92,6 +97,10 @@ async function removePost(post) {
 async function likePost(post) {
   if (!requireParticipation()) return
   await run(async () => replacePost(await toggleDiscussionLike(post.id)))
+}
+
+async function pinPost(post) {
+  await run(async () => replacePost(await toggleDiscussionPin(post.id)))
 }
 
 function openReply(post, event) {
@@ -219,11 +228,25 @@ function formatTime(value) { return new Date(value).toLocaleString('zh-CN') }
         <label>标题<input v-model.trim="form.title" required maxlength="160" placeholder="用一句话说明讨论主题" /></label>
         <label>内容</label>
         <DiscussionRichTextEditor v-model="form.content" label="新讨论内容" :max-length="5000" @update:length="form.length = $event" />
+        <label class="discussion-announcement-option"><input v-model="form.announcement" type="checkbox" /><span><strong><Megaphone :size="17" aria-hidden="true" />作为公告发布</strong><small>梅琳娜会向所有站内账号推送；公告发布后正文和标题均不可修改。</small></span></label>
         <div><small>{{ form.length.html }} / 5000 HTML 字符</small><button class="portal-primary" type="submit" :disabled="working || !form.title.trim()"><Send :size="17" aria-hidden="true" />发布讨论</button></div>
       </form>
       <button v-else class="discussion-compose-gate" type="button" @click="requireParticipation($event)">
         <LockKeyhole :size="22" aria-hidden="true" /><span><strong>{{ authState.account ? '成员讨论权限暂未开放' : '登录后参与讨论' }}</strong><small>{{ authState.account ? '完成招新流程并成为正式成员后即可发布、回复和点赞。' : '讨论内容公开可见，注册或登录后可参与互动。' }}</small></span>
       </button>
+    </section>
+
+    <section v-if="!loading && pinnedPosts.length" class="discussion-pinned" aria-labelledby="discussion-pinned-title">
+      <header><span><Pin :size="20" aria-hidden="true" /></span><div><p>PINNED</p><h2 id="discussion-pinned-title">置顶内容</h2></div><b>{{ pinnedPosts.length }}</b></header>
+      <button v-if="pinnedPosts.length > 1" class="discussion-pinned-toggle" type="button" aria-controls="discussion-pinned-list" :aria-expanded="pinsExpanded" @click="pinsExpanded = !pinsExpanded"><span><strong>{{ pinnedPosts.length }} 条置顶内容</strong><small>{{ pinsExpanded ? '点击收起置顶列表' : '已折叠，点击查看全部' }}</small></span><ChevronUp v-if="pinsExpanded" :size="20" aria-hidden="true" /><ChevronDown v-else :size="20" aria-hidden="true" /></button>
+      <div v-show="pinnedPosts.length === 1 || pinsExpanded" id="discussion-pinned-list" class="discussion-pinned-list">
+        <article v-for="post in pinnedPosts" :key="`pinned-${post.id}`">
+          <div class="discussion-pinned-meta"><span v-if="post.announcement"><Megaphone :size="15" aria-hidden="true" />公告</span><b>{{ contentNumber(post.contentNumber) }}</b><small>{{ post.author.name }} · {{ formatTime(post.createdAt) }}</small></div>
+          <h3><a :href="`#post-${post.id}`">{{ post.title }}</a></h3>
+          <DiscussionCollapsibleContent :html="post.content" :max-height="180" label="置顶内容" compact />
+          <a class="discussion-pinned-jump" :href="`#post-${post.id}`">查看完整讨论</a>
+        </article>
+      </div>
     </section>
 
     <section class="discussion-browser-bar" aria-labelledby="discussion-browser-title">
@@ -234,7 +257,7 @@ function formatTime(value) { return new Date(value).toLocaleString('zh-CN') }
     <div v-if="loading" class="portal-state">正在读取讨论…</div>
     <div v-else-if="!posts.length" class="portal-state">还没有讨论。</div>
     <section v-else class="discussion-list" aria-label="讨论列表">
-      <article v-for="post in posts" :id="`post-${post.id}`" :key="post.id" class="discussion-post">
+      <article v-for="post in posts" :id="`post-${post.id}`" :key="post.id" :class="['discussion-post', { 'is-announcement': post.announcement, 'is-pinned': post.pinned }]">
         <header class="discussion-author">
           <RouterLink v-if="authorPath(post.author)" class="discussion-author-link" :to="authorPath(post.author)" :aria-label="`查看${post.author.name}的个人主页`">
             <span class="discussion-avatar"><img v-if="post.author.avatarUrl" :src="post.author.avatarUrl" alt="" loading="lazy" /><b v-else>{{ post.author.name.slice(0, 1) }}</b></span>
@@ -244,18 +267,21 @@ function formatTime(value) { return new Date(value).toLocaleString('zh-CN') }
           <a class="discussion-content-number" :href="`#post-${post.id}`" :aria-label="`讨论编号${post.contentNumber}`">{{ contentNumber(post.contentNumber) }}</a>
         </header>
 
+        <div v-if="post.announcement || post.pinned" class="discussion-post-flags"><span v-if="post.announcement"><Megaphone :size="15" aria-hidden="true" />公告</span><span v-if="post.pinned"><Pin :size="15" aria-hidden="true" />已置顶</span></div>
+
         <form v-if="editingPostId === post.id" class="discussion-edit-form" @submit.prevent="savePost(post)">
           <label>标题<input v-model.trim="editingPost.title" required maxlength="160" /></label>
           <label>内容</label>
           <DiscussionRichTextEditor v-model="editingPost.content" label="编辑讨论内容" :max-length="5000" @update:length="editingPost.length = $event" />
           <div><button type="button" @click="editingPostId = null"><X :size="16" aria-hidden="true" />取消</button><button class="portal-primary" type="submit" :disabled="working">保存修改</button></div>
         </form>
-        <template v-else><h2>{{ post.title }}</h2><div class="discussion-rich-content" v-html="post.content"></div></template>
+        <template v-else><h2>{{ post.title }}</h2><DiscussionCollapsibleContent :html="post.content" label="全文" /></template>
 
         <div class="discussion-actions">
           <button type="button" :class="{ active: post.likedByMe }" :disabled="working || post.canEdit" :aria-pressed="post.likedByMe" :title="post.canEdit ? '不能给自己的讨论点赞' : '点赞'" @click="likePost(post)"><Heart :size="17" :fill="post.likedByMe ? 'currentColor' : 'none'" aria-hidden="true" />{{ post.likeCount }}</button>
           <span><MessageCircle :size="17" aria-hidden="true" />{{ post.replies.length }} 条回复</span>
           <button v-if="post.canEdit" type="button" @click="startPostEdit(post)"><Pencil :size="16" aria-hidden="true" />编辑</button>
+          <button v-if="post.canPin" type="button" :class="{ active: post.pinned }" :aria-pressed="post.pinned" @click="pinPost(post)"><PinOff v-if="post.pinned" :size="16" aria-hidden="true" /><Pin v-else :size="16" aria-hidden="true" />{{ post.pinned ? '取消置顶' : '置顶' }}</button>
           <button v-if="post.canDelete" class="danger" type="button" @click="removePost(post)"><Trash2 :size="16" aria-hidden="true" />删除</button>
         </div>
 
@@ -270,7 +296,7 @@ function formatTime(value) { return new Date(value).toLocaleString('zh-CN') }
               <DiscussionRichTextEditor v-model="editingReply.content" label="编辑回复内容" :max-length="2000" compact @update:length="editingReply.length = $event" />
               <div><button type="button" @click="editingReplyId = null">取消</button><button type="submit" :disabled="working">保存</button></div>
             </form>
-            <div v-else class="discussion-rich-content reply-content" v-html="reply.content"></div>
+            <DiscussionCollapsibleContent v-else :html="reply.content" :max-height="180" label="回复" compact />
             <div class="reply-actions"><button type="button" :class="{ active: reply.likedByMe }" :disabled="working || reply.canEdit" :aria-pressed="reply.likedByMe" :title="reply.canEdit ? '不能给自己的回复点赞' : '点赞'" @click="likeReply(reply)"><Heart :size="15" :fill="reply.likedByMe ? 'currentColor' : 'none'" aria-hidden="true" />{{ reply.likeCount }}</button><button v-if="reply.canEdit" type="button" @click="startReplyEdit(reply)">编辑</button><button v-if="reply.canDelete" class="danger" type="button" @click="removeReply(reply)">删除</button></div>
           </article>
         </section>

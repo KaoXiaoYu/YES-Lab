@@ -412,8 +412,8 @@ curl --resolve yeslab.tech:443:新服务器公网IPv4 \
 
 Flyway 的行为分两种：
 
-- 空 MySQL 数据库：执行 V1 创建完整表结构，再执行 V2 增加刷新会话表。
-- 已有、尚未被 Flyway 管理的 MySQL 数据库：将现有结构登记为 V1，再执行 V2；Hibernate 随后只做结构校验，不自动改表。
+- 空 MySQL 数据库：执行 V1 创建基础表结构，再依次执行后续增量迁移直至当前 V7.1。
+- 已有、尚未被 Flyway 管理的 MySQL 数据库：将现有结构登记为 V1，再依次执行尚未应用的 V2—V7.1；Hibernate 随后只做结构校验，不自动改表。
 
 如果已有数据库结构与当前实体不匹配，API 会停止启动并保留原数据，需先分析差异再编写新迁移。不要临时改回 `ddl-auto=update`。Flyway 基线机制说明见 [Baseline migrations](https://documentation.red-gate.com/flyway/flyway-concepts/migrations/baseline-migrations)。
 

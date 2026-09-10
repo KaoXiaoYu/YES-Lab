@@ -101,8 +101,14 @@ public class DiscussionService {
     @Transactional
     public DiscussionModels.PostView create(Authentication authentication, DiscussionModels.PostRequest request) {
         AccountEntity author = authService.requireAccount(authentication);
-        DiscussionPostEntity post = posts.saveAndFlush(new DiscussionPostEntity(author, request.title().trim(), cleanContent(request.content())));
+        DiscussionPostEntity post = posts.saveAndFlush(new DiscussionPostEntity(
+                author, request.title().trim(), cleanContent(request.content()), request.announcement()));
         numberFor(DiscussionContentType.POST, post.getId(), post.getCreatedAt());
+        if (post.isAnnouncement()) {
+            notificationService.broadcastDiscussionAnnouncement("讨论板公告：" + post.getTitle(),
+                    displayName(author) + " 发布了公告：" + excerpt(post.getContent(), 180),
+                    "/discussions#post-" + post.getId());
+        }
         return toView(post, author);
     }
 
@@ -111,6 +117,9 @@ public class DiscussionService {
     public DiscussionModels.PostView update(Authentication authentication, UUID postId, DiscussionModels.PostRequest request) {
         AccountEntity operator = authService.requireAccount(authentication);
         DiscussionPostEntity post = requirePost(postId);
+        if (post.isAnnouncement()) {
+            throw new ApiException(HttpStatus.CONFLICT, "公告发布后不能修改");
+        }
         requireOwner(post.getAuthor(), operator, false);
         post.update(request.title().trim(), cleanContent(request.content()));
         return toView(posts.save(post), operator);
@@ -146,6 +155,16 @@ public class DiscussionService {
             postLikes.delete(existing);
         }
         return toView(post, account);
+    }
+
+    @PreAuthorize("hasAnyRole('TEACHER','CORE_STUDENT')")
+    @Transactional
+    public DiscussionModels.PostView togglePin(Authentication authentication, UUID postId) {
+        AccountEntity operator = authService.requireAccount(authentication);
+        DiscussionPostEntity post = requirePost(postId);
+        post.togglePinned();
+        posts.save(post);
+        return toView(post, operator);
     }
 
     @PreAuthorize("hasAnyRole('TEACHER','CORE_STUDENT','MEMBER')")
@@ -221,8 +240,9 @@ public class DiscussionService {
                 numberFor(DiscussionContentType.POST, post.getId(), post.getCreatedAt()),
                 toAuthor(post.getAuthor()), post.getTitle(), safeForRead(post.getContent()),
                 postLikes.countByPostId(post.getId()), signedIn && postLikes.existsByPostIdAndAccountId(post.getId(), viewer.getId()),
-                signedIn && post.getAuthor().getId().equals(viewer.getId()),
+                signedIn && !post.isAnnouncement() && post.getAuthor().getId().equals(viewer.getId()),
                 admin || signedIn && post.getAuthor().getId().equals(viewer.getId()),
+                post.isAnnouncement(), post.isPinned(), admin, post.getPinnedAt(),
                 post.getCreatedAt(), post.getUpdatedAt(), replyViews);
     }
 

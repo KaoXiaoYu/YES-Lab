@@ -272,6 +272,7 @@ export function createDiscussion(payload) { return apiRequest('/api/v1/discussio
 export function updateDiscussion(postId, payload) { return apiRequest(`/api/v1/discussions/${postId}`, { method: 'PUT', body: payload }) }
 export function deleteDiscussion(postId) { return apiRequest(`/api/v1/discussions/${postId}`, { method: 'DELETE' }) }
 export function toggleDiscussionLike(postId) { return apiRequest(`/api/v1/discussions/${postId}/like`, { method: 'PATCH' }) }
+export function toggleDiscussionPin(postId) { return apiRequest(`/api/v1/discussions/${postId}/pin`, { method: 'PATCH' }) }
 export function createDiscussionReply(postId, payload) {
   return apiRequest(`/api/v1/discussions/${postId}/replies`, { method: 'POST', body: payload })
 }

@@ -30,6 +30,14 @@ public class DiscussionPostEntity {
     @Column(nullable = false, length = 5000)
     private String content;
 
+    @Column(nullable = false)
+    private boolean announcement;
+
+    @Column(nullable = false)
+    private boolean pinned;
+
+    private Instant pinnedAt;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -38,8 +46,9 @@ public class DiscussionPostEntity {
 
     protected DiscussionPostEntity() { }
 
-    public DiscussionPostEntity(AccountEntity author, String title, String content) {
+    public DiscussionPostEntity(AccountEntity author, String title, String content, boolean announcement) {
         this.author = author;
+        this.announcement = announcement;
         update(title, content);
         this.createdAt = Instant.now();
     }
@@ -48,6 +57,9 @@ public class DiscussionPostEntity {
     public AccountEntity getAuthor() { return author; }
     public String getTitle() { return title; }
     public String getContent() { return content; }
+    public boolean isAnnouncement() { return announcement; }
+    public boolean isPinned() { return pinned; }
+    public Instant getPinnedAt() { return pinnedAt; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
 
@@ -55,5 +67,10 @@ public class DiscussionPostEntity {
         this.title = title;
         this.content = content;
         this.updatedAt = Instant.now();
+    }
+
+    public void togglePinned() {
+        this.pinned = !this.pinned;
+        this.pinnedAt = this.pinned ? Instant.now() : null;
     }
 }

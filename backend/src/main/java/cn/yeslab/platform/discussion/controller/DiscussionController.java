@@ -59,6 +59,11 @@ public class DiscussionController {
         return ApiResponse.ok(service.togglePostLike(authentication, postId));
     }
 
+    @PatchMapping("/{postId}/pin")
+    public ApiResponse<DiscussionModels.PostView> pin(Authentication authentication, @PathVariable UUID postId) {
+        return ApiResponse.ok(service.togglePin(authentication, postId));
+    }
+
     @PostMapping("/{postId}/replies")
     public ApiResponse<DiscussionModels.PostView> reply(Authentication authentication, @PathVariable UUID postId,
             @Valid @RequestBody DiscussionModels.ReplyRequest request) {
