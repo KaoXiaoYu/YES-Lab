@@ -412,8 +412,8 @@ curl --resolve yeslab.tech:443:新服务器公网IPv4 \
 
 Flyway 的行为分两种：
 
-- 空 MySQL 数据库：执行 V1 创建基础表结构，再依次执行后续增量迁移直至当前 V7.1.1。
-- 已有、尚未被 Flyway 管理的 MySQL 数据库：将现有结构登记为 V1，再依次执行尚未应用的 V2—V7.1.1；Hibernate 随后只做结构校验，不自动改表。
+- 空 MySQL 数据库：执行 V1 创建基础表结构，再依次执行后续增量迁移直至当前 V7.1.2。
+- 已有、尚未被 Flyway 管理的 MySQL 数据库：将现有结构登记为 V1，再依次执行尚未应用的 V2—V7.1.2；Hibernate 随后只做结构校验，不自动改表。
 
 如果已有数据库结构与当前实体不匹配，API 会停止启动并保留原数据，需先分析差异再编写新迁移。不要临时改回 `ddl-auto=update`。Flyway 基线机制说明见 [Baseline migrations](https://documentation.red-gate.com/flyway/flyway-concepts/migrations/baseline-migrations)。
 
@@ -444,7 +444,7 @@ Flyway 的行为分两种：
 
 面试预约、站内消息和讨论板随 `V7__interviews_notifications_discussions.sql` 发布。该迁移只新建独立业务表及其外键/索引，不修改、删除或重建已有账号、报名、成员、项目、比赛和主页表。部署脚本会在迁移前完成 MySQL 与上传目录备份；不要手工创建这些表，也不要修改已经执行过的 V1—V7 迁移。若新 API 健康检查失败，保持 Web 旧版本运行并按上一段回退镜像；数据库表可暂时保留，不影响旧版本读取既有表。
 
-讨论内容连续编号随 `V7_1__discussion_content_numbers.sql` 发布，Flyway 中版本显示为 `7.1`。该迁移只新增编号映射表，并按创建时间为已有帖子和回复回填全局递增编号；不修改 V7 已建表，也不回收删除内容留下的编号。公告和置顶状态另由 `V7_1_1__discussion_announcements_and_pins.sql` 发布，Flyway 版本为 `7.1.1`，仅以增量列为 `discussion_posts` 增加 `announcement`、`pinned`、`pinned_at`，既有主题默认是普通、未置顶内容。部署时继续先备份再启动 API 自动迁移；禁止修改任何已经执行的迁移及其校验和。
+讨论内容连续编号随 `V7_1__discussion_content_numbers.sql` 发布，Flyway 中版本显示为 `7.1`。该迁移只新增编号映射表，并按创建时间为已有帖子和回复回填全局递增编号；不修改 V7 已建表，也不回收删除内容留下的编号。公告和置顶状态另由 `V7_1_1__discussion_announcements_and_pins.sql` 发布，Flyway 版本为 `7.1.1`，仅以增量列为 `discussion_posts` 增加 `announcement`、`pinned`、`pinned_at`，既有主题默认是普通、未置顶内容。梅琳娜展示范围由 `V7_1_2__melina_visibility.sql` 发布，Flyway 版本为 `7.1.2`，只新增角色默认值和账号覆盖表。部署时继续先备份再启动 API 自动迁移；禁止修改任何已经执行的迁移及其校验和。
 
 ## 6. 备份、验证与恢复原则
 

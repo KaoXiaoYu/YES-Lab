@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -107,8 +108,9 @@ public class NotificationService {
     }
 
     private NotificationModels.NotificationView toView(NotificationEntity item) {
-        return new NotificationModels.NotificationView(item.getId(), BOT_NAME, item.getType(), item.getTitle(),
-                item.getSummary(), item.getTargetPath(), item.getAggregationCount(), item.getReadAt() != null,
+        return new NotificationModels.NotificationView(item.getId(), BOT_NAME, item.getType(),
+                HtmlUtils.htmlUnescape(item.getTitle()), HtmlUtils.htmlUnescape(item.getSummary()),
+                item.getTargetPath(), item.getAggregationCount(), item.getReadAt() != null,
                 item.getCreatedAt(), item.getUpdatedAt());
     }
 

@@ -16,4 +16,5 @@ public interface InterviewBookingRepository extends JpaRepository<InterviewBooki
     long countBySessionIdAndStatusIn(UUID sessionId, Collection<InterviewBookingStatus> statuses);
     Optional<InterviewBookingEntity> findFirstBySessionIdAndStatusInOrderByQueueNumberAsc(UUID sessionId, Collection<InterviewBookingStatus> statuses);
     Optional<InterviewBookingEntity> findByIdAndSessionId(UUID id, UUID sessionId);
+    void deleteBySessionId(UUID sessionId);
 }

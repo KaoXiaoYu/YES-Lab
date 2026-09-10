@@ -2,7 +2,7 @@
 import { Bell, CheckCheck, X } from 'lucide-vue-next'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getNotifications, markAllNotificationsRead, markNotificationRead } from '../services/authApi'
+import { getNotifications, getNotificationVisibility, markAllNotificationsRead, markNotificationRead } from '../services/authApi'
 import MelinaMascot from './MelinaMascot.vue'
 
 const router = useRouter()
@@ -10,6 +10,7 @@ const inbox = ref({ unreadCount: 0, messages: [] })
 const open = ref(false)
 const toast = ref(null)
 const initialized = ref(false)
+const visible = ref(false)
 const notificationRoot = ref(null)
 const anchorStyle = ref({})
 let pollTimer
@@ -18,6 +19,14 @@ let toastTimer
 const unread = computed(() => inbox.value.messages.filter(message => !message.read))
 
 onMounted(async () => {
+  try {
+    visible.value = (await getNotificationVisibility())?.visible !== false
+  } catch {
+    // Keep the message center available while upgrading an older backend.
+    visible.value = true
+  }
+  if (!visible.value) return
+  await nextTick()
   updatePosition()
   await refresh(true)
   pollTimer = window.setInterval(() => refresh(false), 15000)
@@ -90,7 +99,7 @@ function handleVisibility() {
 </script>
 
 <template>
-  <div ref="notificationRoot" class="notification-center" :style="anchorStyle" @keydown.esc="open = false">
+  <div v-if="visible" ref="notificationRoot" class="notification-center" :style="anchorStyle" @keydown.esc="open = false">
     <button type="button" class="notification-trigger" aria-label="打开站内消息"
       :aria-expanded="open" aria-controls="notification-panel" @click="togglePanel">
       <Bell :size="18" aria-hidden="true" />

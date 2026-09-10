@@ -2,6 +2,7 @@
 import { Camera, Eye, EyeOff, ExternalLink, Plus, Save, Search, Trash2, Upload, UsersRound, X } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
+import MelinaVisibilityManager from '../components/MelinaVisibilityManager.vue'
 import {
   authState, createCoreStudent, deleteManagedMemberAvatar, listMembers,
   replaceManagedMemberAvatar, updateMember,
@@ -236,6 +237,7 @@ function splitTags(value) {
 
 <template>
   <PortalShell eyebrow="ADMIN / MEMBERS" title="成员管理" description="维护成员身份、状态和规范字段；个人主页正文仍由成员本人编辑。">
+    <MelinaVisibilityManager v-if="authState.account?.role === 'TEACHER'" />
     <div v-if="loading" class="portal-state">正在读取成员列表…</div>
     <div v-else-if="errorMessage && !members.length" class="portal-state error" role="alert">{{ errorMessage }}</div>
 

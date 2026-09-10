@@ -204,6 +204,7 @@ public class RecruitmentService {
     @Transactional(readOnly = true)
     public List<RecruitmentModels.ApplicationView> listApplications() {
         return applications.findAll().stream()
+                .filter(application -> !Boolean.TRUE.equals(application.getInterviewPassed()))
                 .sorted((left, right) -> right.getUpdatedAt().compareTo(left.getUpdatedAt()))
                 .map(this::toView)
                 .toList();

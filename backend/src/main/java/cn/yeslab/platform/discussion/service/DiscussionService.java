@@ -26,6 +26,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -295,9 +296,8 @@ public class DiscussionService {
     }
 
     private static String excerpt(String value, int max) {
-        String text = safeForRead(value).replaceAll("<[^>]+>", " ")
-                .replace("&nbsp;", " ").replace("&lt;", "<").replace("&gt;", ">")
-                .replace("&amp;", "&").replace("&quot;", "\"").replace("&#39;", "'")
+        String text = HtmlUtils.htmlUnescape(safeForRead(value).replaceAll("<[^>]+>", " "))
+                .replace('\u00a0', ' ')
                 .replaceAll("\\s+", " ").trim();
         return text.length() <= max ? text : text.substring(0, max) + "…";
     }

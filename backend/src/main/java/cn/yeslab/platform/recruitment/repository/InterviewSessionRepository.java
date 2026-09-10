@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -15,6 +16,7 @@ import java.util.UUID;
 
 public interface InterviewSessionRepository extends JpaRepository<InterviewSessionEntity, UUID> {
     List<InterviewSessionEntity> findByStatusInOrderByStartAtAsc(Collection<InterviewSessionStatus> statuses);
+    List<InterviewSessionEntity> findByStatusInAndUpdatedAtBefore(Collection<InterviewSessionStatus> statuses, Instant cutoff);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select session from InterviewSessionEntity session where session.id = :id")

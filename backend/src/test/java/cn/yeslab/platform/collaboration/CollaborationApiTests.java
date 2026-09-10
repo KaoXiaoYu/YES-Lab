@@ -4,8 +4,10 @@ import cn.yeslab.platform.identity.repository.AccountRepository;
 import cn.yeslab.platform.identity.repository.MemberProfileRepository;
 import cn.yeslab.platform.recruitment.model.RecruitmentApplicationEntity;
 import cn.yeslab.platform.recruitment.model.RecruitmentStage;
+import cn.yeslab.platform.recruitment.repository.InterviewBookingRepository;
 import cn.yeslab.platform.recruitment.repository.InterviewSessionRepository;
 import cn.yeslab.platform.recruitment.repository.RecruitmentApplicationRepository;
+import cn.yeslab.platform.recruitment.service.InterviewRetentionService;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,8 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.not;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -42,6 +46,8 @@ class CollaborationApiTests {
     @Autowired private MemberProfileRepository profiles;
     @Autowired private RecruitmentApplicationRepository applications;
     @Autowired private InterviewSessionRepository sessions;
+    @Autowired private InterviewBookingRepository bookings;
+    @Autowired private InterviewRetentionService interviewRetention;
 
     private MockMvc mvc;
 
@@ -164,6 +170,15 @@ class CollaborationApiTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.messages[0].type").value("INTERVIEW_PASSED"))
                 .andExpect(jsonPath("$.data.messages[0].summary").value("动手能力扎实"));
+
+        mvc.perform(get("/api/v1/admin/recruitment/applications").header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + firstEmail + "')]", hasSize(0)))
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + secondEmail + "')]", hasSize(1)));
+
+        assertEquals(1, interviewRetention.purgeExpiredBefore(Instant.now().plusSeconds(1)));
+        assertFalse(sessions.existsById(UUID.fromString(sessionId)));
+        assertEquals(0, bookings.countBySessionId(UUID.fromString(sessionId)));
     }
 
     @Test
@@ -275,6 +290,10 @@ class CollaborationApiTests {
         mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(coreToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.messages[?(@.type == 'DISCUSSION_ANNOUNCEMENT')].senderName", hasItem("梅琳娜")))
+                .andExpect(jsonPath("$.data.messages[?(@.type == 'DISCUSSION_ANNOUNCEMENT')].summary",
+                        hasItem(containsString("本周六开放参观。"))))
+                .andExpect(jsonPath("$.data.messages[?(@.type == 'DISCUSSION_ANNOUNCEMENT')].summary",
+                        hasItem(not(containsString("&#")))))
                 .andExpect(jsonPath("$.data.messages[?(@.type == 'DISCUSSION_ANNOUNCEMENT')].targetPath",
                         hasItem("/discussions#post-" + announcementId)));
 
@@ -283,6 +302,42 @@ class CollaborationApiTests {
                 .andExpect(status().isMethodNotAllowed());
         mvc.perform(delete("/api/v1/discussions/{id}", postId).header("Authorization", bearer(memberToken)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void teachersCanConfigureMelinaByRoleAndAccountOverride() throws Exception {
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        String coreToken = login("core", "YesLab-Core-2026!");
+        String memberToken = login("member", "YesLab-Member-2026!");
+        String visitorUsername = "melina-visitor-" + UUID.randomUUID().toString().substring(0, 8) + "@example.com";
+        String visitorToken = register(visitorUsername);
+        UUID memberId = accounts.findByUsernameIgnoreCase("member").orElseThrow().getId();
+        UUID visitorId = accounts.findByUsernameIgnoreCase(visitorUsername).orElseThrow().getId();
+
+        mvc.perform(get("/api/v1/admin/notifications/melina-visibility")
+                        .header("Authorization", bearer(coreToken)))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(put("/api/v1/admin/notifications/melina-visibility")
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content(("""
+                                {"visibleRoles":["TEACHER","CORE_STUDENT","MEMBER"],
+                                 "overrides":[{"accountId":"%s","visible":false},{"accountId":"%s","visible":true}]}
+                                """).formatted(memberId, visitorId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.visibleRoles", hasItem("MEMBER")))
+                .andExpect(jsonPath("$.data.accounts[?(@.accountId == '" + memberId + "')].visible", hasItem(false)))
+                .andExpect(jsonPath("$.data.accounts[?(@.accountId == '" + visitorId + "')].visible", hasItem(true)));
+
+        mvc.perform(get("/api/v1/notifications/visibility").header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.visible").value(false));
+        mvc.perform(get("/api/v1/notifications/visibility").header("Authorization", bearer(visitorToken)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.visible").value(true));
+
+        mvc.perform(put("/api/v1/admin/notifications/melina-visibility")
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"visibleRoles\":[\"TEACHER\",\"CORE_STUDENT\",\"MEMBER\",\"VISITOR\"],\"overrides\":[]}"))
+                .andExpect(status().isOk());
     }
 
     private void createInterviewApplication(String username, String name) {

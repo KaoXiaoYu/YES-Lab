@@ -258,6 +258,13 @@ export function endInterviewSessionEarly(sessionId) {
 }
 
 export function getNotifications() { return apiRequest('/api/v1/notifications') }
+export function getNotificationVisibility() { return apiRequest('/api/v1/notifications/visibility') }
+export function getMelinaVisibilitySettings() {
+  return apiRequest('/api/v1/admin/notifications/melina-visibility')
+}
+export function updateMelinaVisibilitySettings(payload) {
+  return apiRequest('/api/v1/admin/notifications/melina-visibility', { method: 'PUT', body: payload })
+}
 export function markNotificationRead(notificationId) {
   return apiRequest(`/api/v1/notifications/${notificationId}/read`, { method: 'PATCH' })
 }
