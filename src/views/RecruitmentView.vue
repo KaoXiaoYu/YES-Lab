@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import AuthenticatedImage from '../components/AuthenticatedImage.vue'
 import PortalShell from '../components/PortalShell.vue'
 import { authState, bookInterviewSession, cancelInterviewBooking, deleteRecruitmentPortfolioImage, getInterviewSchedule, getOwnApplication, getRecruitmentQuestions, saveOwnApplication, uploadRecruitmentPortfolioImages } from '../services/authApi'
+import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const stages = ['SIGNUP', 'SCREENING', 'INTERVIEW', 'SKILL_TEST', 'PROBATION', 'FORMAL_MEMBER']
 const stageLabels = { SIGNUP: '报名', SCREENING: '初筛', INTERVIEW: '面试', SKILL_TEST: '技能测试', PROBATION: '试用期', FORMAL_MEMBER: '正式成员', REJECTED: '未通过' }
@@ -26,6 +27,11 @@ const form = reactive({
 const legacyDirections = computed(() => form.interestDirections.filter(value => !directions.includes(value)))
 const editable = computed(() => !application.value || application.value.stage === 'SIGNUP')
 const currentStageIndex = computed(() => stages.indexOf(application.value?.stage || 'SIGNUP'))
+const rejectedAtScreening = computed(() => {
+  if (application.value?.stage !== 'REJECTED') return false
+  const rejection = [...(application.value.history || [])].reverse().find(item => item.toStage === 'REJECTED')
+  return rejection?.fromStage === 'SCREENING'
+})
 const answeredCount = computed(() => questions.value.filter(question => form.technicalAnswers[question.id]?.trim()).length)
 const remainingImageSlots = computed(() => Math.max(0, 6 - (application.value?.portfolioImages?.length || 0) - selectedImages.value.length))
 const groupedInterviewSessions = computed(() => {
@@ -99,6 +105,7 @@ function formatInterviewTime(value) {
 async function submit() {
   errorMessage.value = ''; successMessage.value = ''
   if (answeredCount.value < 3) { errorMessage.value = '请从随机抽取的 5 道技术认知题中任选至少 3 道回答。'; return }
+  const wasSubmitted = Boolean(application.value)
   saving.value = true
   try {
     const technicalAnswers = questions.value.filter(q => form.technicalAnswers[q.id]?.trim()).map(q => ({ questionId: q.id, answer: form.technicalAnswers[q.id].trim() }))
@@ -115,7 +122,14 @@ async function submit() {
       clearSelectedImages()
     }
     fillForm(application.value)
-    successMessage.value = '报名表、个人展示和技术认知回答已保存。进入初筛前仍可修改。'
+    showSubmissionFeedback({
+      eyebrow: wasSubmitted ? 'APPLICATION UPDATED' : 'APPLICATION SUBMITTED',
+      title: wasSubmitted ? '报名修改已保存' : '报名表已提交',
+      message: wasSubmitted
+        ? '报名资料、个人展示和技术认知回答已经更新。进入初筛前仍可继续修改。'
+        : '报名资料、个人展示和技术认知回答已经保存。你可以在本页查看进度，进入初筛前仍可修改。',
+      confirmLabel: '查看报名进度',
+    })
   } catch (error) { errorMessage.value = error.message }
   finally { saving.value = false }
 }
@@ -147,7 +161,11 @@ function removeSelectedImage(index) { URL.revokeObjectURL(selectedImages.value[i
 function clearSelectedImages() { selectedImages.value.forEach(item => URL.revokeObjectURL(item.preview)); selectedImages.value = [] }
 async function deleteExistingImage(imageId) {
   if (!editable.value) return
-  try { application.value = await deleteRecruitmentPortfolioImage(imageId) }
+  errorMessage.value = ''; successMessage.value = ''
+  try {
+    application.value = await deleteRecruitmentPortfolioImage(imageId)
+    successMessage.value = '作品图片已删除。'
+  }
   catch (error) { errorMessage.value = error.message }
 }
 </script>
@@ -159,7 +177,11 @@ async function deleteExistingImage(imageId) {
       <section class="recruitment-progress-card">
         <header><div><p>CURRENT STAGE</p><h2>{{ stageLabels[application?.stage || 'SIGNUP'] }}</h2></div><span v-if="application">最后更新 {{ new Date(application.updatedAt).toLocaleString('zh-CN') }}</span><span v-else>尚未提交报名表</span></header>
         <ol v-if="application?.stage !== 'REJECTED'" class="stage-track"><li v-for="(stage, index) in stages" :key="stage" :class="{ done: index < currentStageIndex, active: index === currentStageIndex }"><span><Check v-if="index < currentStageIndex" :size="15" /><Clock3 v-else-if="index === currentStageIndex" :size="15" /><Circle v-else :size="13" /></span><strong>{{ stageLabels[stage] }}</strong></li></ol>
-        <div v-else class="rejected-state">本轮招新流程已结束。如需了解评价或重新报名，请联系实验室管理员。</div>
+        <div v-else class="rejected-state" :class="{ 'screening-rejected-state': rejectedAtScreening }">
+          <strong>{{ rejectedAtScreening ? '感谢你认真完成本次报名' : '本轮招新流程已结束' }}</strong>
+          <p v-if="rejectedAtScreening">本轮暂未通过初筛，建议先围绕感兴趣的方向补充基础知识，并尝试完成一些小项目。欢迎你在下一次招新时再次报名，我们期待看到你的进步。</p>
+          <p v-else>如需了解评价或重新报名，请联系实验室管理员。</p>
+        </div>
       </section>
 
       <section v-if="application?.stage === 'INTERVIEW'" class="interview-booking-card">
@@ -222,7 +244,7 @@ async function deleteExistingImage(imageId) {
                 <div class="answer-progress" :class="{ complete: answeredCount >= 3 }"><strong>已回答 {{ answeredCount }} / 5</strong><span>{{ answeredCount >= 3 ? '已达到提交要求' : `还需回答 ${3 - answeredCount} 题` }}</span></div>
               </section>
             </div>
-            <button v-if="editable" class="portal-primary" type="submit" :disabled="saving"><Send :size="18" />{{ saving ? '保存中…' : '保存并提交报名表' }}</button>
+            <button v-if="editable" class="portal-primary" type="submit" :disabled="saving"><Send :size="18" aria-hidden="true" />{{ saving ? '保存中…' : application ? '修改报名表' : '提交报名表' }}</button>
           </form>
         </section>
 

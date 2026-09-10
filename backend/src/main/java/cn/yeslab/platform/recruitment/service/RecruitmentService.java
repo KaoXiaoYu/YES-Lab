@@ -8,6 +8,7 @@ import cn.yeslab.platform.identity.model.Role;
 import cn.yeslab.platform.identity.repository.AccountRepository;
 import cn.yeslab.platform.identity.repository.MemberProfileRepository;
 import cn.yeslab.platform.identity.service.AuthService;
+import cn.yeslab.platform.notification.service.NotificationService;
 import cn.yeslab.platform.recruitment.api.RecruitmentModels;
 import cn.yeslab.platform.recruitment.model.RecruitmentApplicationEntity;
 import cn.yeslab.platform.recruitment.model.RecruitmentPortfolioImageEntity;
@@ -70,6 +71,7 @@ public class RecruitmentService {
     private final AccountRepository accounts;
     private final MemberProfileRepository profiles;
     private final AuthService authService;
+    private final NotificationService notificationService;
     private final RecruitmentPortfolioStorageService portfolioStorage;
     private final ObjectMapper objectMapper;
 
@@ -80,6 +82,7 @@ public class RecruitmentService {
             AccountRepository accounts,
             MemberProfileRepository profiles,
             AuthService authService,
+            NotificationService notificationService,
             RecruitmentPortfolioStorageService portfolioStorage,
             ObjectMapper objectMapper
     ) {
@@ -89,6 +92,7 @@ public class RecruitmentService {
         this.accounts = accounts;
         this.profiles = profiles;
         this.authService = authService;
+        this.notificationService = notificationService;
         this.portfolioStorage = portfolioStorage;
         this.objectMapper = objectMapper;
     }
@@ -353,7 +357,41 @@ public class RecruitmentService {
             throw new ApiException(HttpStatus.CONFLICT, "不允许从 " + current + " 直接流转到 " + target);
         }
         application.changeStage(target);
-        histories.save(new RecruitmentStatusHistoryEntity(application.getId(), current, target, snapshot(operator), note));
+        String effectiveNote = screeningDecisionNote(current, target, note);
+        histories.save(new RecruitmentStatusHistoryEntity(application.getId(), current, target, snapshot(operator), effectiveNote));
+        notifyScreeningDecision(application, current, target);
+    }
+
+    private String screeningDecisionNote(RecruitmentStage current, RecruitmentStage target, String fallback) {
+        if (current != RecruitmentStage.SCREENING) return fallback;
+        if (target == RecruitmentStage.INTERVIEW) return "初筛通过，请前往“我的报名”预约面试";
+        if (target == RecruitmentStage.REJECTED) return "本轮初筛暂未通过，建议补充相关基础知识后再次报名";
+        return fallback;
+    }
+
+    private void notifyScreeningDecision(
+            RecruitmentApplicationEntity application,
+            RecruitmentStage current,
+            RecruitmentStage target
+    ) {
+        if (current != RecruitmentStage.SCREENING) return;
+        if (target == RecruitmentStage.INTERVIEW) {
+            notificationService.send(
+                    application.getApplicant(),
+                    "SCREENING_PASSED",
+                    "初筛已通过，请预约面试",
+                    "很高兴地告诉你，你已通过 YES Lab 招新初筛。请进入“我的报名”选择合适的面试场次并完成预约，我们期待与你进一步交流。",
+                    "/application"
+            );
+        } else if (target == RecruitmentStage.REJECTED) {
+            notificationService.send(
+                    application.getApplicant(),
+                    "SCREENING_NOT_PASSED",
+                    "本轮初筛结果",
+                    "感谢你认真完成报名。本轮暂未通过初筛，建议先围绕感兴趣的方向补充基础知识，并尝试完成一些小项目。欢迎你在下一次招新时再次报名，我们期待看到你的进步。",
+                    "/application"
+            );
+        }
     }
 
     private RecruitmentApplicationEntity requireApplication(UUID applicationId) {

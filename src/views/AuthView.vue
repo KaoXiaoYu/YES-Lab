@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from 'luci
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { login, register } from '../services/authApi'
+import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,25 +26,34 @@ watch(() => route.path, (path) => {
 })
 
 async function submit() {
+  const registering = isRegister.value
   errorMessage.value = ''
   fieldErrors.value = {}
-  if (isRegister.value && !validateUsername()) return
-  if (isRegister.value && (form.password.length < 6 || form.password.length > 18)) {
+  if (registering && !validateUsername()) return
+  if (registering && (form.password.length < 6 || form.password.length > 18)) {
     fieldErrors.value = { password: '密码长度需为 6—18 位' }
     return
   }
-  if (isRegister.value && form.password !== form.confirmPassword) {
+  if (registering && form.password !== form.confirmPassword) {
     fieldErrors.value = { confirmPassword: '两次输入的密码不一致' }
     return
   }
 
   submitting.value = true
   try {
-    const account = isRegister.value
+    const account = registering
       ? await register({ username: normalizedUsername.value, password: form.password })
       : await login({ username: form.username.trim(), password: form.password, rememberMe: form.rememberMe })
     const requestedPath = typeof route.query.redirect === 'string' ? route.query.redirect : null
     await router.push(requestedPath || (account.role === 'VISITOR' ? '/application' : '/profile'))
+    if (registering) {
+      showSubmissionFeedback({
+        eyebrow: 'ACCOUNT CREATED',
+        title: '报名账号已创建',
+        message: '账号注册成功。接下来请填写并提交报名表，向 YES Lab 介绍你自己。',
+        confirmLabel: '开始填写',
+      })
+    }
   } catch (error) {
     errorMessage.value = error.message
     fieldErrors.value = error.fields || {}

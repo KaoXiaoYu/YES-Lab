@@ -2,6 +2,7 @@
 import { CalendarClock, CheckCircle2, MapPin, Pencil, Play, Plus, SkipForward, Square, Trash2, UserRoundCheck, UsersRound, X } from 'lucide-vue-next'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { authState, callNextInterview, cancelInterviewSession, completeScheduledInterview, createInterviewSession, endInterviewSessionEarly, listInterviewSessions, markInterviewNoShow, startScheduledInterview, updateInterviewSession } from '../services/authApi'
+import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const props = defineProps({ interviewers: { type: Array, default: () => [] } })
 const emit = defineEmits(['completed'])
@@ -80,7 +81,13 @@ async function submitResult() {
       score: resultForm.score === '' ? null : Number(resultForm.score), evaluation: resultForm.evaluation.trim() || null,
       suggestedTags: splitTags(resultForm.suggestedTags), passed: resultForm.passed,
     })
-    upsert(updated); resultTarget.value = null; successMessage.value = '面试结果已保存，梅琳娜已向报名者发送通知。'; emit('completed')
+    upsert(updated); resultTarget.value = null; emit('completed')
+    showSubmissionFeedback({
+      eyebrow: 'INTERVIEW RESULT SAVED',
+      title: '面试结果已提交',
+      message: `${booking.applicantName} 的面试结论已经保存，梅琳娜已向报名者发送通知。`,
+      confirmLabel: '返回面试队列',
+    })
   })
 }
 

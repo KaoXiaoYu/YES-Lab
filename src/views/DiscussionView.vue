@@ -17,6 +17,7 @@ const posts = ref([])
 const loading = ref(true)
 const working = ref(false)
 const errorMessage = ref('')
+const successMessage = ref('')
 const form = reactive({ title: '', content: '', announcement: false, length: { text: 0, html: 0 } })
 const replyDrafts = reactive({})
 const replyLengths = reactive({})
@@ -81,6 +82,7 @@ async function submitPost() {
     posts.value.push(created)
     sortPosts()
     form.title = ''; form.content = ''; form.announcement = false; form.length = { text: 0, html: 0 }
+    successMessage.value = created.announcement ? '公告已发布，梅琳娜正在向站内账号发送通知。' : '讨论已发布。'
   })
 }
 
@@ -97,13 +99,14 @@ async function savePost(post) {
   await run(async () => {
     replacePost(await updateDiscussion(post.id, { title: editingPost.title.trim(), content: editingPost.content }))
     editingPostId.value = null
+    successMessage.value = '讨论内容已保存。'
   })
 }
 
 async function removePost(post) {
   if (!requireParticipation()) return
   if (!window.confirm(`确认删除《${post.title}》及其全部回复吗？`)) return
-  await run(async () => { await deleteDiscussion(post.id); posts.value = posts.value.filter(item => item.id !== post.id) })
+  await run(async () => { await deleteDiscussion(post.id); posts.value = posts.value.filter(item => item.id !== post.id); successMessage.value = '讨论及其回复已删除。' })
 }
 
 async function likePost(post) {
@@ -129,6 +132,7 @@ async function submitReply(post) {
     replyDrafts[post.id] = ''
     replyLengths[post.id] = { text: 0, html: 0 }
     replyingPostId.value = null
+    successMessage.value = '回复已发布。'
   })
 }
 
@@ -144,13 +148,14 @@ async function saveReply(reply) {
   await run(async () => {
     replacePost(await updateDiscussionReply(reply.id, { content: editingReply.content }))
     editingReplyId.value = null
+    successMessage.value = '回复内容已保存。'
   })
 }
 
 async function removeReply(reply) {
   if (!requireParticipation()) return
   if (!window.confirm('确认删除这条回复吗？')) return
-  await run(async () => replacePost(await deleteDiscussionReply(reply.id)))
+  await run(async () => { replacePost(await deleteDiscussionReply(reply.id)); successMessage.value = '回复已删除。' })
 }
 
 async function likeReply(reply) {
@@ -161,6 +166,7 @@ async function likeReply(reply) {
 async function run(action) {
   working.value = true
   errorMessage.value = ''
+  successMessage.value = ''
   try { await action() }
   catch (error) { errorMessage.value = error.message }
   finally { working.value = false }
@@ -233,6 +239,7 @@ function plainText(value) { return (value || '').replace(/<[^>]*>/g, ' ').replac
 
 <template>
   <PortalShell eyebrow="PUBLIC / DISCUSSION" title="讨论板">
+    <div v-if="successMessage" class="save-message" role="status">{{ successMessage }}</div>
     <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
 
     <section class="discussion-compose">

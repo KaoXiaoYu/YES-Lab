@@ -146,6 +146,54 @@ class IdentityRecruitmentApiTests {
     }
 
     @Test
+    void screeningDecisionNotifiesApplicantsWithTheCorrectNextStep() throws Exception {
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        ApplicantFixture passed = registerApplicantWithApplication(
+                "screening-pass@example.com", "ScreenPass1", "初筛通过同学"
+        );
+        ApplicantFixture rejected = registerApplicantWithApplication(
+                "screening-retry@example.com", "ScreenRetry1", "下次再来同学"
+        );
+
+        changeStage(passed.applicationId(), teacherToken, "SCREENING");
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/stage", passed.applicationId())
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"stage":"INTERVIEW","note":"自定义旧文案","linkedQuizId":null}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stage").value("INTERVIEW"))
+                .andExpect(jsonPath("$.data.history[*].note", hasItem("初筛通过，请前往“我的报名”预约面试")));
+        mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(passed.token())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.unreadCount").value(1))
+                .andExpect(jsonPath("$.data.messages[0].type").value("SCREENING_PASSED"))
+                .andExpect(jsonPath("$.data.messages[0].title").value("初筛已通过，请预约面试"))
+                .andExpect(jsonPath("$.data.messages[0].summary", containsString("选择合适的面试场次")))
+                .andExpect(jsonPath("$.data.messages[0].targetPath").value("/application"));
+
+        changeStage(rejected.applicationId(), teacherToken, "SCREENING");
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/stage", rejected.applicationId())
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"stage":"REJECTED","note":"自定义旧文案","linkedQuizId":null}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stage").value("REJECTED"))
+                .andExpect(jsonPath("$.data.history[*].note", hasItem("本轮初筛暂未通过，建议补充相关基础知识后再次报名")));
+        mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(rejected.token())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.unreadCount").value(1))
+                .andExpect(jsonPath("$.data.messages[0].type").value("SCREENING_NOT_PASSED"))
+                .andExpect(jsonPath("$.data.messages[0].title").value("本轮初筛结果"))
+                .andExpect(jsonPath("$.data.messages[0].summary", containsString("补充基础知识")))
+                .andExpect(jsonPath("$.data.messages[0].summary", containsString("下一次招新时再次报名")))
+                .andExpect(jsonPath("$.data.messages[0].targetPath").value("/application"));
+    }
+
+    @Test
     void registrationRequiresEmailAndPasswordBetweenSixAndEighteenCharacters() throws Exception {
         for (String username : List.of("plain-visitor-name", "+86 138-0013-8000", "broken@example")) {
             mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
@@ -396,6 +444,41 @@ class IdentityRecruitmentApiTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.stage").value(stage));
     }
+
+    private ApplicantFixture registerApplicantWithApplication(String email, String password, String name) throws Exception {
+        String registration = mvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + email + "\",\"password\":\"" + password + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String token = tokenFrom(registration);
+        String questionsResponse = mvc.perform(get("/api/v1/recruitment/me/questions")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        List<String> questionIds = JsonPath.read(questionsResponse, "$.data[*].id");
+        String questionJson = questionIds.stream().map(id -> "\"" + id + "\"")
+                .collect(java.util.stream.Collectors.joining(","));
+        String answerJson = questionIds.stream().limit(3)
+                .map(id -> "{\"questionId\":\"" + id + "\",\"answer\":\"测试回答\"}")
+                .collect(java.util.stream.Collectors.joining(","));
+        String application = mvc.perform(put("/api/v1/recruitment/me")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(("""
+                                {
+                                  "name":"%s","major":"计算机科学","className":"计科 2501","grade":"2025",
+                                  "email":"%s","interestDirections":["机器人"],"existingSkills":["Python"],
+                                  "intendedTags":["机器人控制"],"mediaLinks":[],
+                                  "technicalQuestionIds":[%s],"technicalAnswers":[%s]
+                                }
+                                """).formatted(name, email, questionJson, answerJson)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return new ApplicantFixture(token, JsonPath.read(application, "$.data.id"));
+    }
+
+    private record ApplicantFixture(String token, String applicationId) { }
 
     private String login(String username, String password) throws Exception {
         String content = mvc.perform(post("/api/v1/auth/login")

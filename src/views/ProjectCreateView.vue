@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
 import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
 import { createProject, listProjectMemberOptions } from '../services/authApi'
+import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const router = useRouter()
 const members = ref([])
@@ -81,6 +82,12 @@ async function submit() {
       stageGoalsText: undefined,
     })
     await router.push(`/projects/${project.id}`)
+    showSubmissionFeedback({
+      eyebrow: 'PROJECT CREATED',
+      title: '项目团队已创建',
+      message: `${project.projectName} 已建立。你可以继续完善项目资料、上传主图并安排团队角色。`,
+      confirmLabel: '进入团队空间',
+    })
   } catch (error) {
     errorMessage.value = error.message
   } finally {

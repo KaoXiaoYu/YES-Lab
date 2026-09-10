@@ -1,5 +1,5 @@
 <script setup>
-import { ArrowRight, KeyRound, Search, UserPlus, XCircle } from 'lucide-vue-next'
+import { ArrowRight, CalendarCheck, CircleCheck, KeyRound, Search, UserPlus, XCircle } from 'lucide-vue-next'
 import { computed, onMounted, reactive, ref } from 'vue'
 import AuthenticatedImage from '../components/AuthenticatedImage.vue'
 import InterviewSessionManager from '../components/InterviewSessionManager.vue'
@@ -8,12 +8,13 @@ import {
   changeRecruitmentStage, convertRecruitmentToMember, listInterviewers,
   listRecruitmentApplications, resetRecruitmentPassword,
 } from '../services/authApi'
+import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const stageLabels = {
   SIGNUP: '报名', SCREENING: '初筛', INTERVIEW: '面试', SKILL_TEST: '技能测试',
   PROBATION: '试用期', FORMAL_MEMBER: '正式成员', REJECTED: '未通过',
 }
-const nextStages = { SIGNUP: 'SCREENING', SCREENING: 'INTERVIEW', SKILL_TEST: 'PROBATION' }
+const nextStages = { SIGNUP: 'SCREENING', SKILL_TEST: 'PROBATION' }
 const applications = ref([])
 const interviewers = ref([])
 const selected = ref(null)
@@ -70,11 +71,54 @@ async function rejectApplication() {
   await runAction(() => changeRecruitmentStage(selected.value.id, { stage: 'REJECTED', note: '本轮招新未通过', linkedQuizId: null }), '报名流程已结束。')
 }
 
+async function approveScreening() {
+  if (!selected.value) return
+  const applicantName = selected.value.name
+  if (!window.confirm(`确认让 ${applicantName} 通过初筛并进入面试吗？系统会通知对方预约面试。`)) return
+  const succeeded = await runAction(() => changeRecruitmentStage(selected.value.id, {
+    stage: 'INTERVIEW', note: '初筛通过，请前往“我的报名”预约面试', linkedQuizId: null,
+  }), '')
+  if (succeeded) {
+    showSubmissionFeedback({
+      eyebrow: 'SCREENING PASSED',
+      title: '初筛已通过',
+      message: `已通知 ${applicantName} 进入“我的报名”选择面试场次并完成预约。`,
+      confirmLabel: '继续审核',
+    })
+  }
+}
+
+async function rejectScreening() {
+  if (!selected.value) return
+  const applicantName = selected.value.name
+  if (!window.confirm(`确认将 ${applicantName} 标记为初筛未通过吗？系统会发送学习建议并结束本轮流程。`)) return
+  const succeeded = await runAction(() => changeRecruitmentStage(selected.value.id, {
+    stage: 'REJECTED', note: '本轮初筛暂未通过，建议补充相关基础知识后再次报名', linkedQuizId: null,
+  }), '')
+  if (succeeded) {
+    showSubmissionFeedback({
+      eyebrow: 'SCREENING COMPLETE',
+      title: '初筛结果已发送',
+      message: `已告知 ${applicantName} 本轮暂未通过，并附上学习建议和下次报名邀请。`,
+      confirmLabel: '继续审核',
+    })
+  }
+}
+
 async function convertMember() {
-  await runAction(() => convertRecruitmentToMember(selected.value.id, {
+  const convertedName = selected.value.name
+  const succeeded = await runAction(() => convertRecruitmentToMember(selected.value.id, {
     memberCode: convertForm.memberCode.trim(),
     skillTags: splitTags(convertForm.skillTags),
-  }), '已转换为正式成员；重新登录后会获得成员权限。')
+  }), '')
+  if (succeeded) {
+    showSubmissionFeedback({
+      eyebrow: 'MEMBER CONVERTED',
+      title: '已转为正式成员',
+      message: `${convertedName} 的成员资料已经建立，重新登录后会获得正式成员权限。`,
+      confirmLabel: '查看招新记录',
+    })
+  }
 }
 
 async function resetApplicantPassword() {
@@ -103,8 +147,10 @@ async function runAction(action, success) {
     applications.value = applications.value.map(item => item.id === updated.id ? updated : item)
     selectApplication(updated)
     successMessage.value = success
+    return true
   } catch (error) {
     errorMessage.value = error.message
+    return false
   } finally {
     working.value = false
   }
@@ -129,9 +175,17 @@ function splitTags(value) {
       </aside>
 
       <div v-if="selected" class="application-detail">
-        <header class="detail-head"><div><p>{{ selected.applicantUsername }} / {{ stageLabels[selected.stage] }}</p><h2>{{ selected.name }}</h2><span>{{ selected.major }} · {{ selected.className }} · {{ selected.grade || '年级未填' }}</span></div><div class="detail-actions"><button v-if="nextStages[selected.stage]" type="button" :disabled="working" @click="advance">进入{{ stageLabels[nextStages[selected.stage]] }}<ArrowRight :size="17" aria-hidden="true" /></button><button v-if="!['FORMAL_MEMBER', 'REJECTED'].includes(selected.stage)" class="danger" type="button" :disabled="working" @click="rejectApplication"><XCircle :size="17" aria-hidden="true" />结束流程</button></div></header>
+        <header class="detail-head"><div><p>{{ selected.applicantUsername }} / {{ stageLabels[selected.stage] }}</p><h2>{{ selected.name }}</h2><span>{{ selected.major }} · {{ selected.className }} · {{ selected.grade || '年级未填' }}</span></div><div class="detail-actions"><button v-if="nextStages[selected.stage]" type="button" :disabled="working" @click="advance">进入{{ stageLabels[nextStages[selected.stage]] }}<ArrowRight :size="17" aria-hidden="true" /></button><button v-if="selected.stage !== 'SCREENING' && !['FORMAL_MEMBER', 'REJECTED'].includes(selected.stage)" class="danger" type="button" :disabled="working" @click="rejectApplication"><XCircle :size="17" aria-hidden="true" />结束流程</button></div></header>
         <div v-if="successMessage" class="save-message" role="status">{{ successMessage }}</div>
         <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
+
+        <section v-if="selected.stage === 'SCREENING'" class="screening-decision-card" aria-labelledby="screening-decision-title">
+          <header><div><p>SCREENING DECISION</p><h3 id="screening-decision-title">选择初筛结果</h3></div><span>提交后将锁定报名表，并立即向报名者发送站内消息。</span></header>
+          <div class="screening-decision-options">
+            <article class="screening-decision-option reject"><span><XCircle :size="21" aria-hidden="true" /></span><div><strong>初筛未通过</strong><p>结束本轮流程，鼓励报名者补充相关基础知识、完成实践项目，并在下次招新时再次报名。</p></div><button type="button" :disabled="working" @click="rejectScreening">{{ working ? '提交中…' : '选择未通过' }}</button></article>
+            <article class="screening-decision-option approve"><span><CircleCheck :size="21" aria-hidden="true" /></span><div><strong>初筛通过</strong><p>进入面试阶段，报名者将收到通知，并可在“我的报名”中选择面试场次。</p></div><button type="button" :disabled="working" @click="approveScreening"><CalendarCheck :size="17" aria-hidden="true" />{{ working ? '提交中…' : '通过并进入面试' }}</button></article>
+          </div>
+        </section>
 
         <section class="detail-grid">
           <article><p>邮箱</p><strong>{{ selected.email || '未填写' }}</strong></article><article><p>手机号码</p><strong>{{ selected.phone || '未填写' }}</strong></article><article><p>微信号</p><strong>{{ selected.wechat || '未填写' }}</strong></article><article v-if="!selected.email && !selected.phone && selected.contact"><p>原联系方式</p><strong>{{ selected.contact }}</strong></article><article class="full"><p>自我介绍</p><span class="application-introduction">{{ selected.selfIntroduction || '未填写自我介绍。' }}</span></article><article><p>INTEREST</p><div class="detail-tags"><span v-for="item in selected.interestDirections" :key="item">{{ item }}</span></div></article><article><p>EXISTING SKILLS</p><div class="detail-tags"><span v-for="item in selected.existingSkills" :key="item">{{ item }}</span><small v-if="!selected.existingSkills.length">暂无</small></div></article><article><p>INTENDED TAGS</p><div class="detail-tags"><span v-for="item in selected.intendedTags" :key="item">{{ item }}</span></div></article><article class="full"><p>PROJECT / COMPETITION EXPERIENCE</p><span>{{ selected.experience || '未填写项目或竞赛经历。' }}</span></article>

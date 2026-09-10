@@ -1,5 +1,5 @@
 <script setup>
-import { Bell, CheckCheck, X } from 'lucide-vue-next'
+import { Bell, CheckCheck, Inbox, X } from 'lucide-vue-next'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getNotifications, getNotificationVisibility, markAllNotificationsRead, markNotificationRead } from '../services/authApi'
@@ -32,6 +32,7 @@ onMounted(async () => {
   pollTimer = window.setInterval(() => refresh(false), 15000)
   document.addEventListener('visibilitychange', handleVisibility)
   window.addEventListener('resize', updatePosition)
+  window.addEventListener('yeslab:notifications-updated', handleNotificationUpdate)
 })
 
 onBeforeUnmount(() => {
@@ -39,6 +40,7 @@ onBeforeUnmount(() => {
   window.clearTimeout(toastTimer)
   document.removeEventListener('visibilitychange', handleVisibility)
   window.removeEventListener('resize', updatePosition)
+  window.removeEventListener('yeslab:notifications-updated', handleNotificationUpdate)
 })
 
 async function refresh(firstLoad) {
@@ -85,16 +87,22 @@ function updatePosition() {
 
 async function openMessage(message) {
   if (!message.read) inbox.value = await markNotificationRead(message.id)
+  window.dispatchEvent(new CustomEvent('yeslab:notifications-updated'))
   open.value = false
   if (message.targetPath) router.push(message.targetPath)
 }
 
 async function readAll() {
   inbox.value = await markAllNotificationsRead()
+  window.dispatchEvent(new CustomEvent('yeslab:notifications-updated'))
 }
 
 function handleVisibility() {
   if (document.visibilityState === 'visible') refresh(false)
+}
+
+function handleNotificationUpdate() {
+  refresh(false)
 }
 </script>
 
@@ -113,13 +121,14 @@ function handleVisibility() {
       <div class="notification-list">
         <div class="notification-companion">
           <MelinaMascot />
-          <div><strong>{{ inbox.messages.length ? '你的信，我替你收好了。' : '我会在这里，等下一封信。' }}</strong><p>点点我，打个招呼吧。</p></div>
+          <div><strong>{{ unread.length ? '有新的信，我替你收好了。' : '未读消息已经处理完啦。' }}</strong><p>完整记录会一直留在站内信箱。</p></div>
         </div>
-        <button v-for="message in inbox.messages" :key="message.id" type="button" :class="{ unread: !message.read }" @click="openMessage(message)">
+        <button v-for="message in unread" :key="message.id" type="button" class="unread" @click="openMessage(message)">
           <span class="notification-dot" aria-hidden="true" /><span><strong>{{ message.title }}</strong><p>{{ message.summary }}</p><small>{{ new Date(message.createdAt).toLocaleString('zh-CN') }}</small></span>
         </button>
-        <p v-if="initialized && !inbox.messages.length" class="notification-empty">暂时没有站内消息。</p>
+        <p v-if="initialized && !unread.length" class="notification-empty">暂时没有未读消息。</p>
       </div>
+      <RouterLink class="notification-inbox-link" to="/inbox" @click="open = false"><Inbox :size="16" aria-hidden="true" />打开完整站内信箱</RouterLink>
     </section>
 
     <aside v-if="toast" class="notification-toast" role="status" aria-live="polite">

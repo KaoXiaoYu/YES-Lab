@@ -9,6 +9,7 @@ import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
 import {
   getHomepageContent, listMembers, listProjects, updateHomepageContent, uploadSponsorLogo,
 } from '../services/authApi'
+import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const tabs = [
   { id: 'identity', label: '品牌与首屏', icon: LayoutTemplate },
@@ -147,8 +148,12 @@ async function save() {
     content.value = structuredClone(saved.content)
     updatedAt.value = saved.updatedAt
     updatedBy.value = saved.updatedBy || ''
-    message.value = '主页内容已保存，公开展示页刷新后生效。'
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    showSubmissionFeedback({
+      eyebrow: 'HOMEPAGE PUBLISHED',
+      title: '主页内容已保存',
+      message: '所有分区已经作为同一版本更新，公开展示页刷新后生效。',
+      confirmLabel: '继续编辑',
+    })
   } catch (error) {
     const firstFieldError = Object.values(error.fields || {})[0]
     errorMessage.value = firstFieldError ? `${error.message}：${firstFieldError}` : error.message

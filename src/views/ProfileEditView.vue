@@ -9,6 +9,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
 import { deleteOwnAvatar, getOwnProfile, getOwnShowcase, replaceOwnAvatar, updateOwnProfile, updateOwnShowcase } from '../services/authApi'
+import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const router = useRouter()
 const profile = ref(null)
@@ -24,7 +25,6 @@ const form = reactive({ avatarUrl: '', internalContact: '', headline: '' })
 const showcase = ref({ projectOptions: [], achievementOptions: [], featuredProjectIds: [], featuredCompetitionIds: [] })
 const selectedProjects = computed(() => orderedOptions(showcase.value.projectOptions, showcase.value.featuredProjectIds))
 const selectedAchievements = computed(() => orderedOptions(showcase.value.achievementOptions, showcase.value.featuredCompetitionIds))
-let redirectTimer
 
 const editor = useEditor({
   extensions: [StarterKit],
@@ -49,7 +49,6 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  window.clearTimeout(redirectTimer)
   releaseAvatarPreview()
   editor.value?.destroy()
 })
@@ -152,8 +151,13 @@ async function saveProfile() {
     ])
     profile.value = profileData
     showcase.value = showcaseData
-    message.value = '个人主页已保存，即将返回主页。'
-    redirectTimer = window.setTimeout(() => router.push('/profile'), 450)
+    await router.push('/profile')
+    showSubmissionFeedback({
+      eyebrow: 'PROFILE UPDATED',
+      title: '个人主页已保存',
+      message: '你的主页标语、公开介绍和展示内容已经更新。',
+      confirmLabel: '查看个人主页',
+    })
   } catch (error) {
     errorMessage.value = error.message
   } finally {

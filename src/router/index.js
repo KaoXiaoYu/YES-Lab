@@ -18,6 +18,7 @@ const routes = [
   { path: '/competitions/new', name: 'competition-create', component: () => import('../views/CompetitionFormView.vue'), meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] } },
   { path: '/competitions/:competitionId/edit', name: 'competition-edit', component: () => import('../views/CompetitionFormView.vue'), meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] } },
   { path: '/application', name: 'application', component: () => import('../views/RecruitmentView.vue'), meta: { roles: ['VISITOR'] } },
+  { path: '/inbox', name: 'inbox', component: () => import('../views/InboxView.vue'), meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER', 'VISITOR'] } },
   { path: '/admin/recruitment', name: 'admin-recruitment', component: () => import('../views/AdminRecruitmentView.vue'), meta: { roles: ['TEACHER', 'CORE_STUDENT'] } },
   { path: '/admin/members', name: 'admin-members', component: () => import('../views/AdminMembersView.vue'), meta: { roles: ['TEACHER', 'CORE_STUDENT'] } },
   { path: '/admin/achievements', name: 'admin-achievements', component: () => import('../views/AdminAchievementsView.vue'), meta: { roles: ['TEACHER', 'CORE_STUDENT'] } },

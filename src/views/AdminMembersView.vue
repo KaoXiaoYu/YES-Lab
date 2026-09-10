@@ -7,6 +7,7 @@ import {
   authState, createCoreStudent, deleteManagedMemberAvatar, listMembers,
   replaceManagedMemberAvatar, resetMemberPassword, updateMember,
 } from '../services/authApi'
+import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const members = ref([])
 const selectedId = ref(null)
@@ -125,7 +126,12 @@ async function submitCoreStudent() {
     members.value.push(created)
     creating.value = false
     selectedId.value = created.id
-    message.value = '学生管理员账号已创建，可使用设置的账号和初始密码登录。'
+    showSubmissionFeedback({
+      eyebrow: 'ACCOUNT CREATED',
+      title: '学生管理员账号已创建',
+      message: `${created.name} 现在可以使用设置的账号和初始密码登录。`,
+      confirmLabel: '查看成员资料',
+    })
   } catch (error) {
     errorMessage.value = error.message
   } finally {

@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import MemberProfileDisplay from '../components/MemberProfileDisplay.vue'
 import PortalShell from '../components/PortalShell.vue'
 import { changeOwnPassword, getOwnProfile, logout } from '../services/authApi'
+import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const router = useRouter()
 const profile = ref(null)
@@ -55,7 +56,13 @@ async function submitPasswordChange() {
       newPassword: passwordForm.newPassword,
     })
     await logout()
-    await router.replace({ path: '/login', query: { passwordChanged: '1' } })
+    await router.replace('/login')
+    showSubmissionFeedback({
+      eyebrow: 'PASSWORD UPDATED',
+      title: '密码已修改',
+      message: '当前账号已经安全退出，其他设备也无法继续续期。请使用新密码重新登录。',
+      confirmLabel: '返回登录',
+    })
   } catch (error) {
     if (error.message === '当前密码不正确') passwordFieldErrors.value = { currentPassword: error.message }
     else if (Object.keys(error.fields || {}).length) passwordFieldErrors.value = error.fields
