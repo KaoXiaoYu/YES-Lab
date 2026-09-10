@@ -108,6 +108,7 @@ function validateUsername() {
       </header>
 
       <form novalidate @submit.prevent="submit">
+        <div v-if="route.query.passwordChanged === '1'" class="save-message" role="status">密码已修改，请使用新密码重新登录。</div>
         <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
         <label for="username">{{ isRegister ? '邮箱' : '账号' }}</label>
         <div class="input-shell" :class="{ invalid: fieldErrors.username }"><UserRound :size="18" aria-hidden="true" /><input id="username" v-model="form.username" :type="isRegister ? 'email' : 'text'" name="username" autocomplete="username" required maxlength="190" :placeholder="isRegister ? 'name@example.com' : '邮箱、手机号或实验室账号'" :aria-invalid="Boolean(fieldErrors.username)" :aria-describedby="fieldErrors.username ? 'username-error' : undefined" @blur="isRegister && validateUsername()" /></div>

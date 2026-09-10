@@ -255,6 +255,34 @@
 .admin-password-input input { border: 0; }
 .admin-password-input button { display: grid; place-items: center; width: 44px; height: 44px; align-self: center; border: 0; border-radius: 7px; color: var(--color-text-secondary); background: transparent; }
 .admin-password-input:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(30,58,95,.12); }
+.admin-password-input.invalid { border-color: var(--color-danger); }
+
+/* 密码设置 */
+.password-settings-card { border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-card); box-shadow: 0 8px 26px rgba(15,23,42,.06); }
+.profile-password-card { margin-top: 20px; padding: clamp(24px, 4vw, 42px); }
+.member-password-card { margin-top: 28px; padding: 22px; background: var(--color-background); box-shadow: none; }
+.password-settings-card > header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 22px; padding-bottom: 20px; border-bottom: 1px solid var(--color-border); }
+.password-settings-card > header p { margin: 0 0 7px; color: var(--color-accent); font-size: 9px; font-weight: 800; letter-spacing: .15em; }
+.password-settings-card > header h2, .password-settings-card > header h3 { margin: 0; color: var(--color-primary); font-family: 'Noto Serif SC', serif; }
+.password-settings-card > header h2 { font-size: clamp(28px, 4vw, 40px); }
+.password-settings-card > header h3 { font-size: 22px; }
+.password-settings-card > header > span { max-width: 420px; color: var(--color-text-secondary); font-size: 11px; line-height: 1.7; text-align: right; }
+.password-settings-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.password-settings-form.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.password-settings-form > label { display: flex; flex-direction: column; gap: 8px; min-width: 0; color: var(--color-text-strong); font-size: 12px; font-weight: 700; }
+.password-settings-form input { width: 100%; min-width: 0; min-height: 46px; padding: 9px 12px; outline: 0; color: var(--color-foreground); background: transparent; font: inherit; }
+.password-settings-form small { color: var(--color-text-secondary); font-size: 10px; font-weight: 400; line-height: 1.6; }
+.password-settings-form .field-error { margin: 0; color: var(--color-danger); }
+.password-settings-actions { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 20px; padding-top: 2px; }
+.password-settings-actions p { margin: 0; color: var(--color-text-secondary); font-size: 11px; line-height: 1.7; }
+.password-settings-actions .portal-primary { flex: 0 0 auto; margin-top: 0; transition: transform 140ms cubic-bezier(.23,1,.32,1); }
+.password-settings-actions .portal-primary:active:not(:disabled) { transform: scale(.97); }
+.recruitment-password-card > p { margin: -4px 0 18px; color: var(--color-text-secondary); font-size: 11px; line-height: 1.7; }
+.default-password-reset { display: flex; align-items: center; justify-content: space-between; gap: 22px; }
+.default-password-reset p { margin: 0; color: var(--color-text-secondary); font-size: 11px; line-height: 1.7; }
+.default-password-reset strong { color: var(--color-primary); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; }
+.default-password-reset .portal-primary { flex: 0 0 auto; margin-top: 0; transition: transform 140ms cubic-bezier(.23,1,.32,1); }
+.default-password-reset .portal-primary:active:not(:disabled) { transform: scale(.97); }
 
 /* 公开成员主页 */
 .public-member-page { min-height: 100vh; background: var(--color-surface-soft); }
@@ -623,6 +651,7 @@
 @media (max-width: 760px) {
   .melina-visibility-manager > form, .melina-visibility-manager > header { padding-inline: 16px; }.melina-role-options { grid-template-columns: 1fr; }.melina-account-list > label { grid-template-columns: 1fr; gap: 9px; }.melina-visibility-manager footer { align-items: stretch; flex-direction: column; }.melina-visibility-manager footer button { width: 100%; }.melina-account-search input, .melina-account-list select { font-size: 16px; }
   .portal-topbar { display: flex; flex-wrap: wrap; padding: 10px 16px; }.portal-brand { margin-right: auto; }.portal-topbar nav { order: 3; justify-content: flex-start; width: 100%; padding-top: 8px; border-top: 1px solid var(--color-border-faint); }.portal-topbar nav a { flex: 0 0 auto; }.portal-main { width: min(100% - 28px, 1440px); padding-top: 46px; }.portal-heading { grid-template-columns: 1fr; }.portal-heading > span { grid-column: 1; grid-row: auto; }
+  .password-settings-card > header { align-items: flex-start; flex-direction: column; }.password-settings-card > header > span { text-align: left; }.password-settings-form, .password-settings-form.compact { grid-template-columns: 1fr; }.password-settings-actions, .default-password-reset { align-items: stretch; flex-direction: column; }.password-settings-actions .portal-primary, .default-password-reset .portal-primary { justify-content: center; width: 100%; }
   .auth-story { min-height: 560px; padding: 28px 22px; }.auth-story h1 { margin-top: 32px; font-size: 54px; }.auth-story ol { grid-template-columns: 1fr; }.auth-story li { min-height: 48px; }.auth-panel { padding: 52px 22px; }
   .profile-identity-card { grid-template-columns: 70px 1fr; padding: 24px 20px; }.profile-avatar { width: 68px; height: 68px; }.profile-identity-card h2 { font-size: 32px; }.profile-edit-link { grid-column: 1 / -1; justify-content: center; }.profile-identity-card dl { grid-template-columns: 1fr; }.growth-grid, .teacher-profile .growth-grid { grid-template-columns: repeat(2, 1fr); }.profile-story-card > header { align-items: flex-start; flex-direction: column; }.profile-record-grid, .profile-showcase-grid { grid-template-columns: 1fr; }.profile-edit-card, .application-card { padding: 24px 18px; }.profile-edit-card > header, .application-card > header, .profile-showcase-editor > header { align-items: flex-start; flex-direction: column; }.avatar-editor, .managed-avatar-editor { grid-template-columns: 1fr; }.avatar-editor-preview { width: 84px; height: 84px; }.avatar-editor-actions { align-items: stretch; flex-direction: column; }.avatar-editor-actions > * { width: 100%; }.profile-fields, .application-fields, .admin-form-grid { grid-template-columns: 1fr; }.profile-fields .full, .application-fields .full, .admin-form-grid .full { grid-column: auto; }.profile-save-row, .member-admin-submit { align-items: stretch; flex-direction: column; }.profile-save-row button, .member-admin-submit button { justify-content: center; }
   .recruitment-progress-card { padding: 22px 16px; overflow-x: auto; }.recruitment-progress-card > header { align-items: flex-start; flex-direction: column; }.stage-track { min-width: 620px; }.application-history { padding: 22px 18px; }

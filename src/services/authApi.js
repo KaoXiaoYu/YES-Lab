@@ -53,6 +53,10 @@ export async function logout() {
   }
 }
 
+export function changeOwnPassword(payload) {
+  return apiRequest('/api/v1/auth/password', { method: 'PUT', body: payload })
+}
+
 export function getOwnProfile() {
   return apiRequest('/api/v1/member/profile')
 }
@@ -77,6 +81,10 @@ export function listMembers() {
 
 export function updateMember(profileId, payload) {
   return apiRequest(`/api/v1/admin/members/${profileId}`, { method: 'PUT', body: payload })
+}
+
+export function resetMemberPassword(profileId) {
+  return apiRequest(`/api/v1/admin/members/${profileId}/password`, { method: 'PUT' })
 }
 
 export function createCoreStudent(payload) {
@@ -222,6 +230,10 @@ export function saveInterview(applicationId, payload) {
 
 export function convertRecruitmentToMember(applicationId, payload) {
   return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/convert`, { method: 'POST', body: payload })
+}
+
+export function resetRecruitmentPassword(applicationId) {
+  return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/password`, { method: 'PUT' })
 }
 
 export function getInterviewSchedule() { return apiRequest('/api/v1/recruitment/interviews') }

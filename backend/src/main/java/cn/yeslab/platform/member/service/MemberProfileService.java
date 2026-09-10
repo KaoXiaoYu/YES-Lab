@@ -172,6 +172,13 @@ public class MemberProfileService {
 
     @PreAuthorize("hasAuthority('MEMBER_MANAGE')")
     @Transactional
+    public void resetManagedMemberPassword(UUID profileId) {
+        MemberProfileEntity profile = requireProfile(profileId);
+        authService.resetPasswordToDefault(profile.getAccount());
+    }
+
+    @PreAuthorize("hasAuthority('MEMBER_MANAGE')")
+    @Transactional
     public MemberProfileModels.ProfileView createCoreStudent(
             MemberManagementModels.CreateCoreStudentRequest request
     ) {

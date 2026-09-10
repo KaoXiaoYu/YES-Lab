@@ -1,12 +1,12 @@
 <script setup>
-import { ArrowRight, Search, UserPlus, XCircle } from 'lucide-vue-next'
+import { ArrowRight, KeyRound, Search, UserPlus, XCircle } from 'lucide-vue-next'
 import { computed, onMounted, reactive, ref } from 'vue'
 import AuthenticatedImage from '../components/AuthenticatedImage.vue'
 import InterviewSessionManager from '../components/InterviewSessionManager.vue'
 import PortalShell from '../components/PortalShell.vue'
 import {
   changeRecruitmentStage, convertRecruitmentToMember, listInterviewers,
-  listRecruitmentApplications,
+  listRecruitmentApplications, resetRecruitmentPassword,
 } from '../services/authApi'
 
 const stageLabels = {
@@ -24,6 +24,7 @@ const successMessage = ref('')
 const query = ref('')
 const stageFilter = ref('ALL')
 const convertForm = reactive({ memberCode: '', skillTags: '' })
+const passwordWorking = ref(false)
 
 const filteredApplications = computed(() => applications.value.filter((application) => {
   const matchesStage = stageFilter.value === 'ALL' || application.stage === stageFilter.value
@@ -74,6 +75,23 @@ async function convertMember() {
     memberCode: convertForm.memberCode.trim(),
     skillTags: splitTags(convertForm.skillTags),
   }), '已转换为正式成员；重新登录后会获得成员权限。')
+}
+
+async function resetApplicantPassword() {
+  if (!selected.value) return
+  errorMessage.value = ''
+  successMessage.value = ''
+  if (!window.confirm(`确定将 ${selected.value.name} 的报名账号密码重置为 yeslab521 吗？该账号在其他设备上的续期登录状态将失效。`)) return
+
+  passwordWorking.value = true
+  try {
+    await resetRecruitmentPassword(selected.value.id)
+    successMessage.value = `已将 ${selected.value.name} 的报名账号密码重置为 yeslab521，请提醒本人登录后尽快修改。`
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    passwordWorking.value = false
+  }
 }
 
 async function runAction(action, success) {
@@ -139,6 +157,11 @@ function splitTags(value) {
           <p>转换后保留当前报名与面试历史，并为账号创建规范成员资料。</p>
           <div class="admin-form-grid"><label>学号 / 内部编号<input v-model.trim="convertForm.memberCode" required /></label><label>能力标签（至少一项）<input v-model="convertForm.skillTags" required /></label></div>
           <button class="portal-primary" type="button" :disabled="working || !convertForm.memberCode || !splitTags(convertForm.skillTags).length" @click="convertMember"><UserPlus :size="18" aria-hidden="true" />确认转为正式成员</button>
+        </section>
+
+        <section v-if="selected.stage !== 'FORMAL_MEMBER'" class="admin-form-card password-settings-card recruitment-password-card" aria-labelledby="applicant-reset-password-title">
+          <header><KeyRound :size="22" aria-hidden="true" /><div><p>ACCOUNT SECURITY</p><h3 id="applicant-reset-password-title">重置报名账号密码</h3></div></header>
+          <div class="default-password-reset"><p>适用于尚未转为正式成员的报名账号。默认密码为 <strong>yeslab521</strong>，重置后请安全告知本人。</p><button class="portal-primary" type="button" :disabled="passwordWorking" @click="resetApplicantPassword"><KeyRound :size="17" aria-hidden="true" />{{ passwordWorking ? '重置中…' : '重置为默认密码' }}</button></div>
         </section>
 
         <section class="admin-history"><header><p>AUDIT TRAIL</p><h3>状态变更记录</h3></header><ol><li v-for="item in [...selected.history].reverse()" :key="item.changedAt"><span></span><div><strong>{{ stageLabels[item.toStage] }}</strong><p>{{ item.note || '状态已更新' }}</p><small>{{ item.operatorUsername }} · {{ new Date(item.changedAt).toLocaleString('zh-CN') }}</small></div></li></ol></section>

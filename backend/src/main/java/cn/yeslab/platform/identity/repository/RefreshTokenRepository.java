@@ -9,5 +9,6 @@ import java.util.UUID;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshTokenEntity, UUID> {
     Optional<RefreshTokenEntity> findByTokenHash(String tokenHash);
+    long deleteByAccount_Id(UUID accountId);
     long deleteByExpiresAtBefore(Instant instant);
 }

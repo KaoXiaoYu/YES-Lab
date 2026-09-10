@@ -76,4 +76,8 @@ public class AccountEntity {
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
     }
+
+    public void changePasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
 }

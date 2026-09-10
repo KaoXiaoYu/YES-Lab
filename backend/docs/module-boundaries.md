@@ -33,9 +33,10 @@
 
 - `POST /api/v1/auth/register`：注册游客账号。
 - `POST /api/v1/auth/login`：账号密码登录并签发 JWT。
+- `PUT /api/v1/auth/password`：登录账号验证当前密码后修改密码，并撤销该账号全部刷新会话。
 - `GET /api/v1/auth/me`：读取当前账号、角色与权限。
 
-JWT 使用 HS256 签名，API 保持无状态；生产环境必须替换 `YESLAB_JWT_SECRET`。当前只签发短期访问令牌，不实现刷新令牌和主动吊销。
+JWT 使用 HS256 签名，API 保持无状态；生产环境必须替换 `YESLAB_JWT_SECRET`。访问令牌有效期为 15 分钟，刷新令牌只以摘要保存并在每次刷新时轮换；退出、本人改密和管理员重置都会撤销相应刷新会话。
 
 ## 游客招新
 
@@ -62,9 +63,10 @@ JWT 使用 HS256 签名，API 保持无状态；生产环境必须替换 `YESLAB
 - `GET /api/v1/admin/recruitment/interviewers`
 - `PATCH /api/v1/admin/recruitment/applications/{id}/stage`
 - `PUT /api/v1/admin/recruitment/applications/{id}/interview`
+- `PUT /api/v1/admin/recruitment/applications/{id}/password`
 - `POST /api/v1/admin/recruitment/applications/{id}/convert`
 
-一键转成员会保留原报名与面试历史，将游客账号角色改为普通成员，并创建规范成员资料。
+招新密码重置只适用于尚未转为正式成员的报名账号，重置结果固定为默认密码 `yeslab521`。一键转成员会保留原报名与面试历史，将游客账号角色改为普通成员，并创建规范成员资料。
 
 ### 面试预约与叫号
 
@@ -100,9 +102,10 @@ JWT 使用 HS256 签名，API 保持无状态；生产环境必须替换 `YESLAB
 - `GET /api/v1/admin/members/{id}`
 - `PUT /api/v1/admin/members/{id}`
 - `POST /api/v1/admin/members/core-students`
+- `PUT /api/v1/admin/members/{id}/password`
 - `PUT /api/v1/admin/members/{id}/avatar`、`DELETE /api/v1/admin/members/{id}/avatar`
 
-管理员维护姓名、编号、角色、状态、专业、班级、年级、内部联系方式和能力标签，可直接创建具有完整系统权限的核心学生账号，也可协助维护成员头像。教师角色会自动清空不适用的专业、班级和年级；标语和主页正文继续由成员本人维护。
+管理员维护姓名、编号、角色、状态、专业、班级、年级、内部联系方式和能力标签，可直接创建具有完整系统权限的核心学生账号，也可协助维护成员头像并把密码重置为默认密码 `yeslab521`。教师角色会自动清空不适用的专业、班级和年级；标语和主页正文继续由成员本人维护。
 
 ## 项目团队管理
 
@@ -139,4 +142,4 @@ JWT 使用 HS256 签名，API 保持无状态；生产环境必须替换 `YESLAB
 - 积分计算、积分变更与排行榜写入。
 - 新闻正文抓取或复制；当前只保存外部标题、来源、链接、摘要和发布日期。
 - 竞赛记录删除、批量导入和通用操作审计。
-- JWT 刷新、吊销、密码重置与完整通用审计系统。
+- 登录失败限流、异常登录告警与完整通用审计系统。

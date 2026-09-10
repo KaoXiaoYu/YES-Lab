@@ -224,6 +224,19 @@ public class RecruitmentService {
 
     @PreAuthorize("hasAuthority('RECRUITMENT_MANAGE')")
     @Transactional
+    public void resetApplicantPassword(UUID applicationId) {
+        RecruitmentApplicationEntity application = requireApplication(applicationId);
+        AccountEntity applicant = application.getApplicant();
+        if (application.getStage() == RecruitmentStage.FORMAL_MEMBER
+                || applicant.getRole() != Role.VISITOR
+                || profiles.findByAccountId(applicant.getId()).isPresent()) {
+            throw new ApiException(HttpStatus.CONFLICT, "该报名账号已转为正式成员，请在成员管理中重置密码");
+        }
+        authService.resetPasswordToDefault(applicant);
+    }
+
+    @PreAuthorize("hasAuthority('RECRUITMENT_MANAGE')")
+    @Transactional
     public RecruitmentModels.ApplicationView changeStage(
             Authentication authentication,
             UUID applicationId,

@@ -1,11 +1,11 @@
 <script setup>
-import { Camera, Eye, EyeOff, ExternalLink, Plus, Save, Search, Trash2, Upload, UsersRound, X } from 'lucide-vue-next'
+import { Camera, Eye, EyeOff, ExternalLink, KeyRound, Plus, Save, Search, Trash2, Upload, UsersRound, X } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
 import MelinaVisibilityManager from '../components/MelinaVisibilityManager.vue'
 import {
   authState, createCoreStudent, deleteManagedMemberAvatar, listMembers,
-  replaceManagedMemberAvatar, updateMember,
+  replaceManagedMemberAvatar, resetMemberPassword, updateMember,
 } from '../services/authApi'
 
 const members = ref([])
@@ -21,6 +21,7 @@ const avatarFile = ref(null)
 const avatarPreview = ref('')
 const avatarInput = ref(null)
 const showCreatePassword = ref(false)
+const passwordSaving = ref(false)
 const message = ref('')
 const errorMessage = ref('')
 const form = reactive({
@@ -161,6 +162,23 @@ async function saveMember() {
     errorMessage.value = error.message
   } finally {
     saving.value = false
+  }
+}
+
+async function resetSelectedPassword() {
+  if (!selected.value) return
+  errorMessage.value = ''
+  message.value = ''
+  if (!window.confirm(`确定将 ${selected.value.name} 的登录密码重置为 yeslab521 吗？该账号在其他设备上的续期登录状态将失效。`)) return
+
+  passwordSaving.value = true
+  try {
+    await resetMemberPassword(selected.value.id)
+    message.value = `已将 ${selected.value.name} 的密码重置为 yeslab521，请提醒本人登录后尽快修改。`
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    passwordSaving.value = false
   }
 }
 
@@ -323,6 +341,11 @@ function splitTags(value) {
 
           <div class="member-admin-submit"><p>主页标语和公开介绍仍由成员本人维护；管理员可协助更换头像。</p><button type="submit" :disabled="saving"><Save :size="17" aria-hidden="true" />{{ saving ? '保存中…' : '保存成员资料' }}</button></div>
         </form>
+
+        <section class="password-settings-card member-password-card" aria-labelledby="member-reset-password-title">
+          <header><div><p>ACCOUNT SECURITY</p><h3 id="member-reset-password-title">重置成员密码</h3></div><span>重置后该成员需要使用默认密码重新登录。</span></header>
+          <div class="default-password-reset"><p>默认密码 <strong>yeslab521</strong>。请通过可信渠道告知本人，并提醒登录后尽快修改。</p><button class="portal-primary" type="button" :disabled="passwordSaving" @click="resetSelectedPassword"><KeyRound :size="17" aria-hidden="true" />{{ passwordSaving ? '重置中…' : '重置为默认密码' }}</button></div>
+        </section>
       </section>
       <section v-else class="portal-state"><UsersRound :size="24" aria-hidden="true" />请选择一名成员。</section>
     </div>

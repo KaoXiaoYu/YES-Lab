@@ -55,6 +55,12 @@ public class AdminMemberController {
         return ApiResponse.ok(service.updateManagedMember(profileId, request));
     }
 
+    @PutMapping("/{profileId}/password")
+    public ApiResponse<Void> resetPassword(@PathVariable UUID profileId) {
+        service.resetManagedMemberPassword(profileId);
+        return ApiResponse.ok(null);
+    }
+
     @PutMapping(value = "/{profileId}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<MemberProfileModels.ProfileView> replaceAvatar(
             @PathVariable UUID profileId,

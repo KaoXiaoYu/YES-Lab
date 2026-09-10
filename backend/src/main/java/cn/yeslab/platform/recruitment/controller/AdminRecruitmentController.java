@@ -55,6 +55,12 @@ public class AdminRecruitmentController {
         return ApiResponse.ok(service.recordInterview(authentication, applicationId, request));
     }
 
+    @PutMapping("/applications/{applicationId}/password")
+    public ApiResponse<Void> resetPassword(@PathVariable UUID applicationId) {
+        service.resetApplicantPassword(applicationId);
+        return ApiResponse.ok(null);
+    }
+
     @PostMapping("/applications/{applicationId}/convert")
     public ApiResponse<RecruitmentModels.ApplicationView> convert(
             Authentication authentication,

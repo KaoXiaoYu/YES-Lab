@@ -32,6 +32,8 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
+    private static final String DEFAULT_RESET_PASSWORD = "yeslab521";
+
     private final AccountRepository accounts;
     private final MemberProfileRepository profiles;
     private final RecruitmentApplicationRepository applications;
@@ -119,6 +121,30 @@ public class AuthService {
     public void logout(String rawRefreshToken) {
         if (rawRefreshToken == null || rawRefreshToken.isBlank()) return;
         refreshTokens.findByTokenHash(hash(rawRefreshToken)).ifPresent(token -> token.revoke(Instant.now()));
+    }
+
+    @Transactional
+    public void changePassword(Authentication authentication, AuthModels.ChangePasswordRequest request) {
+        AccountEntity account = requireAccount(authentication);
+        if (!passwordEncoder.matches(request.currentPassword(), account.getPasswordHash())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "当前密码不正确");
+        }
+        if (passwordEncoder.matches(request.newPassword(), account.getPasswordHash())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "新密码不能与当前密码相同");
+        }
+        resetPassword(account, request.newPassword());
+    }
+
+    @Transactional
+    public void resetPassword(AccountEntity account, String newPassword) {
+        account.changePasswordHash(passwordEncoder.encode(newPassword));
+        accounts.save(account);
+        refreshTokens.deleteByAccount_Id(account.getId());
+    }
+
+    @Transactional
+    public void resetPasswordToDefault(AccountEntity account) {
+        resetPassword(account, DEFAULT_RESET_PASSWORD);
     }
 
     @Transactional(readOnly = true)

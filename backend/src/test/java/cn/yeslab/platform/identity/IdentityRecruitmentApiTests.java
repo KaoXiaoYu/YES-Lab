@@ -97,6 +97,17 @@ class IdentityRecruitmentApiTests {
                 .andExpect(jsonPath("$.data[*].phone", hasItem("13800138000")))
                 .andExpect(jsonPath("$.data[*].selfIntroduction", hasItem("喜欢机器人与视觉研究。")));
 
+        mvc.perform(put("/api/v1/admin/recruitment/applications/{id}/password", applicationId)
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"visitorflow@example.com","password":"Visitor-Flow-2026!"}
+                                """))
+                .andExpect(status().isUnauthorized());
+        login("visitorflow@example.com", "yeslab521");
+
         changeStage(applicationId, teacherToken, "SCREENING");
         mvc.perform(put("/api/v1/admin/recruitment/applications/{id}/interview", applicationId)
                         .header("Authorization", bearer(teacherToken))
@@ -122,7 +133,12 @@ class IdentityRecruitmentApiTests {
                 .andExpect(jsonPath("$.data.convertedMemberId").isNotEmpty())
                 .andExpect(jsonPath("$.data.history.length()").value(6));
 
-        String memberToken = login("VISITORFLOW@EXAMPLE.COM", "Visitor-Flow-2026!");
+        mvc.perform(put("/api/v1/admin/recruitment/applications/{id}/password", applicationId)
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("该报名账号已转为正式成员，请在成员管理中重置密码"));
+
+        String memberToken = login("VISITORFLOW@EXAMPLE.COM", "yeslab521");
         mvc.perform(get("/api/v1/member/profile").header("Authorization", bearer(memberToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.memberCode").value("S-FLOW-001"))
@@ -215,6 +231,47 @@ class IdentityRecruitmentApiTests {
     }
 
     @Test
+    void accountCanChangeOwnPasswordAndExistingRefreshSessionsAreRevoked() throws Exception {
+        var registration = mvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"password-change@example.com","password":"OldPass1"}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn().getResponse();
+        String accessToken = tokenFrom(registration.getContentAsString());
+        Cookie refreshCookie = registration.getCookie("yeslab_refresh_token");
+        org.assertj.core.api.Assertions.assertThat(refreshCookie).isNotNull();
+
+        mvc.perform(put("/api/v1/auth/password")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currentPassword":"wrong-password","newPassword":"NewPass1"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("当前密码不正确"));
+
+        mvc.perform(put("/api/v1/auth/password")
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currentPassword":"OldPass1","newPassword":"NewPass1"}
+                                """))
+                .andExpect(status().isOk());
+
+        mvc.perform(post("/api/v1/auth/refresh").cookie(refreshCookie))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"password-change@example.com","password":"OldPass1"}
+                                """))
+                .andExpect(status().isUnauthorized());
+        login("password-change@example.com", "NewPass1");
+    }
+
+    @Test
     void adminCanManageMembersAndPublicProfilesHidePrivateTeacherFields() throws Exception {
         String memberToken = login("member", "YesLab-Member-2026!");
         mvc.perform(get("/api/v1/admin/members").header("Authorization", bearer(memberToken)))
@@ -272,16 +329,31 @@ class IdentityRecruitmentApiTests {
                 .andExpect(status().isForbidden());
 
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
-        mvc.perform(post("/api/v1/admin/members/core-students")
+        String createdResponse = mvc.perform(post("/api/v1/admin/members/core-students")
                         .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(request))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.username").value("student-admin@example.com"))
                 .andExpect(jsonPath("$.data.role").value("CORE_STUDENT"))
-                .andExpect(jsonPath("$.data.memberCode").value("S-ADMIN-001"));
+                .andExpect(jsonPath("$.data.memberCode").value("S-ADMIN-001"))
+                .andReturn().getResponse().getContentAsString();
+        String createdProfileId = JsonPath.read(createdResponse, "$.data.id");
 
-        String studentAdminToken = login("student-admin@example.com", "Student-Admin-2026!");
+        mvc.perform(put("/api/v1/admin/members/{id}/password", createdProfileId)
+                        .header("Authorization", bearer(memberToken)))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/v1/admin/members/{id}/password", createdProfileId)
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"username":"student-admin@example.com","password":"Student-Admin-2026!"}
+                                """))
+                .andExpect(status().isUnauthorized());
+
+        String studentAdminToken = login("student-admin@example.com", "yeslab521");
         mvc.perform(get("/api/v1/admin/members").header("Authorization", bearer(studentAdminToken)))
                 .andExpect(status().isOk());
     }
