@@ -1,6 +1,8 @@
 package cn.yeslab.platform.publicsite.cms.api;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -23,9 +25,43 @@ public final class HomepageModels {
             @Valid @NotNull @Size(max = 20) List<SponsorItem> sponsors,
             @Valid @NotNull @Size(max = 12) List<ExternalLinkItem> externalLinks,
             UUID advisorProfileId,
+            @Size(max = 6) List<@NotNull UUID> featuredAdvisorProfileIds,
             @NotNull @Size(max = 12) List<UUID> featuredMemberProfileIds,
-            @NotNull @Size(max = 12) List<UUID> featuredProjectIds
+            @NotNull @Size(max = 12) List<UUID> featuredProjectIds,
+            @Valid HomepageDisplayOptions display
     ) {
+        public HomepageContent(
+                ProfileContent profile,
+                PageSections sections,
+                List<ProofItem> proofItems,
+                List<UpdateItem> updates,
+                List<AwardItem> awards,
+                List<SponsorItem> sponsors,
+                List<ExternalLinkItem> externalLinks,
+                UUID advisorProfileId,
+                List<UUID> featuredMemberProfileIds,
+                List<UUID> featuredProjectIds
+        ) {
+            this(profile, sections, proofItems, updates, awards, sponsors, externalLinks,
+                    advisorProfileId, null, featuredMemberProfileIds, featuredProjectIds, null);
+        }
+
+        public HomepageContent(
+                ProfileContent profile,
+                PageSections sections,
+                List<ProofItem> proofItems,
+                List<UpdateItem> updates,
+                List<AwardItem> awards,
+                List<SponsorItem> sponsors,
+                List<ExternalLinkItem> externalLinks,
+                UUID advisorProfileId,
+                List<UUID> featuredMemberProfileIds,
+                List<UUID> featuredProjectIds,
+                HomepageDisplayOptions display
+        ) {
+            this(profile, sections, proofItems, updates, awards, sponsors, externalLinks,
+                    advisorProfileId, null, featuredMemberProfileIds, featuredProjectIds, display);
+        }
     }
 
     public record ProfileContent(
@@ -40,8 +76,30 @@ public final class HomepageModels {
             @NotBlank @Size(max = 180) String heroTitle,
             @NotBlank @Size(max = 80) String heroAccent,
             @NotBlank @Size(max = 60) String primaryActionLabel,
-            @NotBlank @Size(max = 60) String secondaryActionLabel
+            @NotBlank @Size(max = 60) String secondaryActionLabel,
+            @Size(max = 800) String primaryActionUrl,
+            Boolean primaryActionEnabled,
+            @Size(max = 800) String secondaryActionUrl,
+            Boolean secondaryActionEnabled
     ) {
+        public ProfileContent(
+                String name,
+                String displayName,
+                String fullName,
+                String slogan,
+                String description,
+                List<String> researchDirections,
+                List<ResearchDirectionItem> researchDirectionItems,
+                String heroEyebrow,
+                String heroTitle,
+                String heroAccent,
+                String primaryActionLabel,
+                String secondaryActionLabel
+        ) {
+            this(name, displayName, fullName, slogan, description, researchDirections, researchDirectionItems,
+                    heroEyebrow, heroTitle, heroAccent, primaryActionLabel, secondaryActionLabel,
+                    null, null, null, null);
+        }
     }
 
     public record PageSections(
@@ -97,8 +155,72 @@ public final class HomepageModels {
     public record ProofItem(
             @NotBlank @Size(max = 80) String label,
             @NotBlank @Size(max = 120) String value,
-            @NotBlank @Size(max = 160) String detail
+            @NotBlank @Size(max = 160) String detail,
+            ProofMetric metric,
+            @Size(max = 800) String target
     ) {
+        public ProofItem(String label, String value, String detail) {
+            this(label, value, detail, null, null);
+        }
+    }
+
+    public enum ProofMetric {
+        AWARDS,
+        DIRECTIONS,
+        PARTNERS,
+        PROJECT_STATUS,
+        CUSTOM
+    }
+
+    public enum SelectionMode {
+        AUTO,
+        SELECTED,
+        HIDDEN
+    }
+
+    public record HomepageDisplayOptions(
+            Boolean showProjects,
+            Boolean showAbout,
+            Boolean showMembers,
+            Boolean showPartners,
+            Boolean showAchievements,
+            Boolean showContact,
+            Boolean showAdvisor,
+            Boolean showCoreMembers,
+            Boolean showLeaderboard,
+            SelectionMode advisorSelectionMode,
+            SelectionMode memberSelectionMode,
+            SelectionMode projectSelectionMode,
+            @Min(1) @Max(6) Integer advisorLimit,
+            @Min(1) @Max(12) Integer projectLimit,
+            @Min(1) @Max(12) Integer memberLimit,
+            @Min(1) @Max(20) Integer newsLimit,
+            @Min(1) @Max(30) Integer competitionLimit,
+            @Min(1) @Max(20) Integer sponsorLimit
+    ) {
+        public HomepageDisplayOptions(
+                Boolean showProjects,
+                Boolean showAbout,
+                Boolean showMembers,
+                Boolean showPartners,
+                Boolean showAchievements,
+                Boolean showContact,
+                Boolean showAdvisor,
+                Boolean showCoreMembers,
+                Boolean showLeaderboard,
+                SelectionMode advisorSelectionMode,
+                SelectionMode memberSelectionMode,
+                SelectionMode projectSelectionMode,
+                Integer projectLimit,
+                Integer memberLimit,
+                Integer newsLimit,
+                Integer competitionLimit,
+                Integer sponsorLimit
+        ) {
+            this(showProjects, showAbout, showMembers, showPartners, showAchievements, showContact,
+                    showAdvisor, showCoreMembers, showLeaderboard, advisorSelectionMode, memberSelectionMode,
+                    projectSelectionMode, null, projectLimit, memberLimit, newsLimit, competitionLimit, sponsorLimit);
+        }
     }
 
     public record UpdateItem(
@@ -153,7 +275,8 @@ public final class HomepageModels {
                                 new ResearchDirectionItem("空地协同", "#projects"),
                                 new ResearchDirectionItem("具身智能", "#projects")
                         ),
-                        "YES LAB · ROBOTICS RESEARCH / 2026", "让无人设备带上、\n你的", "眼眸", "浏览研究项目", "了解合作伙伴"
+                        "YES LAB · ROBOTICS RESEARCH / 2026", "让无人设备带上、\n你的", "眼眸", "浏览研究项目", "了解合作伙伴",
+                        "#projects", true, "#partners", true
                 ),
                 new PageSections(
                         new SectionCopy("01 / SELECTED RESEARCH", "研究与工程实践", "从算法、硬件到系统集成，我们以可运行、可验证的真实项目建立研究能力。"),
@@ -173,10 +296,10 @@ public final class HomepageModels {
                         "© 2026 YES Lab · INTELLIGENCE IN MOTION"
                 ),
                 List.of(
-                        new ProofItem("01 / AWARDS", "3 项奖项", "全国 / 省赛 / 赛区"),
-                        new ProofItem("02 / FOCUS", "3 个方向", "无人系统与具身智能"),
-                        new ProofItem("03 / PARTNER", "CUAV", "企业赞助伙伴"),
-                        new ProofItem("04 / STATUS", "持续建设", "开放、实践、成长")
+                        new ProofItem("01 / AWARDS", "3 项奖项", "全国 / 省赛 / 赛区", ProofMetric.AWARDS, "#updates"),
+                        new ProofItem("02 / FOCUS", "3 个方向", "无人系统与具身智能", ProofMetric.DIRECTIONS, "#projects"),
+                        new ProofItem("03 / PARTNER", "CUAV", "企业赞助伙伴", ProofMetric.PARTNERS, "#partners"),
+                        new ProofItem("04 / STATUS", "持续建设", "开放、实践、成长", ProofMetric.PROJECT_STATUS, "#projects")
                 ),
                 List.of(
                         new UpdateItem("荣誉", "竞赛成果", "YES Lab 获得计算机设计大赛全国二等奖", "national-second-prize"),
@@ -202,7 +325,18 @@ public final class HomepageModels {
                 ),
                 null,
                 List.of(),
-                List.of()
+                List.of(),
+                List.of(),
+                defaultDisplayOptions()
+        );
+    }
+
+    public static HomepageDisplayOptions defaultDisplayOptions() {
+        return new HomepageDisplayOptions(
+                true, true, true, true, true, true,
+                true, true, true,
+                SelectionMode.AUTO, SelectionMode.AUTO, SelectionMode.AUTO,
+                6, 12, 12, 20, 30, 20
         );
     }
 

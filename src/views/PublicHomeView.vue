@@ -88,7 +88,8 @@ const defaultSponsors = [{
 const defaultHomepageContent = {
   profile: {
     heroEyebrow: 'YES LAB · ROBOTICS RESEARCH / 2026', heroTitle: '让无人设备带上、\n你的', heroAccent: '眼眸',
-    primaryActionLabel: '浏览研究项目', secondaryActionLabel: '了解合作伙伴',
+    primaryActionLabel: '浏览研究项目', primaryActionUrl: '#projects', primaryActionEnabled: true,
+    secondaryActionLabel: '了解合作伙伴', secondaryActionUrl: '#partners', secondaryActionEnabled: true,
     researchDirectionItems: [
       { name: '无人机', url: '#projects' },
       { name: '空地协同', url: '#projects' },
@@ -116,10 +117,10 @@ const defaultHomepageContent = {
     footerText: '© 2026 YES Lab · INTELLIGENCE IN MOTION',
   },
   proofItems: [
-    { label: '01 / AWARDS', value: '3 项奖项', detail: '全国 / 省赛 / 赛区' },
-    { label: '02 / FOCUS', value: '3 个方向', detail: '无人系统与具身智能' },
-    { label: '03 / PARTNER', value: 'CUAV', detail: '企业赞助伙伴' },
-    { label: '04 / STATUS', value: '持续建设', detail: '开放、实践、成长' },
+    { label: '01 / AWARDS', value: '3 项奖项', detail: '全国 / 省赛 / 赛区', metric: 'AWARDS', target: '#updates' },
+    { label: '02 / FOCUS', value: '3 个方向', detail: '无人系统与具身智能', metric: 'DIRECTIONS', target: '#projects' },
+    { label: '03 / PARTNER', value: 'CUAV', detail: '企业赞助伙伴', metric: 'PARTNERS', target: '#partners' },
+    { label: '04 / STATUS', value: '持续建设', detail: '开放、实践、成长', metric: 'PROJECT_STATUS', target: '#projects' },
   ],
   externalLinks: [
     { platform: 'github', label: '开源仓库', url: 'https://github.com', enabled: true },
@@ -127,6 +128,51 @@ const defaultHomepageContent = {
     { platform: 'wechat', label: '微信公众号', url: '', enabled: false },
     { platform: 'douyin', label: '抖音', url: '', enabled: false },
   ],
+  featuredAdvisorProfileIds: [],
+  display: {
+    showProjects: true, showAbout: true, showMembers: true, showPartners: true, showAchievements: true, showContact: true,
+    showAdvisor: true, showCoreMembers: true, showLeaderboard: true,
+    advisorSelectionMode: 'AUTO', memberSelectionMode: 'AUTO', projectSelectionMode: 'AUTO',
+    advisorLimit: 6, projectLimit: 12, memberLimit: 12, newsLimit: 20, competitionLimit: 30, sponsorLimit: 20,
+  },
+}
+
+function normalizeHomepageContent(value) {
+  const source = value || {}
+  const sourceDisplay = source.display || {}
+  const featuredAdvisorProfileIds = source.featuredAdvisorProfileIds?.length
+    ? source.featuredAdvisorProfileIds
+    : source.advisorProfileId ? [source.advisorProfileId] : []
+  const legacyProofMetrics = ['AWARDS', 'DIRECTIONS', 'PARTNERS', 'PROJECT_STATUS']
+  const proofTargets = { AWARDS: '#updates', DIRECTIONS: '#projects', PARTNERS: '#partners', PROJECT_STATUS: '#projects', CUSTOM: '#projects' }
+  return {
+    ...defaultHomepageContent,
+    ...source,
+    profile: { ...defaultHomepageContent.profile, ...(source.profile || {}) },
+    sections: {
+      ...defaultHomepageContent.sections,
+      ...(source.sections || {}),
+      projects: { ...defaultHomepageContent.sections.projects, ...(source.sections?.projects || {}) },
+      about: { ...defaultHomepageContent.sections.about, ...(source.sections?.about || {}) },
+      members: { ...defaultHomepageContent.sections.members, ...(source.sections?.members || {}) },
+      partners: { ...defaultHomepageContent.sections.partners, ...(source.sections?.partners || {}) },
+      achievements: { ...defaultHomepageContent.sections.achievements, ...(source.sections?.achievements || {}) },
+      contact: { ...defaultHomepageContent.sections.contact, ...(source.sections?.contact || {}) },
+    },
+    proofItems: (source.proofItems || defaultHomepageContent.proofItems).map((item, index) => {
+      const metric = item.metric || legacyProofMetrics[index] || 'CUSTOM'
+      return { ...item, metric, target: item.target || proofTargets[metric] }
+    }),
+    externalLinks: source.externalLinks || defaultHomepageContent.externalLinks,
+    featuredAdvisorProfileIds,
+    display: {
+      ...defaultHomepageContent.display,
+      ...sourceDisplay,
+      advisorSelectionMode: sourceDisplay.advisorSelectionMode || (featuredAdvisorProfileIds.length ? 'SELECTED' : 'AUTO'),
+      memberSelectionMode: sourceDisplay.memberSelectionMode || (source.featuredMemberProfileIds?.length ? 'SELECTED' : 'AUTO'),
+      projectSelectionMode: sourceDisplay.projectSelectionMode || (source.featuredProjectIds?.length ? 'SELECTED' : 'AUTO'),
+    },
+  }
 }
 
 const profile = ref({
@@ -136,24 +182,58 @@ const profile = ref({
 })
 const projects = ref(defaultProjects)
 const members = ref(defaultMembers)
-const advisor = ref(defaultAdvisor)
+const advisors = ref([defaultAdvisor])
 const rankingData = ref(defaultRankingData)
 const newsItems = ref(defaultUpdates)
 const competitionResults = ref(defaultAwards.map((item, index) => ({ id: null, name: item.competition, track: item.category, awardName: item.prize, level: item.level, competitionDate: `历史成果 ${index + 1}` })))
 const sponsors = ref(defaultSponsors)
-const homepageContent = ref(defaultHomepageContent)
+const homepageContent = ref(normalizeHomepageContent(defaultHomepageContent))
 
 const projectFilters = computed(() => ['全部', ...new Set(projects.value.map((project) => project.category))])
-const filteredProjects = computed(() => activeProjectFilter.value === '全部'
-  ? projects.value
-  : projects.value.filter((project) => project.category === activeProjectFilter.value))
+const displayOptions = computed(() => homepageContent.value.display)
+const hasSectionNavigation = computed(() => [
+  displayOptions.value.showProjects,
+  displayOptions.value.showAchievements,
+  displayOptions.value.showAbout,
+  displayOptions.value.showMembers,
+  displayOptions.value.showPartners,
+].some(Boolean))
+const filteredProjects = computed(() => {
+  if (displayOptions.value.projectSelectionMode === 'HIDDEN') return []
+  const selectedProjectIds = homepageContent.value.featuredProjectIds || []
+  const sourceProjects = displayOptions.value.projectSelectionMode === 'SELECTED'
+    ? projects.value.filter((project) => selectedProjectIds.includes(project.slug))
+    : projects.value
+  return (activeProjectFilter.value === '全部'
+    ? sourceProjects
+    : sourceProjects.filter((project) => project.category === activeProjectFilter.value))
+    .slice(0, displayOptions.value.projectLimit)
+})
 const rankings = computed(() => members.value.map((member, index) => ({
   ...member, points: rankingData.value[activeRanking.value]?.[index] ?? member.points,
 })).sort((a, b) => b.points - a.points))
 const coreMembers = computed(() => {
+  if (displayOptions.value.memberSelectionMode === 'HIDDEN') return []
   const designatedMembers = members.value.filter((member) => member.core)
-  return designatedMembers.length ? designatedMembers : members.value.slice(0, 3)
+  const selected = designatedMembers.length ? designatedMembers : members.value.slice(0, 3)
+  return selected.slice(0, displayOptions.value.memberLimit)
 })
+const visibleAdvisors = computed(() => {
+  if (displayOptions.value.advisorSelectionMode === 'HIDDEN') return []
+  const selectedIds = homepageContent.value.featuredAdvisorProfileIds || []
+  const sourceAdvisors = displayOptions.value.advisorSelectionMode === 'SELECTED'
+    ? advisors.value
+      .filter((item) => selectedIds.includes(item.profileId))
+      .sort((left, right) => selectedIds.indexOf(left.profileId) - selectedIds.indexOf(right.profileId))
+    : advisors.value
+  return sourceAdvisors.slice(0, displayOptions.value.advisorLimit)
+})
+const showAdvisorModule = computed(() => displayOptions.value.showAdvisor && visibleAdvisors.value.length > 0)
+const showCoreMembersModule = computed(() => displayOptions.value.showCoreMembers && displayOptions.value.memberSelectionMode !== 'HIDDEN')
+const showMemberShowcase = computed(() => showAdvisorModule.value || showCoreMembersModule.value)
+const visibleSponsors = computed(() => sponsors.value.slice(0, displayOptions.value.sponsorLimit))
+const visibleNewsItems = computed(() => newsItems.value.slice(0, displayOptions.value.newsLimit))
+const visibleCompetitionResults = computed(() => competitionResults.value.slice(0, displayOptions.value.competitionLimit))
 const accountDestination = computed(() => authState.account?.role === 'VISITOR' ? '/application' : '/profile')
 const accountName = computed(() => authState.account?.displayName || authState.account?.username || '')
 const enabledExternalLinks = computed(() => (homepageContent.value.externalLinks || []).filter((link) => link.enabled && link.url))
@@ -164,43 +244,22 @@ const researchDirections = computed(() => {
 })
 const liveProofItems = computed(() => {
   const configured = homepageContent.value.proofItems || []
-  const labelAt = (index, fallback) => configured[index]?.label || fallback
   const awardLevels = [...new Set(competitionResults.value.map((item) => competitionLevelLabels[item.level] || item.level).filter(Boolean))]
   const directionNames = [...new Set(researchDirections.value.map((item) => item.name).filter(Boolean))]
   const partnerTypes = [...new Set(sponsors.value.map((item) => item.type).filter(Boolean))]
   const projectStatuses = [...new Set(projects.value.map((item) => item.status).filter(Boolean))]
   const isBuilding = projects.value.some((item) => ['研究中', '重点方向', '方向建设', '进行中', 'ACTIVE', 'PLANNING'].includes(item.status))
-
-  return [
-    {
-      label: labelAt(0, '01 / AWARDS'),
-      value: `${competitionResults.value.length} 项奖项`,
-      detail: awardLevels.join(' / ') || '成果持续更新',
-      target: '#updates',
-      sectionName: '竞赛成果',
-    },
-    {
-      label: labelAt(1, '02 / FOCUS'),
-      value: `${directionNames.length} 个方向`,
-      detail: directionNames.join(' / ') || '研究方向持续更新',
-      target: '#projects',
-      sectionName: '研究项目',
-    },
-    {
-      label: labelAt(2, '03 / PARTNER'),
-      value: sponsors.value.length === 1 ? sponsors.value[0].name : `${sponsors.value.length} 家伙伴`,
-      detail: partnerTypes.join(' / ') || '合作伙伴持续更新',
-      target: '#partners',
-      sectionName: '赞助伙伴',
-    },
-    {
-      label: labelAt(3, '04 / STATUS'),
-      value: isBuilding ? '持续建设' : '筹备中',
-      detail: projectStatuses.join(' / ') || '开放、实践、成长',
-      target: '#projects',
-      sectionName: '项目状态',
-    },
-  ]
+  const automatic = {
+    AWARDS: { value: `${competitionResults.value.length} 项奖项`, detail: awardLevels.join(' / ') || '成果持续更新', sectionName: '竞赛成果' },
+    DIRECTIONS: { value: `${directionNames.length} 个方向`, detail: directionNames.join(' / ') || '研究方向持续更新', sectionName: '研究项目' },
+    PARTNERS: { value: sponsors.value.length === 1 ? sponsors.value[0].name : `${sponsors.value.length} 家伙伴`, detail: partnerTypes.join(' / ') || '合作伙伴持续更新', sectionName: '赞助伙伴' },
+    PROJECT_STATUS: { value: isBuilding ? '持续建设' : '筹备中', detail: projectStatuses.join(' / ') || '开放、实践、成长', sectionName: '项目状态' },
+  }
+  return configured.map((item) => ({
+    ...item,
+    ...(item.metric === 'CUSTOM' ? { sectionName: item.label } : automatic[item.metric]),
+    target: item.target || '#top',
+  }))
 })
 const externalIcon = (platform) => ({ github: Github, wechat: BookOpen }[platform?.toLowerCase()] || ExternalLink)
 
@@ -225,7 +284,7 @@ const directionTarget = (url) => /^https?:\/\//i.test(url || '') ? '_blank' : un
 const applyCoreHome = (home) => {
   if (!home) return
   profile.value = home.profile
-  homepageContent.value = home.homepageContent || defaultHomepageContent
+  homepageContent.value = normalizeHomepageContent(home.homepageContent)
   sponsors.value = home.sponsors || []
 }
 
@@ -234,7 +293,7 @@ const applyCompleteHome = (home) => {
   applyCoreHome(home)
   projects.value = home.projects
   members.value = home.members
-  advisor.value = home.advisor || defaultAdvisor
+  advisors.value = home.advisors?.length ? home.advisors : home.advisor ? [home.advisor] : []
   rankingData.value = home.rankingData
   newsItems.value = home.news?.length ? home.news : home.updates
   competitionResults.value = home.competitionResults?.length
@@ -334,24 +393,24 @@ onBeforeUnmount(() => {
   <main ref="homeElement" :class="['site-shell', { 'awaiting-home': !homepageReady }]">
     <div v-if="!homepageReady" class="home-bootstrap-state" role="status" aria-live="polite">
       <img src="/yes-lab-logo.png" alt="" width="900" height="506" />
-      <p>正在同步 YES Lab 最新公开内容…</p>
+      <p>正在同步 {{ profile.name }} 最新公开内容…</p>
     </div>
     <a class="skip-link" href="#top">跳到主要内容</a>
     <header class="site-header">
-      <a class="brand" href="#top" aria-label="YES Lab 首页" @click.prevent="scrollTo('#top')">
-        <img src="/yes-lab-logo.png" alt="YES Lab" width="900" height="506" />
-        <span>PUBLIC SHOWCASE</span>
+      <a class="brand" href="#top" :aria-label="`${profile.displayName}首页`" @click.prevent="scrollTo('#top')">
+        <img src="/yes-lab-logo.png" :alt="profile.name" width="900" height="506" />
+        <span>{{ profile.displayName }}</span>
       </a>
 
       <div class="header-navigation">
         <ThemeToggle />
         <nav id="homepage-navigation" :class="['top-nav', { open: menuOpen }]" aria-label="主导航">
-          <button @click="scrollTo('#projects')">研究与成果</button>
-          <button @click="scrollTo('#updates')">竞赛 / 新闻</button>
-          <button @click="scrollTo('#about')">关于我们</button>
-          <button @click="scrollTo('#members')">成员</button>
-          <button @click="scrollTo('#partners')">赞助伙伴</button>
-          <span class="nav-divider" aria-hidden="true"></span>
+          <button v-if="displayOptions.showProjects" @click="scrollTo('#projects')">研究与成果</button>
+          <button v-if="displayOptions.showAchievements" @click="scrollTo('#updates')">竞赛 / 新闻</button>
+          <button v-if="displayOptions.showAbout" @click="scrollTo('#about')">关于我们</button>
+          <button v-if="displayOptions.showMembers" @click="scrollTo('#members')">成员</button>
+          <button v-if="displayOptions.showPartners" @click="scrollTo('#partners')">赞助伙伴</button>
+          <span v-if="hasSectionNavigation" class="nav-divider" aria-hidden="true"></span>
           <RouterLink class="public-discussion-link" to="/discussions">讨论板</RouterLink>
         </nav>
         <button class="menu-button" aria-controls="homepage-navigation" :aria-expanded="menuOpen" :aria-label="menuOpen ? '关闭栏目导航' : '打开栏目导航'" @click="menuOpen = !menuOpen">
@@ -379,14 +438,15 @@ onBeforeUnmount(() => {
         <div class="hero-intro">
           <p class="eyebrow">{{ homepageContent.profile.heroEyebrow }}</p>
           <h1><template v-for="(line, index) in homepageContent.profile.heroTitle.split('\n')" :key="`${line}-${index}`">{{ line }}<br v-if="index < homepageContent.profile.heroTitle.split('\n').length - 1" /></template><em>{{ homepageContent.profile.heroAccent }}</em></h1>
+          <p class="hero-slogan">{{ profile.slogan }}</p>
           <p class="hero-description">{{ profile.description }}</p>
           <div class="hero-actions">
-            <button class="primary-action" @click="scrollTo('#projects')">{{ homepageContent.profile.primaryActionLabel }} <ArrowDownRight :size="19" aria-hidden="true" /></button>
-            <button class="text-action" @click="scrollTo('#partners')">{{ homepageContent.profile.secondaryActionLabel }} <ArrowRight :size="18" aria-hidden="true" /></button>
+            <a v-if="homepageContent.profile.primaryActionEnabled" class="primary-action" :href="homepageContent.profile.primaryActionUrl" :target="directionTarget(homepageContent.profile.primaryActionUrl)" :rel="directionTarget(homepageContent.profile.primaryActionUrl) ? 'noopener noreferrer' : undefined" @click="handleDirectionClick($event, homepageContent.profile.primaryActionUrl)">{{ homepageContent.profile.primaryActionLabel }} <ArrowDownRight :size="19" aria-hidden="true" /></a>
+            <a v-if="homepageContent.profile.secondaryActionEnabled" class="text-action" :href="homepageContent.profile.secondaryActionUrl" :target="directionTarget(homepageContent.profile.secondaryActionUrl)" :rel="directionTarget(homepageContent.profile.secondaryActionUrl) ? 'noopener noreferrer' : undefined" @click="handleDirectionClick($event, homepageContent.profile.secondaryActionUrl)">{{ homepageContent.profile.secondaryActionLabel }} <ArrowRight :size="18" aria-hidden="true" /></a>
           </div>
         </div>
 
-        <ResearchVisual v-if="homepageReady" :full-name="profile.fullName" />
+        <ResearchVisual v-if="homepageReady" :full-name="profile.fullName" :display-name="profile.displayName" />
       </div>
 
       <div class="hero-directory" data-reveal>
@@ -395,11 +455,11 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section class="proof-bar" aria-label="实验室成果概览">
-      <a v-for="item in liveProofItems" :key="item.label" :href="item.target" :aria-label="`${item.label}：${item.value}，跳转到${item.sectionName}`" @click.prevent="scrollTo(item.target)"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.detail }}</small><ArrowDownRight :size="18" aria-hidden="true" /></a>
+    <section v-if="liveProofItems.length" class="proof-bar" aria-label="实验室成果概览" :style="{ '--proof-columns': Math.min(liveProofItems.length, 4) }">
+      <a v-for="item in liveProofItems" :key="`${item.label}-${item.target}`" :href="item.target" :target="directionTarget(item.target)" :rel="directionTarget(item.target) ? 'noopener noreferrer' : undefined" :aria-label="`${item.label}：${item.value}，跳转到${item.sectionName}`" @click="handleDirectionClick($event, item.target)"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.detail }}</small><ArrowDownRight :size="18" aria-hidden="true" /></a>
     </section>
 
-    <section class="section projects-section">
+    <section v-if="displayOptions.showProjects" class="section projects-section">
       <header id="projects" class="section-header" data-reveal>
         <div><p class="section-index">{{ homepageContent.sections.projects.eyebrow }}</p><h2>{{ homepageContent.sections.projects.title }}</h2></div>
         <p>{{ homepageContent.sections.projects.description }}</p>
@@ -428,7 +488,7 @@ onBeforeUnmount(() => {
       </TransitionGroup>
     </section>
 
-    <section class="section about-section">
+    <section v-if="displayOptions.showAbout" class="section about-section">
       <div id="about" class="about-grid">
         <div class="about-title" data-reveal><p class="section-index">{{ homepageContent.sections.about.eyebrow }}</p><h2 class="preserve-lines">{{ homepageContent.sections.about.title }}</h2></div>
         <div class="about-copy" data-reveal>
@@ -443,26 +503,28 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section class="section members-section">
+    <section v-if="displayOptions.showMembers" class="section members-section">
       <header id="members" class="section-header inverse" data-reveal><div><p class="section-index">{{ homepageContent.sections.members.eyebrow }}</p><h2>{{ homepageContent.sections.members.title }}</h2></div><p>{{ homepageContent.sections.members.description }}</p></header>
-      <div class="people-grid">
-        <div class="member-showcase" data-reveal>
-          <article class="advisor-card">
-            <RouterLink v-if="advisor.profileId" class="member-card-link" :to="`/members/${advisor.profileId}`" :aria-label="`查看${advisor.name}的公开主页`">
-              <div class="people-label"><span>ADVISOR / 01</span><small>固定展示</small></div>
-              <div class="advisor-body"><span class="advisor-avatar"><img v-if="advisor.avatarUrl" :src="advisor.avatarUrl" alt="" /><b v-else>{{ advisor.initials }}</b></span><div><p>指导老师</p><h3>{{ advisor.name }}</h3><span>{{ advisor.role }}</span></div></div>
-              <p>{{ advisor.description }}</p>
-              <div class="member-tags"><small v-for="tag in advisor.tags" :key="tag">{{ tag }}</small></div>
-            </RouterLink>
-            <template v-else>
-              <div class="people-label"><span>ADVISOR / 01</span><small>固定展示</small></div>
-              <div class="advisor-body"><span class="advisor-avatar">{{ advisor.initials }}</span><div><p>指导老师</p><h3>{{ advisor.name }}</h3><span>{{ advisor.role }}</span></div></div>
-              <p>{{ advisor.description }}</p>
-              <div class="member-tags"><small v-for="tag in advisor.tags" :key="tag">{{ tag }}</small></div>
-            </template>
-          </article>
+      <div :class="['people-grid', { 'single-column': !(displayOptions.showLeaderboard && showMemberShowcase) }]">
+        <div v-if="showMemberShowcase" :class="['member-showcase', { 'single-pane': !(showAdvisorModule && showCoreMembersModule) }]" data-reveal>
+          <div v-if="showAdvisorModule" class="advisor-list">
+            <article v-for="(advisor, index) in visibleAdvisors" :key="advisor.profileId || `${advisor.name}-${index}`" class="advisor-card">
+              <RouterLink v-if="advisor.profileId" class="member-card-link" :to="`/members/${advisor.profileId}`" :aria-label="`查看${advisor.name}的公开主页`">
+                <div class="people-label"><span>ADVISOR / {{ String(index + 1).padStart(2, '0') }}</span><small>{{ visibleAdvisors.length }} PEOPLE</small></div>
+                <div class="advisor-body"><span class="advisor-avatar"><img v-if="advisor.avatarUrl" :src="advisor.avatarUrl" alt="" /><b v-else>{{ advisor.initials }}</b></span><div><p>指导老师</p><h3>{{ advisor.name }}</h3><span>{{ advisor.role }}</span></div></div>
+                <p>{{ advisor.description }}</p>
+                <div class="member-tags"><small v-for="tag in advisor.tags" :key="tag">{{ tag }}</small></div>
+              </RouterLink>
+              <template v-else>
+                <div class="people-label"><span>ADVISOR / {{ String(index + 1).padStart(2, '0') }}</span><small>{{ visibleAdvisors.length }} PEOPLE</small></div>
+                <div class="advisor-body"><span class="advisor-avatar">{{ advisor.initials }}</span><div><p>指导老师</p><h3>{{ advisor.name }}</h3><span>{{ advisor.role }}</span></div></div>
+                <p>{{ advisor.description }}</p>
+                <div class="member-tags"><small v-for="tag in advisor.tags" :key="tag">{{ tag }}</small></div>
+              </template>
+            </article>
+          </div>
 
-          <div class="core-team">
+          <div v-if="showCoreMembersModule" class="core-team">
             <div class="core-head"><span>CORE MEMBERS</span><small>{{ String(coreMembers.length).padStart(2, '0') }} PEOPLE</small></div>
             <article v-for="(member, index) in coreMembers" :key="member.profileId || member.slug || member.initials">
               <RouterLink class="member-card-link core-member-link" :to="`/members/${member.profileId || member.slug}`" :aria-label="`查看${member.name}的公开主页`">
@@ -472,7 +534,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <aside class="leaderboard" data-reveal>
+        <aside v-if="displayOptions.showLeaderboard" class="leaderboard" data-reveal>
           <div class="leaderboard-head"><span><Users :size="19" aria-hidden="true" /> 实时成员榜单</span><small><i aria-hidden="true"></i> 30S SYNC</small></div>
           <div class="ranking-tabs"><button v-for="tab in Object.keys(rankingData)" :key="tab" :class="{ active: activeRanking === tab }" :aria-pressed="activeRanking === tab" @click="activeRanking = tab">{{ tab }}</button></div>
           <ol><li v-for="(member, index) in rankings" :key="member.profileId || member.slug || member.initials"><RouterLink :to="`/members/${member.profileId || member.slug}`" :aria-label="`查看${member.name}的公开主页`"><span>{{ index + 1 }}</span><div><strong>{{ member.name }}</strong><small>{{ member.tags[0] }}</small></div><b>{{ member.points }}</b></RouterLink></li></ol>
@@ -480,10 +542,10 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section class="section partners-section">
+    <section v-if="displayOptions.showPartners" class="section partners-section">
       <header id="partners" class="section-header" data-reveal><div><p class="section-index">{{ homepageContent.sections.partners.eyebrow }}</p><h2>{{ homepageContent.sections.partners.title }}</h2></div><p>{{ homepageContent.sections.partners.description }}</p></header>
       <div class="sponsor-list">
-        <article v-for="(sponsor, index) in sponsors" :key="sponsor.name" class="sponsor-card" data-reveal>
+        <article v-for="(sponsor, index) in visibleSponsors" :key="sponsor.name" class="sponsor-card" data-reveal>
           <div class="sponsor-index">PARTNER / {{ String(index + 1).padStart(2, '0') }}</div>
           <a class="sponsor-logo" :href="sponsor.websiteUrl" target="_blank" rel="noreferrer" :aria-label="`访问 ${sponsor.name} 官网`"><img :src="sponsor.logoUrl" :alt="`${sponsor.name} 官方 Logo`" width="512" height="512" loading="lazy" /></a>
           <div class="sponsor-copy"><p>{{ sponsor.type }}</p><h3>{{ sponsor.name }}</h3><span>{{ sponsor.description }}</span><div v-if="sponsor.cooperationDescription" class="sponsor-cooperation"><h4>合作支持</h4><span>{{ sponsor.cooperationDescription }}</span></div><ul><li v-for="item in sponsor.focus" :key="item">{{ item }}</li></ul><a :href="sponsor.websiteUrl" target="_blank" rel="noreferrer">访问官方网站 <ExternalLink :size="18" aria-hidden="true" /></a></div>
@@ -491,20 +553,20 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section class="section updates-section">
+    <section v-if="displayOptions.showAchievements" class="section updates-section">
       <header id="updates" class="section-header" data-reveal><div><p class="section-index">{{ homepageContent.sections.achievements.eyebrow }}</p><h2>{{ homepageContent.sections.achievements.title }}</h2></div><p>{{ homepageContent.sections.achievements.description }}</p></header>
       <div class="achievement-columns" data-reveal>
-        <section class="home-news-column"><header><span>NEWS / 实验室动态</span><h3>相关新闻</h3></header><div><component :is="item.url ? 'a' : 'article'" v-for="(item, index) in newsItems" :key="item.id || item.title" :href="item.url || undefined" :target="item.url ? '_blank' : undefined" :rel="item.url ? 'noopener noreferrer' : undefined"><time>{{ item.date }}</time><small>{{ item.type }}</small><h4>{{ item.title }}</h4><p v-if="item.summary">{{ item.summary }}</p><ArrowUpRight :size="18" aria-hidden="true" /></component></div></section>
-        <section class="home-competition-column"><header><span>COMPETITIONS / 竞赛成果</span><h3>比赛成果</h3></header><div><component :is="item.id ? 'RouterLink' : 'article'" v-for="(item, index) in competitionResults" :key="item.id || `${item.name}-${index}`" :to="item.id ? `/competition-results/${item.id}` : undefined"><span>{{ String(index + 1).padStart(2, '0') }}</span><div><small>{{ competitionLevelLabels[item.level] || item.level }} · {{ item.competitionDate }}</small><h4>{{ item.name }}</h4><p>{{ item.track || '综合赛道' }}</p></div><strong>{{ item.awardName }}</strong><ArrowRight v-if="item.id" :size="18" aria-hidden="true" /></component></div></section>
+        <section class="home-news-column"><header><span>NEWS / 实验室动态</span><h3>相关新闻</h3></header><div><component :is="item.url ? 'a' : 'article'" v-for="(item, index) in visibleNewsItems" :key="item.id || item.title" :href="item.url || undefined" :target="item.url ? '_blank' : undefined" :rel="item.url ? 'noopener noreferrer' : undefined"><time>{{ item.date }}</time><small>{{ item.type }}</small><h4>{{ item.title }}</h4><p v-if="item.summary">{{ item.summary }}</p><ArrowUpRight :size="18" aria-hidden="true" /></component></div></section>
+        <section class="home-competition-column"><header><span>COMPETITIONS / 竞赛成果</span><h3>比赛成果</h3></header><div><component :is="item.id ? 'RouterLink' : 'article'" v-for="(item, index) in visibleCompetitionResults" :key="item.id || `${item.name}-${index}`" :to="item.id ? `/competition-results/${item.id}` : undefined"><span>{{ String(index + 1).padStart(2, '0') }}</span><div><small>{{ competitionLevelLabels[item.level] || item.level }} · {{ item.competitionDate }}</small><h4>{{ item.name }}</h4><p>{{ item.track || '综合赛道' }}</p></div><strong>{{ item.awardName }}</strong><ArrowRight v-if="item.id" :size="18" aria-hidden="true" /></component></div></section>
       </div>
     </section>
 
-    <section class="contact-section">
+    <section v-if="displayOptions.showContact" class="contact-section">
       <div data-reveal><p>{{ homepageContent.sections.contact.eyebrow }}</p><h2 class="preserve-lines">{{ homepageContent.sections.contact.title }}</h2></div>
       <div class="contact-panel" data-reveal><p>{{ homepageContent.sections.contact.description }}</p><div><a v-for="link in enabledExternalLinks" :key="`${link.platform}-${link.label}`" :href="link.url" target="_blank" rel="noopener noreferrer"><component :is="externalIcon(link.platform)" :size="19" aria-hidden="true" /> {{ link.label }} <ArrowUpRight :size="15" aria-hidden="true" /></a><span v-if="!enabledExternalLinks.length">暂无公开外部入口</span></div></div>
     </section>
 
-    <footer><a class="brand" href="#top" aria-label="返回 YES Lab 首页" @click.prevent="scrollTo('#top')"><img src="/yes-lab-logo.png" alt="YES Lab" width="900" height="506" /><span>PUBLIC SHOWCASE</span></a><p>{{ homepageContent.sections.footerText }}</p></footer>
+    <footer><a class="brand" href="#top" :aria-label="`返回${profile.displayName}首页`" @click.prevent="scrollTo('#top')"><img src="/yes-lab-logo.png" :alt="profile.name" width="900" height="506" /><span>{{ profile.name }} · {{ profile.fullName }}</span></a><p>{{ homepageContent.sections.footerText }}</p></footer>
 
     <Transition name="modal">
       <div v-if="selectedProject" class="modal-backdrop" @click.self="selectedProject = null">

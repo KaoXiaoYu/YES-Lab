@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref } from 'vue'
 import { RotateCcw, Pause, Play, Move } from 'lucide-vue-next'
-defineProps({ fullName: String })
+defineProps({ fullName: String, displayName: String })
 const mount = ref(null)
 const ready = ref(false)
 const failed = ref(false)
@@ -123,7 +123,7 @@ onBeforeUnmount(() => { disposed = true; teardown() })
 
 <template>
   <figure class="research-visual product-scene">
-    <header class="product-scene-heading"><span><i /> AIR × GROUND</span><span>空地协同</span></header>
+    <header class="product-scene-heading"><span><i /> {{ fullName || 'AIR × GROUND' }}</span><span>{{ displayName || '空地协同' }}</span></header>
     <div class="product-scene-stage">
       <div ref="mount" class="product-scene-canvas" :class="{ 'is-ready': ready }" />
       <div v-if="!ready" class="product-scene-status" role="status">

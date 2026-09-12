@@ -71,32 +71,50 @@ async function fetchPublicData(path) {
 function normalizeHome(home, publicProfiles = [], publicProjects = [], competitions = [], news = []) {
   const homepageContent = home.homepageContent || null
   const selectedAdvisorId = homepageContent?.advisorProfileId
-  const teacher = publicProfiles.find((member) => member.id === selectedAdvisorId)
-    || publicProfiles.find((member) => member.role === 'TEACHER')
+  const featuredAdvisorIds = homepageContent?.featuredAdvisorProfileIds?.length
+    ? homepageContent.featuredAdvisorProfileIds
+    : selectedAdvisorId ? [selectedAdvisorId] : []
   const featuredMemberIds = homepageContent?.featuredMemberProfileIds || []
   const featuredProjectIds = homepageContent?.featuredProjectIds || []
+  const display = homepageContent?.display || {}
+  const advisorMode = display.advisorSelectionMode || (featuredAdvisorIds.length ? 'SELECTED' : 'AUTO')
+  const memberMode = display.memberSelectionMode || (featuredMemberIds.length ? 'SELECTED' : 'AUTO')
+  const projectMode = display.projectSelectionMode || (featuredProjectIds.length ? 'SELECTED' : 'AUTO')
+  const publicTeachers = publicProfiles.filter((member) => member.role === 'TEACHER')
+  const orderedTeachers = orderBySelection(publicTeachers, featuredAdvisorIds, (member) => member.id)
+  const selectedTeachers = advisorMode === 'HIDDEN'
+    ? []
+    : advisorMode === 'SELECTED'
+      ? orderedTeachers.filter((member) => featuredAdvisorIds.includes(member.id))
+      : orderedTeachers
+  const advisors = publicProfiles.length
+    ? selectedTeachers.slice(0, display.advisorLimit || 6).map(toShowcaseAdvisor)
+    : advisorMode === 'AUTO' && home.advisor ? [home.advisor] : []
   const managedMembers = publicProfiles.filter((member) => member.role !== 'TEACHER').map(toShowcaseMember)
-  const orderedMembers = orderBySelection(managedMembers, featuredMemberIds, (member) => member.profileId)
-    .map((member) => ({ ...member, core: featuredMemberIds.length ? featuredMemberIds.includes(member.profileId) : member.core }))
+  const sourceMembers = managedMembers.length ? managedMembers : home.members
+  const orderedMembers = orderBySelection(sourceMembers, featuredMemberIds, (member) => member.profileId || member.slug)
+    .map((member) => ({
+      ...member,
+      core: memberMode === 'HIDDEN'
+        ? false
+        : memberMode === 'SELECTED'
+          ? featuredMemberIds.includes(member.profileId || member.slug)
+          : member.core,
+    }))
   const managedProjects = publicProjects.length
     ? publicProjects.map(toShowcaseProject)
     : home.projects
   const orderedProjects = orderBySelection(managedProjects, featuredProjectIds, (project) => project.slug)
-  const visibleProjects = featuredProjectIds.length
-    ? orderedProjects.filter((project) => featuredProjectIds.includes(project.slug))
-    : orderedProjects
+  const visibleProjects = projectMode === 'HIDDEN'
+    ? []
+    : projectMode === 'SELECTED'
+      ? orderedProjects.filter((project) => featuredProjectIds.includes(project.slug))
+      : orderedProjects
   return {
     profile: home.profile,
     homepageContent,
-    advisor: teacher ? {
-      profileId: teacher.id,
-      initials: initialsFor(teacher.name),
-      name: teacher.name,
-      role: 'YES Lab 指导老师',
-      description: teacher.headline || '负责实验室研究方向、项目实践与人才培养指导。',
-      tags: teacher.skillTags,
-      avatarUrl: teacher.avatarUrl,
-    } : home.advisor || null,
+    advisors,
+    advisor: advisors[0] || null,
     statistics: {
       ...home.statistics,
       ...(publicProfiles.length ? { members: publicProfiles.length } : {}),
@@ -107,7 +125,7 @@ function normalizeHome(home, publicProfiles = [], publicProjects = [], competiti
       number: String(index + 1).padStart(2, '0'),
       members: project.memberCount > 0 ? `${project.memberCount} 人` : '待补充',
     })),
-    members: (orderedMembers.length ? orderedMembers : home.members).map((member) => ({
+    members: orderedMembers.map((member) => ({
       ...member,
       role: member.role || member.gradeAndMajor,
     })),
@@ -122,6 +140,18 @@ function normalizeHome(home, publicProfiles = [], publicProjects = [], competiti
     competitionResults: competitions.map(normalizeCompetition),
     news: news.map((item) => ({ ...item, date: item.publishedDate, type: item.sourceName, url: item.sourceUrl })),
     sponsors: home.sponsors || [],
+  }
+}
+
+function toShowcaseAdvisor(teacher) {
+  return {
+    profileId: teacher.id,
+    initials: initialsFor(teacher.name),
+    name: teacher.name,
+    role: 'YES Lab 指导老师',
+    description: teacher.headline || '负责实验室研究方向、项目实践与人才培养指导。',
+    tags: teacher.skillTags || [],
+    avatarUrl: teacher.avatarUrl,
   }
 }
 

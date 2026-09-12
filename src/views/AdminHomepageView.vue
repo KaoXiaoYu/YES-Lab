@@ -5,7 +5,6 @@ import {
 } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
-import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
 import {
   getHomepageContent, listMembers, listProjects, updateHomepageContent, uploadSponsorLogo,
 } from '../services/authApi'
@@ -21,6 +20,27 @@ const tabs = [
   { id: 'links', label: '外部入口', icon: Link2 },
 ]
 
+const selectionModes = [
+  { value: 'AUTO', label: '自动展示' },
+  { value: 'SELECTED', label: '手动选择' },
+  { value: 'HIDDEN', label: '暂不展示' },
+]
+const proofMetrics = [
+  { value: 'AWARDS', label: '自动：比赛成果' },
+  { value: 'DIRECTIONS', label: '自动：研究方向' },
+  { value: 'PARTNERS', label: '自动：合作伙伴' },
+  { value: 'PROJECT_STATUS', label: '自动：项目状态' },
+  { value: 'CUSTOM', label: '手动填写' },
+]
+const sectionToggles = [
+  { key: 'showProjects', label: '研究与项目' },
+  { key: 'showAbout', label: '关于我们' },
+  { key: 'showMembers', label: '成员' },
+  { key: 'showPartners', label: '赞助伙伴' },
+  { key: 'showAchievements', label: '成果与新闻' },
+  { key: 'showContact', label: '联系与外部入口' },
+]
+
 const activeTab = ref('identity')
 const content = ref(null)
 const members = ref([])
@@ -34,12 +54,18 @@ const message = ref('')
 const errorMessage = ref('')
 const updatedAt = ref(null)
 const updatedBy = ref('')
+const featuredTeacherSearch = ref('')
 const featuredMemberSearch = ref('')
 
 const teacherOptions = computed(() => members.value.filter((member) => member.role === 'TEACHER'))
 const memberOptions = computed(() => members.value.filter((member) => member.role !== 'TEACHER' && ['OFFICIAL', 'TRIAL'].includes(member.status)))
+const selectedTeachers = computed(() => orderedOptions(content.value?.featuredAdvisorProfileIds, teacherOptions.value))
 const selectedMembers = computed(() => orderedOptions(content.value?.featuredMemberProfileIds, memberOptions.value))
 const selectedProjects = computed(() => orderedOptions(content.value?.featuredProjectIds, projects.value))
+const filteredTeacherOptions = computed(() => {
+  const keyword = featuredTeacherSearch.value.trim().toLocaleLowerCase()
+  return keyword ? teacherOptions.value.filter((item) => `${item.name} ${item.memberCode || ''}`.toLocaleLowerCase().includes(keyword)) : teacherOptions.value
+})
 const filteredMemberOptions = computed(() => {
   const keyword = featuredMemberSearch.value.trim().toLocaleLowerCase()
   return keyword ? memberOptions.value.filter((item) => `${item.name} ${item.memberCode || ''}`.toLocaleLowerCase().includes(keyword)) : memberOptions.value
@@ -51,6 +77,8 @@ onMounted(async () => {
       getHomepageContent(), listMembers(), listProjects(),
     ])
     content.value = structuredClone(homepage.content)
+    content.value.featuredAdvisorProfileIds ||= content.value.advisorProfileId ? [content.value.advisorProfileId] : []
+    content.value.display.advisorLimit ||= 6
     members.value = memberData
     projects.value = projectData
     updatedAt.value = homepage.updatedAt
@@ -67,9 +95,9 @@ function orderedOptions(ids = [], options = []) {
   return ids.map((id) => byId.get(id)).filter(Boolean)
 }
 
-function toggleSelection(list, id, checked) {
+function toggleSelection(list, id, checked, limit = Number.POSITIVE_INFINITY) {
   const index = list.indexOf(id)
-  if (checked && index < 0) list.push(id)
+  if (checked && index < 0 && list.length < limit) list.push(id)
   if (!checked && index >= 0) list.splice(index, 1)
 }
 
@@ -101,7 +129,7 @@ function splitList(value) {
 }
 
 function addProof() {
-  content.value.proofItems.push({ label: 'NEW / ITEM', value: '范桌轩大王', detail: '待补充说明' })
+  content.value.proofItems.push({ label: 'NEW / ITEM', value: '范桌轩大王', detail: '待补充说明', metric: 'CUSTOM', target: '#projects' })
 }
 
 function addAward() {
@@ -195,6 +223,10 @@ function formatTime(value) {
             <label>强调文字<input v-model.trim="content.profile.heroAccent" required maxlength="80" /></label>
             <label>主按钮文字<input v-model.trim="content.profile.primaryActionLabel" required maxlength="60" /></label>
             <label>次按钮文字<input v-model.trim="content.profile.secondaryActionLabel" required maxlength="60" /></label>
+            <label>主按钮跳转地址<input v-model.trim="content.profile.primaryActionUrl" :required="content.profile.primaryActionEnabled" maxlength="800" placeholder="#projects、/discussions 或 https://..." /></label>
+            <label>次按钮跳转地址<input v-model.trim="content.profile.secondaryActionUrl" :required="content.profile.secondaryActionEnabled" maxlength="800" placeholder="#partners、/register 或 https://..." /></label>
+            <label class="homepage-inline-switch"><input v-model="content.profile.primaryActionEnabled" type="checkbox" /><span>显示首屏主按钮</span></label>
+            <label class="homepage-inline-switch"><input v-model="content.profile.secondaryActionEnabled" type="checkbox" /><span>显示首屏次按钮</span></label>
           </div>
           <div class="homepage-array-block">
             <header><div><h3>研究方向</h3><p>可跳转到页内分区、站内页面或外部网站。页内可用 #projects、#about、#members、#partners 或 #updates。</p></div><button type="button" :disabled="content.profile.researchDirectionItems.length >= 12" @click="addDirection"><Plus :size="16" aria-hidden="true" />添加</button></header>
@@ -234,15 +266,79 @@ function formatTime(value) {
         </section>
 
         <section v-show="activeTab === 'display'" class="homepage-editor-section">
-          <header><p>03 / FEATURED CONTENT</p><h2>展示选择</h2><span>选择首页固定展示的指导老师、核心成员和项目，并通过顺序按钮调整排列。</span></header>
-          <article class="homepage-selection-card"><header><div><h3>指导老师</h3><p>详细资料请前往成员管理修改。</p></div><RouterLink to="/admin/members">成员管理 <ExternalLink :size="15" aria-hidden="true" /></RouterLink></header><SearchableMemberSelect v-model="content.advisorProfileId" :options="teacherOptions" label="首页指导老师" empty-label="自动选择第一位教师" null-on-empty /></article>
-          <article class="homepage-selection-card"><header><div><h3>核心成员</h3><p>勾选后按选择顺序展示；未选择时自动使用核心学生账号。</p></div></header><label class="member-picker-search"><Search :size="16" aria-hidden="true" /><span class="sr-only">搜索首页展示成员</span><input v-model.trim="featuredMemberSearch" type="search" placeholder="按姓名或学号搜索成员" /></label><div class="homepage-option-grid"><label v-for="member in filteredMemberOptions" :key="member.id"><input type="checkbox" :checked="content.featuredMemberProfileIds.includes(member.id)" @change="toggleSelection(content.featuredMemberProfileIds, member.id, $event.target.checked)" /><span><strong>{{ member.name }}</strong><small>{{ member.memberCode }} · {{ member.role }} · {{ member.status }}</small></span></label><p v-if="!filteredMemberOptions.length" class="empty-note">没有匹配姓名或学号的成员。</p></div><ol class="homepage-order-list"><li v-for="(member, index) in selectedMembers" :key="member.id"><span>{{ index + 1 }}</span><strong>{{ member.name }}</strong><button type="button" :disabled="index === 0" aria-label="上移成员" @click="move(content.featuredMemberProfileIds, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === selectedMembers.length - 1" aria-label="下移成员" @click="move(content.featuredMemberProfileIds, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button></li></ol></article>
-          <article class="homepage-selection-card"><header><div><h3>首页项目</h3><p>项目还必须在项目资料中开启“允许公开展示”；未选择时展示全部公开项目。</p></div><RouterLink to="/projects">项目团队 <ExternalLink :size="15" aria-hidden="true" /></RouterLink></header><div class="homepage-option-grid"><label v-for="project in projects" :key="project.id"><input type="checkbox" :checked="content.featuredProjectIds.includes(project.id)" @change="toggleSelection(content.featuredProjectIds, project.id, $event.target.checked)" /><span><strong>{{ project.projectName }}</strong><small>{{ project.externallyVisible ? '已公开' : '尚未开启公开展示' }}</small></span></label></div><ol class="homepage-order-list"><li v-for="(project, index) in selectedProjects" :key="project.id"><span>{{ index + 1 }}</span><strong>{{ project.projectName }}</strong><button type="button" :disabled="index === 0" aria-label="上移项目" @click="move(content.featuredProjectIds, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === selectedProjects.length - 1" aria-label="下移项目" @click="move(content.featuredProjectIds, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button></li></ol></article>
+          <header><p>03 / FEATURED CONTENT</p><h2>展示选择</h2><span>控制首页栏目、子模块和展示数量；业务资料仍在成员、项目和成果管理中维护。</span></header>
+          <article class="homepage-selection-card">
+            <header><div><h3>栏目显示</h3><p>关闭栏目后，首页正文与对应顶栏导航会一起隐藏。</p></div></header>
+            <div class="homepage-toggle-grid">
+              <label v-for="item in sectionToggles" :key="item.key"><input v-model="content.display[item.key]" type="checkbox" /><span>{{ item.label }}</span></label>
+            </div>
+          </article>
+          <article class="homepage-selection-card">
+            <header><div><h3>指导老师</h3><p>可自动展示多位公开教师、手动多选并排序，或暂不展示。</p></div><RouterLink to="/admin/members">成员管理 <ExternalLink :size="15" aria-hidden="true" /></RouterLink></header>
+            <div class="homepage-control-grid">
+              <label>展示方式<select v-model="content.display.advisorSelectionMode"><option v-for="item in selectionModes" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
+              <label>最多展示教师数<input v-model.number="content.display.advisorLimit" type="number" min="1" max="6" required /></label>
+            </div>
+            <template v-if="content.display.advisorSelectionMode === 'SELECTED'">
+              <label class="member-picker-search"><Search :size="16" aria-hidden="true" /><span class="sr-only">搜索首页展示教师</span><input v-model.trim="featuredTeacherSearch" type="search" placeholder="按姓名或编号搜索教师" /></label>
+              <div class="homepage-option-grid"><label v-for="teacher in filteredTeacherOptions" :key="teacher.id"><input type="checkbox" :checked="content.featuredAdvisorProfileIds.includes(teacher.id)" :disabled="!content.featuredAdvisorProfileIds.includes(teacher.id) && content.featuredAdvisorProfileIds.length >= 6" @change="toggleSelection(content.featuredAdvisorProfileIds, teacher.id, $event.target.checked, 6)" /><span><strong>{{ teacher.name }}</strong><small>{{ teacher.memberCode || '未设置编号' }} · {{ teacher.status }}</small></span></label><p v-if="!filteredTeacherOptions.length" class="empty-note">没有匹配姓名或编号的教师。</p></div>
+              <ol class="homepage-order-list"><li v-for="(teacher, index) in selectedTeachers" :key="teacher.id"><span>{{ index + 1 }}</span><strong>{{ teacher.name }}</strong><button type="button" :disabled="index === 0" :aria-label="`上移教师 ${teacher.name}`" @click="move(content.featuredAdvisorProfileIds, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === selectedTeachers.length - 1" :aria-label="`下移教师 ${teacher.name}`" @click="move(content.featuredAdvisorProfileIds, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button></li></ol>
+              <p class="homepage-mode-note">已选 {{ content.featuredAdvisorProfileIds.length }} / 6 位；首页只展示已开启公开主页的教师。</p>
+            </template>
+            <p v-else class="homepage-mode-note">{{ content.display.advisorSelectionMode === 'AUTO' ? '将按公开教师列表顺序展示，不超过设定数量。' : '指导老师卡片不会显示，已选记录仍会保留。' }}</p>
+          </article>
+          <article class="homepage-selection-card">
+            <header><div><h3>核心成员</h3><p>手动模式下按勾选顺序展示；暂不展示不会清除已有选择。</p></div></header>
+            <div class="homepage-control-grid">
+              <label>展示方式<select v-model="content.display.memberSelectionMode"><option v-for="item in selectionModes" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
+              <label>最多展示人数<input v-model.number="content.display.memberLimit" type="number" min="1" max="12" required /></label>
+              <label class="homepage-inline-switch"><input v-model="content.display.showLeaderboard" type="checkbox" /><span>显示成员榜单子模块</span></label>
+            </div>
+            <template v-if="content.display.memberSelectionMode === 'SELECTED'">
+              <label class="member-picker-search"><Search :size="16" aria-hidden="true" /><span class="sr-only">搜索首页展示成员</span><input v-model.trim="featuredMemberSearch" type="search" placeholder="按姓名或学号搜索成员" /></label>
+              <div class="homepage-option-grid"><label v-for="member in filteredMemberOptions" :key="member.id"><input type="checkbox" :checked="content.featuredMemberProfileIds.includes(member.id)" @change="toggleSelection(content.featuredMemberProfileIds, member.id, $event.target.checked)" /><span><strong>{{ member.name }}</strong><small>{{ member.memberCode }} · {{ member.role }} · {{ member.status }}</small></span></label><p v-if="!filteredMemberOptions.length" class="empty-note">没有匹配姓名或学号的成员。</p></div>
+              <ol class="homepage-order-list"><li v-for="(member, index) in selectedMembers" :key="member.id"><span>{{ index + 1 }}</span><strong>{{ member.name }}</strong><button type="button" :disabled="index === 0" aria-label="上移成员" @click="move(content.featuredMemberProfileIds, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === selectedMembers.length - 1" aria-label="下移成员" @click="move(content.featuredMemberProfileIds, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button></li></ol>
+            </template>
+            <p v-else class="homepage-mode-note">{{ content.display.memberSelectionMode === 'AUTO' ? '将自动展示具有核心学生角色的成员。' : '核心成员列表不会显示，已勾选记录仍会保留。' }}</p>
+          </article>
+          <article class="homepage-selection-card">
+            <header><div><h3>首页项目</h3><p>项目还必须在项目资料中开启“允许公开展示”。</p></div><RouterLink to="/projects">项目团队 <ExternalLink :size="15" aria-hidden="true" /></RouterLink></header>
+            <div class="homepage-control-grid">
+              <label>展示方式<select v-model="content.display.projectSelectionMode"><option v-for="item in selectionModes" :key="item.value" :value="item.value">{{ item.label }}</option></select></label>
+              <label>最多展示项目数<input v-model.number="content.display.projectLimit" type="number" min="1" max="12" required /></label>
+            </div>
+            <template v-if="content.display.projectSelectionMode === 'SELECTED'">
+              <div class="homepage-option-grid"><label v-for="project in projects" :key="project.id"><input type="checkbox" :checked="content.featuredProjectIds.includes(project.id)" @change="toggleSelection(content.featuredProjectIds, project.id, $event.target.checked)" /><span><strong>{{ project.projectName }}</strong><small>{{ project.externallyVisible ? '已公开' : '尚未开启公开展示' }}</small></span></label></div>
+              <ol class="homepage-order-list"><li v-for="(project, index) in selectedProjects" :key="project.id"><span>{{ index + 1 }}</span><strong>{{ project.projectName }}</strong><button type="button" :disabled="index === 0" aria-label="上移项目" @click="move(content.featuredProjectIds, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === selectedProjects.length - 1" aria-label="下移项目" @click="move(content.featuredProjectIds, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button></li></ol>
+            </template>
+            <p v-else class="homepage-mode-note">{{ content.display.projectSelectionMode === 'AUTO' ? '将按项目模块返回顺序展示全部公开项目。' : '项目栏目不会展示项目卡片，已有选择仍会保留。' }}</p>
+          </article>
+          <article class="homepage-selection-card">
+            <header><div><h3>其他栏目数量</h3><p>限制首页首屏长度，不影响业务详情页和后台数据。</p></div></header>
+            <div class="homepage-control-grid quantity-grid">
+              <label>新闻最多展示<input v-model.number="content.display.newsLimit" type="number" min="1" max="20" required /></label>
+              <label>比赛最多展示<input v-model.number="content.display.competitionLimit" type="number" min="1" max="30" required /></label>
+              <label>伙伴最多展示<input v-model.number="content.display.sponsorLimit" type="number" min="1" max="20" required /></label>
+            </div>
+          </article>
         </section>
 
         <section v-show="activeTab === 'proof'" class="homepage-editor-section">
           <header><p>04 / PROOF & COMPETITIONS</p><h2>概览与备用比赛成果</h2><span>维护首屏下方概览条；比赛列表只在成果管理中暂无公开比赛时作为备用内容，不再与首页第二栏重复。</span></header>
-          <div class="homepage-array-block"><header><div><h3>概览条</h3><p>建议保留 4 项，最多 6 项。</p></div><button type="button" :disabled="content.proofItems.length >= 6" @click="addProof"><Plus :size="16" aria-hidden="true" />添加</button></header><article v-for="(item, index) in content.proofItems" :key="index" class="homepage-row-card three"><input v-model.trim="item.label" required placeholder="标签" aria-label="概览标签" /><input v-model.trim="item.value" required placeholder="主要内容" aria-label="概览主要内容" /><input v-model.trim="item.detail" required placeholder="补充说明" aria-label="概览补充说明" /><button type="button" aria-label="删除概览项" @click="remove(content.proofItems, index)"><Trash2 :size="16" aria-hidden="true" /></button></article></div>
+          <div class="homepage-array-block">
+            <header><div><h3>概览条</h3><p>最多 6 项；自动项目读取实时公开数据，手动项目完整使用填写内容。</p></div><button type="button" :disabled="content.proofItems.length >= 6" @click="addProof"><Plus :size="16" aria-hidden="true" />添加</button></header>
+            <article v-for="(item, index) in content.proofItems" :key="index" class="homepage-proof-editor">
+              <header><span>{{ String(index + 1).padStart(2, '0') }}</span><strong>{{ item.label || '未命名概览项' }}</strong><div class="row-actions"><button type="button" :disabled="index === 0" aria-label="上移概览项" @click="move(content.proofItems, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === content.proofItems.length - 1" aria-label="下移概览项" @click="move(content.proofItems, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button><button type="button" aria-label="删除概览项" @click="remove(content.proofItems, index)"><Trash2 :size="16" aria-hidden="true" /></button></div></header>
+              <div class="homepage-control-grid proof-grid">
+                <label>数据来源<select v-model="item.metric"><option v-for="option in proofMetrics" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
+                <label>标签<input v-model.trim="item.label" required maxlength="80" /></label>
+                <label>主要内容<input v-model.trim="item.value" required maxlength="120" :disabled="item.metric !== 'CUSTOM'" /></label>
+                <label>补充说明<input v-model.trim="item.detail" required maxlength="160" :disabled="item.metric !== 'CUSTOM'" /></label>
+                <label class="full">跳转地址<input v-model.trim="item.target" required maxlength="800" placeholder="#updates、/discussions 或 https://..." /></label>
+              </div>
+              <p v-if="item.metric !== 'CUSTOM'" class="homepage-mode-note">首页会自动生成主要内容和补充说明；切换为“手动填写”后可编辑。</p>
+            </article>
+          </div>
           <div class="homepage-array-block"><header><div><h3>备用比赛成果</h3><p>正式成果请在“成果与新闻管理”中审核和排序；此处仅用于无正式数据时的备用展示。</p></div><button type="button" @click="addAward"><Plus :size="16" aria-hidden="true" />添加</button></header><article v-for="(item, index) in content.awards" :key="index" class="homepage-row-card award-row"><input v-model.trim="item.competition" required placeholder="比赛名称" aria-label="比赛名称" /><input v-model.trim="item.category" required placeholder="赛道/组别" aria-label="赛道或组别" /><input v-model.trim="item.level" required placeholder="级别" aria-label="比赛级别" /><input v-model.trim="item.prize" required placeholder="奖项" aria-label="获奖等级" /><span class="row-actions"><button type="button" :disabled="index === 0" aria-label="上移奖项" @click="move(content.awards, index, -1)"><ArrowUp :size="15" aria-hidden="true" /></button><button type="button" :disabled="index === content.awards.length - 1" aria-label="下移奖项" @click="move(content.awards, index, 1)"><ArrowDown :size="15" aria-hidden="true" /></button><button type="button" aria-label="删除奖项" @click="remove(content.awards, index)"><Trash2 :size="15" aria-hidden="true" /></button></span></article><div class="homepage-section-action"><RouterLink to="/admin/achievements">前往成果与新闻管理 <ExternalLink :size="16" aria-hidden="true" /></RouterLink></div></div>
         </section>
 
