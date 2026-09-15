@@ -1,5 +1,5 @@
 <script setup>
-import { ChevronDown, ChevronUp } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp } from '@lucide/vue'
 import { nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 
 const props = defineProps({
@@ -25,12 +25,15 @@ function toggle() {
   expanded.value = !expanded.value
 }
 
-watch(() => props.html, async () => {
-  expanded.value = false
-  overflowing.value = false
-  await nextTick()
-  measure()
-})
+watch(
+  () => props.html,
+  async () => {
+    expanded.value = false
+    overflowing.value = false
+    await nextTick()
+    measure()
+  },
+)
 
 onMounted(async () => {
   await nextTick()
@@ -46,6 +49,8 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
 
 <template>
   <div :class="['discussion-collapsible', { compact }]" @load.capture="measure">
+    <!-- Rich text is sanitized by the API allowlist before it reaches this component. -->
+    <!-- eslint-disable vue/no-v-html -->
     <div
       :id="contentId"
       ref="contentElement"
@@ -53,6 +58,7 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
       :style="{ '--discussion-collapse-height': `${maxHeight}px` }"
       v-html="html"
     ></div>
+    <!-- eslint-enable vue/no-v-html -->
     <span v-if="overflowing && !expanded" class="discussion-content-fade" aria-hidden="true"></span>
     <button
       v-if="overflowing"

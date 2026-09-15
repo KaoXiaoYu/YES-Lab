@@ -58,5 +58,11 @@ function useDefault() {
 </script>
 
 <template>
-  <img class="project-cover-image" :class="{ 'is-default': usingDefault }" :src="source" :alt="alt" @error="useDefault" />
+  <img
+    class="project-cover-image"
+    :class="{ 'is-default': usingDefault }"
+    :src="source"
+    :alt="alt"
+    @error="useDefault"
+  />
 </template>

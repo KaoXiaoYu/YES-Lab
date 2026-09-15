@@ -36,7 +36,11 @@ export async function login(credentials) {
 }
 
 export async function register(credentials) {
-  const response = await apiRequest('/api/v1/auth/register', { method: 'POST', body: credentials, authenticated: false })
+  const response = await apiRequest('/api/v1/auth/register', {
+    method: 'POST',
+    body: credentials,
+    authenticated: false,
+  })
   setSession(response)
   return response.account
 }
@@ -153,11 +157,21 @@ export function replaceProjectCover(projectId, cover) {
   return formRequest(`/api/v1/projects/${projectId}/cover`, { method: 'PUT', body: form })
 }
 
-export function listCompetitions() { return apiRequest('/api/v1/competitions') }
-export function getOwnCompetitionCountdown() { return apiRequest('/api/v1/competitions/countdown') }
-export function getCompetition(id) { return apiRequest(`/api/v1/competitions/${id}`) }
-export function listCompetitionMemberOptions() { return apiRequest('/api/v1/competitions/member-options') }
-export function listCompetitionProjectOptions() { return apiRequest('/api/v1/competitions/project-options') }
+export function listCompetitions() {
+  return apiRequest('/api/v1/competitions')
+}
+export function getOwnCompetitionCountdown() {
+  return apiRequest('/api/v1/competitions/countdown')
+}
+export function getCompetition(id) {
+  return apiRequest(`/api/v1/competitions/${id}`)
+}
+export function listCompetitionMemberOptions() {
+  return apiRequest('/api/v1/competitions/member-options')
+}
+export function listCompetitionProjectOptions() {
+  return apiRequest('/api/v1/competitions/project-options')
+}
 export function createCompetition(payload, certificate, images = []) {
   const form = new FormData()
   form.append('data', new Blob([JSON.stringify(payload)], { type: 'application/json' }))
@@ -165,23 +179,38 @@ export function createCompetition(payload, certificate, images = []) {
   images.forEach((image) => form.append('images', image))
   return formRequest('/api/v1/competitions', { method: 'POST', body: form })
 }
-export function updateCompetition(id, payload) { return apiRequest(`/api/v1/competitions/${id}`, { method: 'PUT', body: payload }) }
+export function updateCompetition(id, payload) {
+  return apiRequest(`/api/v1/competitions/${id}`, { method: 'PUT', body: payload })
+}
 export function replaceCompetitionCertificate(id, certificate) {
-  const form = new FormData(); form.append('certificate', certificate)
+  const form = new FormData()
+  form.append('certificate', certificate)
   return formRequest(`/api/v1/competitions/${id}/certificate`, { method: 'PUT', body: form })
 }
 export function replaceCompetitionImages(id, images, descriptions = []) {
-  const form = new FormData(); images.forEach((image) => form.append('images', image)); descriptions.forEach((item) => form.append('descriptions', item))
+  const form = new FormData()
+  images.forEach((image) => form.append('images', image))
+  descriptions.forEach((item) => form.append('descriptions', item))
   return formRequest(`/api/v1/competitions/${id}/images`, { method: 'PUT', body: form })
 }
 export function deleteCompetitionImage(competitionId, imageId) {
   return apiRequest(`/api/v1/competitions/${competitionId}/images/${imageId}`, { method: 'DELETE' })
 }
-export function reviewCompetition(id, payload) { return apiRequest(`/api/v1/admin/achievements/competitions/${id}/review`, { method: 'PATCH', body: payload }) }
-export function updateCompetitionDisplay(id, payload) { return apiRequest(`/api/v1/admin/achievements/competitions/${id}/display`, { method: 'PATCH', body: payload }) }
-export function listManagedNews() { return apiRequest('/api/v1/admin/achievements/news') }
-export function createNews(payload) { return apiRequest('/api/v1/admin/achievements/news', { method: 'POST', body: payload }) }
-export function updateNews(id, payload) { return apiRequest(`/api/v1/admin/achievements/news/${id}`, { method: 'PUT', body: payload }) }
+export function reviewCompetition(id, payload) {
+  return apiRequest(`/api/v1/admin/achievements/competitions/${id}/review`, { method: 'PATCH', body: payload })
+}
+export function updateCompetitionDisplay(id, payload) {
+  return apiRequest(`/api/v1/admin/achievements/competitions/${id}/display`, { method: 'PATCH', body: payload })
+}
+export function listManagedNews() {
+  return apiRequest('/api/v1/admin/achievements/news')
+}
+export function createNews(payload) {
+  return apiRequest('/api/v1/admin/achievements/news', { method: 'POST', body: payload })
+}
+export function updateNews(id, payload) {
+  return apiRequest(`/api/v1/admin/achievements/news/${id}`, { method: 'PUT', body: payload })
+}
 export async function getAuthenticatedFile(path) {
   const response = await fetchWithRefresh(`${apiBaseUrl}${path}`, {
     headers: { Authorization: `Bearer ${authState.token}` },
@@ -204,7 +233,7 @@ export function saveOwnApplication(payload) {
 
 export function uploadRecruitmentPortfolioImages(images) {
   const form = new FormData()
-  images.forEach(image => form.append('images', image))
+  images.forEach((image) => form.append('images', image))
   return formRequest('/api/v1/recruitment/me/portfolio-images', { method: 'POST', body: form })
 }
 
@@ -225,25 +254,35 @@ export function changeRecruitmentStage(applicationId, payload) {
 }
 
 export function saveInterview(applicationId, payload) {
-  return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/interview`, { method: 'PUT', body: payload })
+  return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/interview`, {
+    method: 'PUT',
+    body: payload,
+  })
 }
 
 export function convertRecruitmentToMember(applicationId, payload) {
-  return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/convert`, { method: 'POST', body: payload })
+  return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/convert`, {
+    method: 'POST',
+    body: payload,
+  })
 }
 
 export function resetRecruitmentPassword(applicationId) {
   return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/password`, { method: 'PUT' })
 }
 
-export function getInterviewSchedule() { return apiRequest('/api/v1/recruitment/interviews') }
+export function getInterviewSchedule() {
+  return apiRequest('/api/v1/recruitment/interviews')
+}
 export function bookInterviewSession(sessionId) {
   return apiRequest(`/api/v1/recruitment/interviews/sessions/${sessionId}/book`, { method: 'POST' })
 }
 export function cancelInterviewBooking() {
   return apiRequest('/api/v1/recruitment/interviews/booking', { method: 'DELETE' })
 }
-export function listInterviewSessions() { return apiRequest('/api/v1/admin/recruitment/interview-sessions') }
+export function listInterviewSessions() {
+  return apiRequest('/api/v1/admin/recruitment/interview-sessions')
+}
 export function createInterviewSession(payload) {
   return apiRequest('/api/v1/admin/recruitment/interview-sessions', { method: 'POST', body: payload })
 }
@@ -257,20 +296,31 @@ export function callNextInterview(sessionId) {
   return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/call-next`, { method: 'POST' })
 }
 export function startScheduledInterview(sessionId, bookingId) {
-  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/bookings/${bookingId}/start`, { method: 'POST' })
+  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/bookings/${bookingId}/start`, {
+    method: 'POST',
+  })
 }
 export function markInterviewNoShow(sessionId, bookingId) {
-  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/bookings/${bookingId}/no-show`, { method: 'POST' })
+  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/bookings/${bookingId}/no-show`, {
+    method: 'POST',
+  })
 }
 export function completeScheduledInterview(sessionId, bookingId, payload) {
-  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/bookings/${bookingId}/complete`, { method: 'POST', body: payload })
+  return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/bookings/${bookingId}/complete`, {
+    method: 'POST',
+    body: payload,
+  })
 }
 export function endInterviewSessionEarly(sessionId) {
   return apiRequest(`/api/v1/admin/recruitment/interview-sessions/${sessionId}/end-early`, { method: 'POST' })
 }
 
-export function getNotifications() { return apiRequest('/api/v1/notifications') }
-export function getNotificationVisibility() { return apiRequest('/api/v1/notifications/visibility') }
+export function getNotifications() {
+  return apiRequest('/api/v1/notifications')
+}
+export function getNotificationVisibility() {
+  return apiRequest('/api/v1/notifications/visibility')
+}
 export function getMelinaVisibilitySettings() {
   return apiRequest('/api/v1/admin/notifications/melina-visibility')
 }
@@ -287,11 +337,21 @@ export function markAllNotificationsRead() {
 export function listDiscussions(sort = 'NEWEST') {
   return apiRequest(`/api/v1/discussions?sort=${encodeURIComponent(sort)}`, { optionalAuthentication: true })
 }
-export function createDiscussion(payload) { return apiRequest('/api/v1/discussions', { method: 'POST', body: payload }) }
-export function updateDiscussion(postId, payload) { return apiRequest(`/api/v1/discussions/${postId}`, { method: 'PUT', body: payload }) }
-export function deleteDiscussion(postId) { return apiRequest(`/api/v1/discussions/${postId}`, { method: 'DELETE' }) }
-export function toggleDiscussionLike(postId) { return apiRequest(`/api/v1/discussions/${postId}/like`, { method: 'PATCH' }) }
-export function toggleDiscussionPin(postId) { return apiRequest(`/api/v1/discussions/${postId}/pin`, { method: 'PATCH' }) }
+export function createDiscussion(payload) {
+  return apiRequest('/api/v1/discussions', { method: 'POST', body: payload })
+}
+export function updateDiscussion(postId, payload) {
+  return apiRequest(`/api/v1/discussions/${postId}`, { method: 'PUT', body: payload })
+}
+export function deleteDiscussion(postId) {
+  return apiRequest(`/api/v1/discussions/${postId}`, { method: 'DELETE' })
+}
+export function toggleDiscussionLike(postId) {
+  return apiRequest(`/api/v1/discussions/${postId}/like`, { method: 'PATCH' })
+}
+export function toggleDiscussionPin(postId) {
+  return apiRequest(`/api/v1/discussions/${postId}/pin`, { method: 'PATCH' })
+}
 export function createDiscussionReply(postId, payload) {
   return apiRequest(`/api/v1/discussions/${postId}/replies`, { method: 'POST', body: payload })
 }
@@ -314,11 +374,15 @@ async function apiRequest(path, options = {}) {
 
   let response
   try {
-    response = await fetchWithRefresh(`${apiBaseUrl}${path}`, {
-      method: options.method || 'GET',
-      headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    }, refreshOnUnauthorized)
+    response = await fetchWithRefresh(
+      `${apiBaseUrl}${path}`,
+      {
+        method: options.method || 'GET',
+        headers,
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      },
+      refreshOnUnauthorized,
+    )
   } catch {
     throw new ApiError('无法连接后端服务，请确认 Spring Boot 已启动。')
   }
@@ -336,12 +400,18 @@ async function formRequest(path, options) {
   try {
     response = await fetchWithRefresh(`${apiBaseUrl}${path}`, {
       method: options.method,
-      headers: { Accept: 'application/json', ...(authState.token ? { Authorization: `Bearer ${authState.token}` } : {}) },
+      headers: {
+        Accept: 'application/json',
+        ...(authState.token ? { Authorization: `Bearer ${authState.token}` } : {}),
+      },
       body: options.body,
     })
-  } catch { throw new ApiError('无法连接后端服务，请确认 Spring Boot 已启动。') }
+  } catch {
+    throw new ApiError('无法连接后端服务，请确认 Spring Boot 已启动。')
+  }
   const payload = await response.json().catch(() => null)
-  if (!response.ok) throw new ApiError(payload?.message || `请求失败（${response.status}）`, payload?.fields || {}, response.status)
+  if (!response.ok)
+    throw new ApiError(payload?.message || `请求失败（${response.status}）`, payload?.fields || {}, response.status)
   return payload?.data ?? null
 }
 

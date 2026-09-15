@@ -1,0 +1,9 @@
+.codex-run/
+.openai/
+backend/data/
+backend/target/
+dist/
+node_modules/
+public/
+package-lock.json
+

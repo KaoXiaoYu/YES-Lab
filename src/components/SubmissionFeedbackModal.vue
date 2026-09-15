@@ -1,5 +1,5 @@
 <script setup>
-import { ArrowRight, CircleCheck, X } from 'lucide-vue-next'
+import { ArrowRight, CircleCheck, X } from '@lucide/vue'
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { closeSubmissionFeedback, submissionFeedbackState } from '../services/submissionFeedback'
 
@@ -7,21 +7,24 @@ const dialog = ref(null)
 const confirmButton = ref(null)
 let returnFocus = null
 
-watch(() => submissionFeedbackState.open, async (open) => {
-  if (open) {
-    returnFocus = document.activeElement
-    document.body.classList.add('submission-feedback-open')
-    await nextTick()
-    confirmButton.value?.focus()
-    return
-  }
+watch(
+  () => submissionFeedbackState.open,
+  async (open) => {
+    if (open) {
+      returnFocus = document.activeElement
+      document.body.classList.add('submission-feedback-open')
+      await nextTick()
+      confirmButton.value?.focus()
+      return
+    }
 
-  document.body.classList.remove('submission-feedback-open')
-  await nextTick()
-  if (returnFocus?.isConnected && returnFocus !== document.body) returnFocus.focus()
-  else focusPageHeading()
-  returnFocus = null
-})
+    document.body.classList.remove('submission-feedback-open')
+    await nextTick()
+    if (returnFocus?.isConnected && returnFocus !== document.body) returnFocus.focus()
+    else focusPageHeading()
+    returnFocus = null
+  },
+)
 
 onBeforeUnmount(() => document.body.classList.remove('submission-feedback-open'))
 
@@ -73,14 +76,24 @@ function handleKeydown(event) {
           aria-labelledby="submission-feedback-title"
           aria-describedby="submission-feedback-message"
         >
-          <button class="submission-feedback-close" type="button" aria-label="关闭提交结果" @click="closeSubmissionFeedback">
+          <button
+            class="submission-feedback-close"
+            type="button"
+            aria-label="关闭提交结果"
+            @click="closeSubmissionFeedback"
+          >
             <X :size="19" aria-hidden="true" />
           </button>
           <div class="submission-feedback-mark" aria-hidden="true"><CircleCheck :size="32" /></div>
           <p>{{ submissionFeedbackState.eyebrow }}</p>
           <h2 id="submission-feedback-title">{{ submissionFeedbackState.title }}</h2>
           <span id="submission-feedback-message">{{ submissionFeedbackState.message }}</span>
-          <button ref="confirmButton" class="submission-feedback-confirm" type="button" @click="closeSubmissionFeedback">
+          <button
+            ref="confirmButton"
+            class="submission-feedback-confirm"
+            type="button"
+            @click="closeSubmissionFeedback"
+          >
             {{ submissionFeedbackState.confirmLabel }}<ArrowRight :size="17" aria-hidden="true" />
           </button>
         </section>

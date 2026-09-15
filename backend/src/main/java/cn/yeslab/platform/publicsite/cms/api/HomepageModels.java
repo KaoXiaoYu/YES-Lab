@@ -19,11 +19,11 @@ public final class HomepageModels {
     public record HomepageContent(
             @Valid @NotNull ProfileContent profile,
             @Valid @NotNull PageSections sections,
-            @Valid @NotNull @Size(max = 6) List<ProofItem> proofItems,
-            @Valid @NotNull @Size(max = 20) List<UpdateItem> updates,
-            @Valid @NotNull @Size(max = 30) List<AwardItem> awards,
-            @Valid @NotNull @Size(max = 20) List<SponsorItem> sponsors,
-            @Valid @NotNull @Size(max = 12) List<ExternalLinkItem> externalLinks,
+            @NotNull @Size(max = 6) List<@Valid ProofItem> proofItems,
+            @NotNull @Size(max = 20) List<@Valid UpdateItem> updates,
+            @NotNull @Size(max = 30) List<@Valid AwardItem> awards,
+            @NotNull @Size(max = 20) List<@Valid SponsorItem> sponsors,
+            @NotNull @Size(max = 12) List<@Valid ExternalLinkItem> externalLinks,
             UUID advisorProfileId,
             @Size(max = 6) List<@NotNull UUID> featuredAdvisorProfileIds,
             @NotNull @Size(max = 12) List<UUID> featuredMemberProfileIds,
@@ -71,7 +71,7 @@ public final class HomepageModels {
             @NotBlank @Size(max = 180) String slogan,
             @NotBlank @Size(max = 5000) String description,
             @NotNull @Size(min = 1, max = 12) List<@NotBlank @Size(max = 80) String> researchDirections,
-            @Valid @Size(min = 1, max = 12) List<ResearchDirectionItem> researchDirectionItems,
+            @Size(min = 1, max = 12) List<@Valid ResearchDirectionItem> researchDirectionItems,
             @NotBlank @Size(max = 120) String heroEyebrow,
             @NotBlank @Size(max = 180) String heroTitle,
             @NotBlank @Size(max = 80) String heroAccent,
@@ -129,7 +129,7 @@ public final class HomepageModels {
             @Size(max = 300) String awardsDescription,
             @NotBlank @Size(max = 80) String featureEyebrow,
             @NotBlank @Size(max = 180) String featureTitle,
-            @Valid @NotNull @Size(max = 8) List<AboutFeatureItem> features
+            @NotNull @Size(max = 8) List<@Valid AboutFeatureItem> features
     ) {
     }
 

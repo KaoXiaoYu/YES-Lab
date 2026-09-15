@@ -1,5 +1,5 @@
 <script setup>
-import { FolderGit2, Pencil, Trophy } from 'lucide-vue-next'
+import { FolderGit2, Pencil, Trophy } from '@lucide/vue'
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -31,41 +31,88 @@ const isTeacher = computed(() => props.profile.role === 'TEACHER')
         </RouterLink>
 
         <dl>
-          <div v-if="privateView"><dt>学号 / 内部编号</dt><dd>{{ profile.memberCode }}</dd></div>
+          <div v-if="privateView">
+            <dt>学号 / 内部编号</dt>
+            <dd>{{ profile.memberCode }}</dd>
+          </div>
           <template v-if="!isTeacher">
-            <div><dt>年级</dt><dd>{{ profile.grade || '暂未填写' }}</dd></div>
-            <div><dt>专业</dt><dd>{{ profile.major || '暂未填写' }}</dd></div>
-            <div><dt>班级</dt><dd>{{ profile.className || '暂未填写' }}</dd></div>
+            <div>
+              <dt>年级</dt>
+              <dd>{{ profile.grade || '暂未填写' }}</dd>
+            </div>
+            <div>
+              <dt>专业</dt>
+              <dd>{{ profile.major || '暂未填写' }}</dd>
+            </div>
+            <div>
+              <dt>班级</dt>
+              <dd>{{ profile.className || '暂未填写' }}</dd>
+            </div>
           </template>
-          <div v-if="privateView"><dt>内部联系方式</dt><dd>{{ profile.internalContact || '暂未填写' }}</dd></div>
+          <div v-if="privateView">
+            <dt>内部联系方式</dt>
+            <dd>{{ profile.internalContact || '暂未填写' }}</dd>
+          </div>
         </dl>
-        <ul aria-label="能力标签"><li v-for="tag in profile.skillTags" :key="tag">{{ tag }}</li></ul>
+        <ul aria-label="能力标签">
+          <li v-for="tag in profile.skillTags" :key="tag">{{ tag }}</li>
+        </ul>
       </div>
 
       <div class="growth-grid">
         <template v-if="!isTeacher">
-          <article><span>POINTS</span><strong>{{ profile.totalPoints }}</strong><small>积分系统暂未接入</small></article>
-          <article><span>RANK</span><strong>{{ profile.currentRank || '—' }}</strong><small>排名将在积分系统启用后更新</small></article>
+          <article>
+            <span>POINTS</span><strong>{{ profile.totalPoints }}</strong
+            ><small>积分系统暂未接入</small>
+          </article>
+          <article>
+            <span>RANK</span><strong>{{ profile.currentRank || '—' }}</strong
+            ><small>排名将在积分系统启用后更新</small>
+          </article>
         </template>
-        <article><span>PROJECTS</span><strong>{{ profile.projectRecords?.length || 0 }}</strong><small>项目记录</small></article>
-        <article><span>RESULTS</span><strong>{{ profile.achievementRecords?.length || 0 }}</strong><small>比赛与成果</small></article>
+        <article>
+          <span>PROJECTS</span><strong>{{ profile.projectRecords?.length || 0 }}</strong
+          ><small>项目记录</small>
+        </article>
+        <article>
+          <span>RESULTS</span><strong>{{ profile.achievementRecords?.length || 0 }}</strong
+          ><small>比赛与成果</small>
+        </article>
       </div>
     </section>
 
     <section class="profile-story-card">
-      <header><div><p>MEMBER PROFILE</p><h2>研究与成长档案</h2></div><span>由成员本人维护的公开介绍</span></header>
+      <header>
+        <div>
+          <p>MEMBER PROFILE</p>
+          <h2>研究与成长档案</h2>
+        </div>
+        <span>由成员本人维护的公开介绍</span>
+      </header>
+      <!-- Profile HTML is sanitized by the API allowlist before it reaches this component. -->
+      <!-- eslint-disable-next-line vue/no-v-html -->
       <div class="profile-rich-content" v-html="profile.profileHtml"></div>
     </section>
 
     <section class="profile-record-grid">
       <article>
-        <header><FolderGit2 :size="20" aria-hidden="true" /><h2>项目记录</h2></header>
-        <ul v-if="profile.projectRecords?.length"><li v-for="item in profile.projectRecords" :key="item">{{ item }}</li></ul>
+        <header>
+          <FolderGit2 :size="20" aria-hidden="true" />
+          <h2>项目记录</h2>
+        </header>
+        <ul v-if="profile.projectRecords?.length">
+          <li v-for="item in profile.projectRecords" :key="item">{{ item }}</li>
+        </ul>
         <p v-else>项目管理模块接入后，将在这里展示参与项目。</p>
       </article>
       <article>
-        <header><Trophy :size="20" aria-hidden="true" /><h2>比赛与成果</h2></header>
-        <ul v-if="profile.achievementRecords?.length"><li v-for="item in profile.achievementRecords" :key="item">{{ item }}</li></ul>
+        <header>
+          <Trophy :size="20" aria-hidden="true" />
+          <h2>比赛与成果</h2>
+        </header>
+        <ul v-if="profile.achievementRecords?.length">
+          <li v-for="item in profile.achievementRecords" :key="item">{{ item }}</li>
+        </ul>
         <p v-else>成果管理模块接入后，将在这里展示比赛与研究成果。</p>
       </article>
     </section>

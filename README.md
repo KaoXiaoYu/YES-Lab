@@ -1,184 +1,256 @@
 # YES Lab
 
-YES Lab 实验室系统采用前后端分离结构：
+YES Lab（Yichun Embodied Science）是一个面向高校实验室的开源准备中平台，覆盖公开官网、成员主页、招新流程、项目协作、竞赛成果、讨论板和站内通知。项目采用前后端分离架构，本地可以使用 H2 零配置启动，生产环境提供 MySQL、Docker Compose、Caddy HTTPS 和 GitHub Actions 镜像发布方案。
 
-- 根目录：Vue 3 公开展示、登录注册、游客报名、成员与招新管理、成员个人主页、项目团队空间和竞赛成果管理
-- `backend/`：Java 21 + Spring Boot 4.1.1、Spring Security、短效 JWT、JPA；本地 H2、生产 MySQL 8.4 + Flyway
-- `backend/docs/access-control.md`：角色、权限矩阵、成员字段和招新状态机
-- `backend/docs/module-boundaries.md`：当前 API 边界与暂不实现的模块
+![YES Lab 首页预览](public/og.png)
 
-## 启动公开展示前端
+> 当前项目仍在整理开源发布条件。业务代码可以运行，但仓库尚未选择开源许可证；公开发布前请先阅读[许可证说明](#许可证)。
 
-```bash
-npm install
-npm run dev
+## 功能概览
+
+- **公开展示**：实验室介绍、研究方向、成员、项目、竞赛成果、新闻、赞助伙伴与内容管理。
+- **账号与权限**：教师、核心学生、普通成员、游客四类角色；JWT 访问令牌与可轮换刷新令牌。
+- **招新管理**：报名、初筛、面试预约与叫号、技能测试占位、试用期和正式成员转换。
+- **成员主页**：公开资料、富文本介绍、头像、项目和获奖成果展示顺序。
+- **项目团队**：负责人、指导老师、成员与项目管理员，支持项目资料、主图和公开展示。
+- **竞赛成果**：队长提交、证书和图集上传、管理员审核、首页排序与比赛倒计时。
+- **讨论与通知**：公开浏览讨论，成员发帖、回复和点赞；机器人“梅琳娜”推送业务通知。
+- **生产运维**：MySQL + Flyway、Docker Compose、Caddy 自动 HTTPS、备份和 Ubuntu 24.04 引导脚本。
+
+测验、写题、积分计算、竞赛批量导入和项目即时聊天尚未实现。相关权限或字段仅用于保留模块边界，请勿将其视为可用功能。
+
+## 技术栈
+
+| 层级     | 技术                                                                        |
+| -------- | --------------------------------------------------------------------------- |
+| 前端     | Vue 3、Vue Router、Vite、Tiptap、Three.js、Lucide Icons                     |
+| 后端     | Java 21、Spring Boot 4.1、Spring Security、Spring Data JPA、Bean Validation |
+| 身份认证 | HS256 JWT、BCrypt、HttpOnly 刷新 Cookie、服务端令牌摘要与轮换               |
+| 数据库   | 本地 H2 文件数据库；生产 MySQL 8.4 + Flyway                                 |
+| 内容安全 | OWASP Java HTML Sanitizer、上传文件签名和大小校验                           |
+| 部署     | Docker、Docker Compose、Caddy、GHCR、GitHub Actions                         |
+| 工程质量 | ESLint、Prettier、Maven Wrapper、JUnit / Spring Boot Test                   |
+
+## 架构与目录
+
+```text
+YES Lab/
+├── src/                         # Vue 页面、组件、路由和 API 客户端
+├── public/                      # 静态图片、Logo 与 3D 模型
+├── backend/
+│   ├── src/main/java/           # Spring Boot 业务代码
+│   ├── src/main/resources/      # 本地/生产配置与 Flyway 迁移
+│   ├── src/test/                # 后端自动化测试
+│   └── docs/                    # API 模块边界与权限说明
+├── deploy/                      # Caddy、生产环境示例和运维脚本
+├── docs/                        # 生产部署手册
+├── .github/workflows/           # CI 与容器镜像发布
+├── compose.yaml                 # MySQL、API、Web 生产编排
+└── DEVLOG.md                    # 关键决策、验证记录和待办
 ```
 
-## 启动公开展示 API
+浏览器默认请求同源 `/api`。本地由 Vite 将 `/api` 和 `/actuator` 代理到 Spring Boot；生产由 Caddy 提供静态站点、HTTPS 和反向代理。API 在本地使用 H2，在 `prod` profile 下由 Flyway 管理 MySQL 结构。
+
+更细的后端边界见[模块说明](backend/docs/module-boundaries.md)，角色规则见[访问控制设计](backend/docs/access-control.md)。
+
+## 快速开始
+
+### 1. 准备环境
+
+- Node.js `>= 22.13.0`
+- npm `>= 10`
+- Java 21（JDK，而不是仅 JRE）
+- Git
+
+Maven 无需全局安装，仓库已经包含 Maven Wrapper。MySQL 也不是本地开发的必需项。
+
+确认版本：
+
+```bash
+node --version
+npm --version
+java -version
+```
+
+如果 macOS 同时安装了多个 JDK，可以用下面的命令选择 Java 21：
+
+```bash
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+```
+
+### 2. 获取代码并安装前端依赖
+
+```bash
+git clone https://github.com/KaoXiaoYu/YES-Lab.git
+cd YES-Lab
+npm ci
+```
+
+项目统一使用 npm，依赖以 `package-lock.json` 为准。修改依赖时使用 `npm install`，普通拉取和 CI 使用 `npm ci`。
+
+### 3. 启动后端
+
+新开一个终端：
 
 ```bash
 cd backend
-export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 ./mvnw spring-boot:run
 ```
 
-本地开发时前端统一请求同源 `/api`，Vite 会将其代理到 `http://127.0.0.1:8080`。只有前后端部署在不同域名时才需要在 `.env.local` 中设置 `VITE_API_BASE_URL`。公开首页接口不可用时仍可使用内置演示数据；登录、报名、成员详情及管理页面必须启动后端。
+Windows PowerShell 使用：
 
-登录后，公开首页右上角会显示当前账号的头像和姓名。教师与核心学生可从成员系统顶部进入“成员管理”；个人主页的富文本编辑器位于独立的“编辑个人主页”页面。
-
-系统管理员可在“成员管理”中直接创建学生管理员账号。该账号角色固定为 `CORE_STUDENT`，创建后立即拥有与教师相同的系统管理权限，并同时建立规范的学生成员档案。成员可在“编辑个人主页”上传、替换或移除头像，系统管理员也可在成员管理页协助维护；支持 JPG、PNG、WebP，单张不超过 4 MB。管理员可在成员管理中把任一成员账号密码重置为默认密码 `yeslab521`。
-
-新用户注册账号必须使用邮箱，密码长度为 6—18 位；邮箱统一转换为小写，并自动带入报名表的邮箱栏。原有手机号账号及实验室内部账号仍可正常登录。报名表分别保存邮箱、手机号码、微信号和自我介绍，招新管理页同步展示；旧报名的联系方式保留，升级时自动识别其中的邮箱或手机号。教师、核心学生和正式成员的内部账号继续由管理员维护。
-
-教师与核心学生还可进入独立的“主页编辑”页面（`/admin/homepage`），统一维护实验室名称与简介、首屏文案、带跳转地址的研究方向、各栏目标题说明、概览条、关于我们特色卡片、备用比赛成果、首页动态、赞助伙伴和外部入口，以及首页展示的指导老师、核心成员和项目。成员资料、项目详情、比赛成果和新闻正文仍在对应管理模块维护，主页编辑页提供统一入口和展示选择，避免同一份数据出现两套来源。
-
-“项目团队”模块支持管理员创建项目并指定负责人、可选指导老师、成员与项目管理员。负责人可修改团队名称和成员角色，负责人、项目管理员和系统管理员可上传项目主图；未上传时显示 YES Lab 默认图。公开展示开关决定该项目是否出现在访客首页。当前“团队空间”定位为项目资料与成员协作入口，尚未实现即时聊天。
-
-“竞赛成果”模块由提交人作为队长创建记录。已结束比赛必须上传证书，经教师或核心学生审核后才能公开；管理员可设置首页展示及手动排序。比赛详情支持文字说明和最多 8 张 JPG、PNG 或 WebP 图片，编辑时可单独删除图集图片；关联成员会自动在个人公开主页显示获奖记录。未结束比赛记录省赛/国赛时间、指导老师和可选关联项目。系统右下角会显示最近一场未结束比赛的按天倒计时：未登录用户看全体最近场次，登录成员只看自己作为队长、关联队员或指导老师参与的最近场次。成果管理同时维护外部新闻引用，首页新闻按发布日期倒序。
-
-招新管理支持多人面试官的线下面试场次、候选人预约/取消、固定顺序面试号、单人叫号、未到场移至队尾、面试结论及提前结束释放队列。管理员可把尚未转为正式成员的报名账号密码重置为默认密码 `yeslab521`；已经转为成员的账号需改在成员管理中重置。面试通过的报名者自动从招新管理列表隐藏；取消或提前结束的场次保留 24 小时后由后台任务永久删除。讨论板向所有访客公开浏览，正式成员可使用富文本编辑器发布带格式文字、链接、网络图片和代码块的讨论及一级回复，并进行点赞；发帖时可选择发布不可修改的公告，由“梅琳娜”向全部启用账号推送。指导老师和核心成员可在发布后置顶或取消置顶，单条置顶直接展示，多条置顶折叠为可展开列表；过长的帖子、回复和成员主页讨论动态均提供展开/收起。帖子与回复共用不可回收的连续内容编号，可按发布时间、编号、点赞数和回复数排序，也可按标题、正文关键字或编号即时搜索。作者头像和姓名可进入其公开成员主页，主页同步展示该成员发布的讨论和回复。互动、面试变更与结果均由站内机器人“梅琳娜”推送，多个新消息在前端折叠提示。指导老师可以在成员管理中按角色设置梅琳娜的默认展示范围，并为指定账号单独显示或隐藏；成员没有手工发送站内消息的接口。
-
-证书和比赛图片上传优先按文件签名识别，并扫描非标准 JPG 的前导字节；对于扩展名为 `.jpg/.jpeg`、实际由部分扫描软件导出为 BMP 的文件，后端会解码、限制尺寸并转成真正的 JPEG，而不是只修改响应类型。纯文本等不可解码内容仍会拒绝。上传表单会先显示本地图片/PDF 预览，只有后端返回证书与对应图片记录才视为保存成功。比赛审核通过后，图片证书会直接作为公开成果详情页的主图展示，PDF 证书直接嵌入页面；审核前不可公开访问。公共证书、比赛图集、头像和项目封面使用带版本参数的长期浏览器缓存，静态 Logo 与赞助商图片也由 Caddy 设置缓存。
-
-成员可在“编辑个人主页”的“主页展示内容”中勾选、隐藏并调整本人公开项目和已认证奖项的顺序。项目、比赛、招新面试官和首页成员配置等成员选择入口使用可搜索下拉框：输入姓名或学号/内部编号后，候选人物会直接显示在输入框下方，并支持鼠标选择以及方向键、回车操作。学号只在登录后的内部接口中使用，不进入公开成员或公开项目数据。
-
-公开首页会把每次成功读取的数据库内容保存为浏览器端公开快照，后续刷新时先同步应用该快照，再请求服务器获取最新内容，因此不会先闪现旧的内置演示页。页面打开时会立即更新，保持打开时仍按现有 30 秒周期同步；内置写死内容仅用于该浏览器从未成功访问且 API 不可用时的应急兜底。该快照只包含公开数据，不包含账号、联系方式或学号。
-
-本地开发使用 H2 文件数据库，数据位于 `backend/data/`；证书和比赛图片默认保存在 `backend/data/achievements/`，项目主图默认保存在 `backend/data/projects/covers/`，成员头像默认保存在 `backend/data/members/avatars/`。可通过对应的 `YESLAB_*_DIRECTORY` 环境变量修改文件目录。生产环境使用 MySQL 8.4、Flyway 和仓库外持久上传目录，强制设置独立 JWT 密钥并关闭演示账号初始化。Flyway V7 只新增面试、站内消息和讨论板表；V7.1 新增讨论内容编号表并按既有内容时间顺序回填编号；V7.1.1 为讨论主题增加公告与置顶状态列；V7.1.2 增加梅琳娜角色与账号展示设置。迁移都不改名、删除或重建既有业务表，发布时由 API 自动执行，无需手工运行 SQL。
-
-登录采用 15 分钟访问 JWT 与可轮换刷新令牌。访问令牌只放在浏览器内存；未勾选“记住我”时只维持浏览器会话，勾选后持久登录 30 天。刷新令牌使用 `HttpOnly + Secure + SameSite=Lax` Cookie，服务端仅保存摘要。成员可在个人首页验证当前密码后修改为 6—18 位新密码；本人改密或管理员重置都会撤销该账号的全部刷新会话。
-
-## Git 更新与服务器数据
-
-Git 只同步代码和数据库迁移脚本，不同步账号、报名、成员、项目、比赛、主页配置和上传文件等业务数据。`backend/data/` 已加入 `.gitignore`，因此服务器执行 `git pull` 不会覆盖当前 H2 数据库和上传文件；但不应删除、重建或用新目录覆盖该持久化目录。
-
-正式部署已配置 MySQL 8.4 + Flyway、仓库外持久目录、升级前备份、Caddy HTTPS、GitHub Actions 镜像构建和 Docker Compose。当前 Git 仓库与 GHCR 镜像均按私有资源部署：新服务器必须先把本机 Deploy Key 公钥绑定到仓库并克隆代码，再用具有 `read:packages` 权限的 GitHub classic PAT 登录 GHCR，最后在仓库目录运行引导脚本。不要在克隆失败后直接运行相对路径脚本，也不要为了重试删除已经生成的 `.env.production`。完整命令、报错对照、发布、备份和回滚方法见 [正式部署手册](docs/production-deployment.md)。
-
-## 从旧服务器迁移正式数据
-
-新服务器已经部署完成时，推荐迁移 MySQL 逻辑备份和完整上传目录，不要直接复制正在运行的 MySQL 数据目录。账号、报名、成员、项目、比赛和主页配置位于数据库中；头像、证书、比赛图片、项目封面和赞助商 Logo 位于上传目录中，两部分都要迁移。
-
-先在新服务器创建接收目录：
-
-```bash
-install -d -m 0750 /srv/yeslab/migration
+```powershell
+cd backend
+.\mvnw.cmd spring-boot:run
 ```
 
-在旧服务器停止外部写入并生成最终备份。MySQL 必须保持运行，不能在执行备份脚本前停止：
+后端默认地址为 <http://127.0.0.1:8080>，健康检查为 <http://127.0.0.1:8080/actuator/health>。首次启动会创建 `backend/data/` 下的 H2 数据库和上传目录，并写入本地演示数据。
+
+### 4. 启动前端
+
+再开一个终端，在仓库根目录运行：
 
 ```bash
-cd /opt/yes-lab
-docker compose --env-file deploy/.env.production stop web api
-./deploy/scripts/backup.sh
-ls -lah /srv/yeslab/backups
+npm run dev
 ```
 
-记下最新的 UTC 时间目录，例如 `20260907T120000Z`，然后仍在旧服务器执行：
+访问终端显示的地址，通常是 <http://127.0.0.1:5173>。如果 5173 已被占用，Vite 会选择其他端口，以终端输出为准。
+
+### 5. 使用演示账号
+
+以下账号只会在本地默认配置中初始化：
+
+| 账号      | 密码                   | 角色                  | 可体验内容                 |
+| --------- | ---------------------- | --------------------- | -------------------------- |
+| `teacher` | `YesLab-Teacher-2026!` | 教师 / 系统管理员     | 全部管理功能               |
+| `core`    | `YesLab-Core-2026!`    | 核心学生 / 系统管理员 | 与教师相同的管理权限       |
+| `member`  | `YesLab-Member-2026!`  | 普通成员              | 个人主页、项目、成果、讨论 |
+
+游客流程：打开 `/register` 使用邮箱注册，然后进入 `/application` 填写报名表。
+
+生产 profile 强制关闭这些演示账号。请勿把本地默认密码用于公开环境。
+
+## 使用教程
+
+### 公开官网与主页内容
+
+1. 未登录访问首页即可查看实验室简介、成员、项目、成果和新闻。
+2. 使用教师或核心学生账号登录。
+3. 打开“主页编辑”，维护品牌文案、研究方向、栏目标题、赞助伙伴和展示顺序。
+4. 成员、项目、比赛和新闻的详细数据仍在各自管理模块维护；主页编辑只控制聚合展示。
+
+### 招新流程
+
+1. 游客注册后填写自己的报名表。
+2. 管理员在“招新管理”推进 `报名 → 初筛 → 面试 → 技能测试 → 试用期`。
+3. 管理员发布面试场次并配置面试官，进入面试阶段的游客可以预约或取消。
+4. 面试官在场次中叫号、记录结论或将未到场者移至队尾。
+5. 进入试用期后，管理员可转换为正式成员；原报名和面试历史会保留。
+
+### 成员与个人主页
+
+1. 管理员在“成员管理”维护姓名、内部编号、角色、学籍信息、状态和能力标签。
+2. 成员在“编辑个人主页”维护头像、标语、联系方式和富文本介绍。
+3. 成员可以选择公开展示的项目与已认证成果，并调整顺序。
+4. 公开接口不会返回内部编号和内部联系方式。
+
+### 项目团队
+
+1. 管理员创建项目并指定负责人，可选指导老师、成员和项目管理员。
+2. 负责人管理团队结构；负责人、项目管理员和系统管理员维护项目资料及主图。
+3. 开启“允许公开展示”后，项目会进入公开数据范围。
+4. 当前团队空间用于资料和成员协作，不包含即时消息或群文件。
+
+### 竞赛成果、讨论与通知
+
+- 实验室成员可作为队长提交比赛记录；已结束比赛必须上传证书并等待管理员审核。
+- 审核通过后，比赛详情、图集和关联成员成果可以公开展示。
+- 讨论板允许匿名浏览；正式成员可发帖、回复和点赞，管理员可置顶和处理内容。
+- “梅琳娜”只发送系统业务通知，不提供成员之间的私信接口。
+
+## 常用命令
+
+| 命令                                   | 说明                                   |
+| -------------------------------------- | -------------------------------------- |
+| `npm run dev`                          | 启动 Vite 开发服务器                   |
+| `npm run build`                        | 构建生产前端                           |
+| `npm run preview`                      | 本地预览生产构建                       |
+| `npm run lint`                         | 检查前端 JavaScript / Vue 代码         |
+| `npm run lint:fix`                     | 自动修复可安全处理的 lint 问题         |
+| `npm run format`                       | 使用 Prettier 统一前端、配置和文档格式 |
+| `npm run format:check`                 | 检查格式但不修改文件                   |
+| `npm run check`                        | 依次执行 lint、格式检查和生产构建      |
+| `cd backend && ./mvnw test`            | 运行后端测试                           |
+| `cd backend && ./mvnw spring-boot:run` | 启动本地 API                           |
+
+提交前至少运行：
 
 ```bash
-scp -r /srv/yeslab/backups/20260907T120000Z \
-  root@新服务器IP:/srv/yeslab/migration/
+npm run check
+cd backend && ./mvnw test
 ```
 
-接下来所有命令都在新服务器执行。先校验备份并停止新站：
+## 配置说明
+
+### 前端
+
+默认不需要环境文件。只有前后端确实部署在不同源时，才复制 `.env.example` 为 `.env.local`：
 
 ```bash
-cd /srv/yeslab/migration/20260907T120000Z
-sed -E 's#  .*/#  #' SHA256SUMS | sha256sum -c -
-
-cd /opt/yes-lab
-docker compose --env-file deploy/.env.production stop web api
-./deploy/scripts/backup.sh
+cp .env.example .env.local
 ```
 
-这条校验命令同时兼容旧版备份脚本写入的绝对路径和新版脚本写入的相对路径。正常结果应显示 `uploads.tar.gz: OK` 和 `yeslab.sql: OK`。
-
-这一步先为新服务器当前状态留一份可恢复备份。随后恢复上传目录。以下路径使用默认的 `YESLAB_DATA_ROOT=/srv/yeslab/data`；如果生产配置使用其他路径，请同步替换：
-
-```bash
-if [ -d /srv/yeslab/data/uploads ]; then
-  mv /srv/yeslab/data/uploads \
-    /srv/yeslab/data/uploads.before-migration-$(date -u +%Y%m%dT%H%M%SZ)
-fi
-if [ -f /srv/yeslab/migration/20260907T120000Z/uploads.tar.gz ]; then
-  tar -C /srv/yeslab/data -xzf \
-    /srv/yeslab/migration/20260907T120000Z/uploads.tar.gz
-else
-  install -d -m 0750 /srv/yeslab/data/uploads
-fi
-chown -R 10001:10001 /srv/yeslab/data/uploads
+```dotenv
+VITE_API_BASE_URL=https://api.example.com
 ```
 
-下面的命令会删除新服务器当前的 `yeslab` 数据库，再导入旧服务器数据。执行前必须确认当前 SSH 会话连接的是新服务器，而且新库中没有需要保留的数据：
+### 本地后端
 
-```bash
-cd /opt/yes-lab
-docker compose --env-file deploy/.env.production exec -T mysql sh -c \
-  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --user=root -e "DROP DATABASE IF EXISTS yeslab; CREATE DATABASE yeslab CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"'
+常用可选变量：
 
-docker compose --env-file deploy/.env.production exec -T mysql sh -c \
-  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --user=root yeslab' \
-  < /srv/yeslab/migration/20260907T120000Z/yeslab.sql
-```
+| 变量                          | 默认值                                        | 用途                       |
+| ----------------------------- | --------------------------------------------- | -------------------------- |
+| `SERVER_PORT`                 | `8080`                                        | API 端口                   |
+| `YESLAB_DATABASE_URL`         | `jdbc:h2:file:./data/yeslab;AUTO_SERVER=TRUE` | 数据库连接                 |
+| `YESLAB_BOOTSTRAP_ENABLED`    | `true`                                        | 是否初始化本地演示数据     |
+| `YESLAB_JWT_SECRET`           | 本地开发值                                    | JWT 签名密钥；生产必须替换 |
+| `YESLAB_CORS_ALLOWED_ORIGINS` | 本地地址与已配置站点                          | 跨域来源白名单             |
+| `YESLAB_*_DIRECTORY`          | `./data/...`                                  | 各类上传文件目录           |
 
-恢复时继续使用新服务器现有的 `deploy/.env.production`。不要在 MySQL 已经初始化后用旧服务器的整份环境文件覆盖它，否则环境文件中的旧数据库密码可能与新服务器 MySQL 已创建的账号不一致。业务账号和密码哈希已经包含在 `yeslab.sql` 中；如果未迁移旧 JWT 密钥，用户可能需要重新登录。
+完整配置以 [`application.yml`](backend/src/main/resources/application.yml) 和 [`application-prod.yml`](backend/src/main/resources/application-prod.yml) 为准。生产环境变量示例位于 [`deploy/.env.production.example`](deploy/.env.production.example)。
 
-最后启动服务并验证：
+不要提交 `.env.local`、`deploy/.env.production`、数据库、上传文件、令牌或真实账号信息；这些路径已由 `.gitignore` 排除。
 
-```bash
-cd /opt/yes-lab
-docker compose --env-file deploy/.env.production up -d --wait --wait-timeout 240 mysql api
-docker compose --env-file deploy/.env.production logs --tail 120 api
-docker compose --env-file deploy/.env.production exec -T api \
-  curl --fail http://127.0.0.1:8080/actuator/health
-docker compose --env-file deploy/.env.production up -d web
-docker compose --env-file deploy/.env.production ps
-```
+## 数据与迁移
 
-检查登录、成员头像、竞赛成果图片、赞助商图片和后台上传后，再把域名 A/AAAA 记录切换到新服务器。旧服务器的 Web/API 应继续保持停止，避免两个数据库同时接收写入。完整检查、可选 JWT 配置迁移和回滚边界见 [正式部署手册](docs/production-deployment.md#从旧服务器迁移正式数据)。
+- 本地业务数据和上传文件默认位于 `backend/data/`，不进入 Git。
+- 生产数据位于 MySQL 和仓库外上传目录，代码更新不会携带业务数据。
+- 生产数据库结构由 `backend/src/main/resources/db/migration/` 中的 Flyway 脚本管理。
+- 已发布的 Flyway 迁移不可修改或重排；结构变更必须新增更高版本迁移。
+- 正式升级前先备份数据库和上传目录，并完成过至少一次恢复演练。
 
-## 本地演示账号
+## 生产部署
 
-仅供本地开发，首次启动后端时自动创建：
+仓库提供面向 Ubuntu 24.04 的完整部署基线：GitHub Actions 在 `main` 分支通过检查后构建 Web/API 镜像并发布到 GHCR，服务器通过 Docker Compose 运行 MySQL、Spring Boot 和 Caddy。
 
-| 账号 | 密码 | 角色 |
-| --- | --- | --- |
-| `teacher` | `YesLab-Teacher-2026!` | 教师 / 系统管理员 |
-| `core` | `YesLab-Core-2026!` | 核心学生 / 系统管理员 |
-| `member` | `YesLab-Member-2026!` | 普通成员 |
+生产部署涉及域名、HTTPS、镜像权限、数据库密钥、首次管理员、备份和回滚。请不要只复制 README 中的本地命令上线，按[正式部署手册](docs/production-deployment.md)逐项执行。
 
-游客账号请从 `/register` 自行注册。部署前通过环境变量替换演示密码，或设置 `YESLAB_BOOTSTRAP_ENABLED=false`。
+## 文档索引
 
-常用安全配置：
+- [后端快速说明](backend/README.md)
+- [API 模块边界](backend/docs/module-boundaries.md)
+- [角色与访问控制](backend/docs/access-control.md)
+- [正式部署、备份与迁移](docs/production-deployment.md)
+- [贡献指南](CONTRIBUTING.md)
+- [安全策略](SECURITY.md)
+- [开发日志](DEVLOG.md)
 
-```bash
-export YESLAB_JWT_SECRET='至少32字节的随机生产密钥'
-export YESLAB_BOOTSTRAP_ENABLED=false
-```
+## 参与贡献
 
-## 在 VS Code 中一键启动
+欢迎通过 Issue 和 Pull Request 参与。提交前请先阅读[贡献指南](CONTRIBUTING.md)，保持变更聚焦、补充必要测试，并同步更新相关文档和 `DEVLOG.md`。安全漏洞不要提交公开 Issue，请按[安全策略](SECURITY.md)私下报告。
 
-项目后端使用 Spring Boot 自带的嵌入式 Tomcat，不需要单独配置本机 Tomcat。
+## 许可证
 
-首次运行时，在项目根目录执行一次：
+当前仓库尚未包含 `LICENSE`，因此即使仓库可公开访问，也不代表代码已经获得复制、修改或再分发授权。仓库所有者应在正式开源前根据预期用途选择许可证（例如 MIT、Apache-2.0 或 GPL-3.0），加入对应 `LICENSE` 后再更新本节。
 
-```bash
-npm install
-```
-
-之后在 VS Code 中：
-
-1. 使用 VS Code 打开整个 `YES Lab` 文件夹。
-2. 按 `Command + Shift + P`，执行 `Tasks: Run Task`。
-3. 选择 `YES Lab: 一键启动本地开发`。
-4. 等待前端和后端两个终端都完成启动，然后访问 <http://127.0.0.1:5173/>。
-
-后端 API 地址为 <http://127.0.0.1:8080/api/v1/public/home>，健康检查地址为 <http://127.0.0.1:8080/actuator/health>。停止服务时执行 `Tasks: Terminate Task`，或停止对应的 VS Code 终端。
-
-### 亮色 / 暗色与赞助商管理
-
-- 页面顶部可切换亮色与暗色模式；默认亮色，当前浏览器记住选择，刷新和切换页面后保持一致。
-- 公开比赛详情的关联成员、队长和指导老师展示已有头像，点击头像或姓名进入公开个人主页；未上传或图片加载失败时显示姓名首字。
-- 管理员在“主页编辑 → 赞助伙伴”上传 Logo（JPG、PNG、WebP，最大 4MB），维护名称、简介、官网、合作说明、合作类型、合作方向与排列顺序；上传后点击“保存主页内容”更新首页。
-- 赞助商上传使用独立随机地址；生产文件位于 `/var/lib/yeslab/uploads/sponsors/avatars`，随现有上传目录一起持久化和备份。
-- 当前协作功能升级需同时更新 API 与 Web；API 启动时由 Flyway 自动执行尚未应用的迁移：`V7_1__discussion_content_numbers.sql` 只负责编号映射和既有内容编号回填，`V7_1_1__discussion_announcements_and_pins.sql` 为主题增加公告与置顶状态列，`V7_1_2__melina_visibility.sql` 增加梅琳娜展示范围设置。建议继续使用现有先备份后更新的部署脚本，无需手工执行迁移 SQL。
+`public/models/` 中的第三方 3D 模型不随项目未来许可证重新授权。其来源、修改说明和各自的 Apache-2.0 / BSD-3-Clause 文本已保留在该目录，分发时必须继续保留这些文件。

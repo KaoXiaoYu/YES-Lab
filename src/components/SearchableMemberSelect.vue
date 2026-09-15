@@ -1,5 +1,5 @@
 <script setup>
-import { Check, ChevronDown, Search, X } from 'lucide-vue-next'
+import { Check, ChevronDown, Search, X } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 
 const props = defineProps({
@@ -21,18 +21,26 @@ const open = ref(false)
 const activeIndex = ref(-1)
 let blurTimer
 
-const selectedOption = computed(() => props.options.find((item) => sameValue(item[props.valueKey], props.modelValue)) || null)
+const selectedOption = computed(
+  () => props.options.find((item) => sameValue(item[props.valueKey], props.modelValue)) || null,
+)
 const selectedLabel = computed(() => optionLabel(selectedOption.value))
 const filteredOptions = computed(() => {
   const keyword = query.value.trim().toLocaleLowerCase()
-  if (!keyword || (!open.value && selectedOption.value && keyword === selectedLabel.value.toLocaleLowerCase())) return props.options
-  return props.options.filter((item) => `${item.name || ''} ${item.memberCode || ''}`.toLocaleLowerCase().includes(keyword))
+  if (!keyword || (!open.value && selectedOption.value && keyword === selectedLabel.value.toLocaleLowerCase()))
+    return props.options
+  return props.options.filter((item) =>
+    `${item.name || ''} ${item.memberCode || ''}`.toLocaleLowerCase().includes(keyword),
+  )
 })
 
 watch([selectedOption, open], () => {
   if (!open.value) query.value = selectedLabel.value
 })
-watch(() => props.modelValue, () => nextTick(updateValidity))
+watch(
+  () => props.modelValue,
+  () => nextTick(updateValidity),
+)
 
 onBeforeUnmount(() => window.clearTimeout(blurTimer))
 
@@ -51,7 +59,7 @@ function beginSearch() {
   if (!open.value) query.value = ''
   open.value = true
   const selectedIndex = filteredOptions.value.findIndex((item) => sameValue(item[props.valueKey], props.modelValue))
-  activeIndex.value = selectedIndex >= 0 ? selectedIndex : (filteredOptions.value.length ? 0 : -1)
+  activeIndex.value = selectedIndex >= 0 ? selectedIndex : filteredOptions.value.length ? 0 : -1
 }
 
 function handleInput() {
@@ -101,7 +109,8 @@ function handleKeydown(event) {
   } else if (event.key === 'ArrowUp') {
     event.preventDefault()
     if (!open.value) beginSearch()
-    else if (filteredOptions.value.length) activeIndex.value = (activeIndex.value - 1 + filteredOptions.value.length) % filteredOptions.value.length
+    else if (filteredOptions.value.length)
+      activeIndex.value = (activeIndex.value - 1 + filteredOptions.value.length) % filteredOptions.value.length
   } else if (event.key === 'Enter' && open.value && activeIndex.value >= 0) {
     event.preventDefault()
     choose(filteredOptions.value[activeIndex.value])
@@ -134,7 +143,7 @@ function updateValidity() {
         :aria-expanded="open"
         :aria-controls="`${id}-listbox`"
         :aria-activedescendant="open && activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined"
-        :placeholder="open ? placeholder : (selectedOption ? selectedLabel : emptyLabel)"
+        :placeholder="open ? placeholder : selectedOption ? selectedLabel : emptyLabel"
         :required="required"
         :disabled="disabled"
         @focus="beginSearch"
@@ -143,9 +152,22 @@ function updateValidity() {
         @blur="closeLater"
         @invalid="beginSearch"
       />
-      <button v-if="selectedOption && !disabled" type="button" :aria-label="`清除${label}`" @mousedown.prevent="clearSelection"><X :size="16" aria-hidden="true" /></button>
+      <button
+        v-if="selectedOption && !disabled"
+        type="button"
+        :aria-label="`清除${label}`"
+        @mousedown.prevent="clearSelection"
+      >
+        <X :size="16" aria-hidden="true" />
+      </button>
       <ChevronDown v-else class="member-combobox-chevron" :size="17" aria-hidden="true" />
-      <ul v-if="open" :id="`${id}-listbox`" class="member-combobox-options" role="listbox" :aria-label="`${label}待选人物`">
+      <ul
+        v-if="open"
+        :id="`${id}-listbox`"
+        class="member-combobox-options"
+        role="listbox"
+        :aria-label="`${label}待选人物`"
+      >
         <li
           v-for="(item, index) in filteredOptions"
           :id="`${id}-option-${index}`"
@@ -156,11 +178,20 @@ function updateValidity() {
           @mouseenter="activeIndex = index"
           @mousedown.prevent="choose(item)"
         >
-          <span class="member-combobox-avatar"><img v-if="item.avatarUrl" :src="item.avatarUrl" alt="" /><b v-else>{{ (item.name || '?').slice(0, 1) }}</b></span>
-          <span><strong>{{ item.name }}</strong><small>{{ item.memberCode || '无内部编号' }}</small></span>
+          <span class="member-combobox-avatar"
+            ><img v-if="item.avatarUrl" :src="item.avatarUrl" alt="" /><b v-else>{{
+              (item.name || '?').slice(0, 1)
+            }}</b></span
+          >
+          <span
+            ><strong>{{ item.name }}</strong
+            ><small>{{ item.memberCode || '无内部编号' }}</small></span
+          >
           <Check v-if="sameValue(item[valueKey], modelValue)" :size="17" aria-hidden="true" />
         </li>
-        <li v-if="!filteredOptions.length" class="empty" role="option" aria-disabled="true">没有匹配姓名或学号的成员</li>
+        <li v-if="!filteredOptions.length" class="empty" role="option" aria-disabled="true">
+          没有匹配姓名或学号的成员
+        </li>
       </ul>
     </div>
     <small v-if="selectedOption">已选择：{{ selectedLabel }}</small>

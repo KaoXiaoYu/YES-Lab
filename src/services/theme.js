@@ -5,11 +5,17 @@ export const theme = ref(document.documentElement.dataset.theme === 'dark' ? 'da
 function applyTheme(value) {
   theme.value = value === 'dark' ? 'dark' : 'light'
   document.documentElement.dataset.theme = theme.value
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme.value === 'dark' ? '#0b1423' : '#f8fafc')
+  document
+    .querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', theme.value === 'dark' ? '#0b1423' : '#f8fafc')
 }
 
 function persistTheme() {
-  try { localStorage.setItem('yeslab-theme', theme.value) } catch { /* Theme still works when storage is unavailable. */ }
+  try {
+    localStorage.setItem('yeslab-theme', theme.value)
+  } catch {
+    /* Theme still works when storage is unavailable. */
+  }
 }
 
 export function toggleTheme(event) {
@@ -28,10 +34,14 @@ export function toggleTheme(event) {
     applyTheme(nextTheme)
     persistTheme()
   })
-  transition.ready.then(() => document.documentElement.animate(
-    { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-    { duration: 560, easing: 'cubic-bezier(.22, 1, .36, 1)', pseudoElement: '::view-transition-new(root)' },
-  )).catch(() => {})
+  transition.ready
+    .then(() =>
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: 560, easing: 'cubic-bezier(.22, 1, .36, 1)', pseudoElement: '::view-transition-new(root)' },
+      ),
+    )
+    .catch(() => {})
 }
 
 window.addEventListener('storage', (event) => {

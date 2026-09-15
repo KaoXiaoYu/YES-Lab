@@ -73,7 +73,9 @@ function normalizeHome(home, publicProfiles = [], publicProjects = [], competiti
   const selectedAdvisorId = homepageContent?.advisorProfileId
   const featuredAdvisorIds = homepageContent?.featuredAdvisorProfileIds?.length
     ? homepageContent.featuredAdvisorProfileIds
-    : selectedAdvisorId ? [selectedAdvisorId] : []
+    : selectedAdvisorId
+      ? [selectedAdvisorId]
+      : []
   const featuredMemberIds = homepageContent?.featuredMemberProfileIds || []
   const featuredProjectIds = homepageContent?.featuredProjectIds || []
   const display = homepageContent?.display || {}
@@ -82,34 +84,40 @@ function normalizeHome(home, publicProfiles = [], publicProjects = [], competiti
   const projectMode = display.projectSelectionMode || (featuredProjectIds.length ? 'SELECTED' : 'AUTO')
   const publicTeachers = publicProfiles.filter((member) => member.role === 'TEACHER')
   const orderedTeachers = orderBySelection(publicTeachers, featuredAdvisorIds, (member) => member.id)
-  const selectedTeachers = advisorMode === 'HIDDEN'
-    ? []
-    : advisorMode === 'SELECTED'
-      ? orderedTeachers.filter((member) => featuredAdvisorIds.includes(member.id))
-      : orderedTeachers
+  const selectedTeachers =
+    advisorMode === 'HIDDEN'
+      ? []
+      : advisorMode === 'SELECTED'
+        ? orderedTeachers.filter((member) => featuredAdvisorIds.includes(member.id))
+        : orderedTeachers
   const advisors = publicProfiles.length
     ? selectedTeachers.slice(0, display.advisorLimit || 6).map(toShowcaseAdvisor)
-    : advisorMode === 'AUTO' && home.advisor ? [home.advisor] : []
+    : advisorMode === 'AUTO' && home.advisor
+      ? [home.advisor]
+      : []
   const managedMembers = publicProfiles.filter((member) => member.role !== 'TEACHER').map(toShowcaseMember)
   const sourceMembers = managedMembers.length ? managedMembers : home.members
-  const orderedMembers = orderBySelection(sourceMembers, featuredMemberIds, (member) => member.profileId || member.slug)
-    .map((member) => ({
-      ...member,
-      core: memberMode === 'HIDDEN'
+  const orderedMembers = orderBySelection(
+    sourceMembers,
+    featuredMemberIds,
+    (member) => member.profileId || member.slug,
+  ).map((member) => ({
+    ...member,
+    core:
+      memberMode === 'HIDDEN'
         ? false
         : memberMode === 'SELECTED'
           ? featuredMemberIds.includes(member.profileId || member.slug)
           : member.core,
-    }))
-  const managedProjects = publicProjects.length
-    ? publicProjects.map(toShowcaseProject)
-    : home.projects
+  }))
+  const managedProjects = publicProjects.length ? publicProjects.map(toShowcaseProject) : home.projects
   const orderedProjects = orderBySelection(managedProjects, featuredProjectIds, (project) => project.slug)
-  const visibleProjects = projectMode === 'HIDDEN'
-    ? []
-    : projectMode === 'SELECTED'
-      ? orderedProjects.filter((project) => featuredProjectIds.includes(project.slug))
-      : orderedProjects
+  const visibleProjects =
+    projectMode === 'HIDDEN'
+      ? []
+      : projectMode === 'SELECTED'
+        ? orderedProjects.filter((project) => featuredProjectIds.includes(project.slug))
+        : orderedProjects
   return {
     profile: home.profile,
     homepageContent,
@@ -118,7 +126,12 @@ function normalizeHome(home, publicProfiles = [], publicProjects = [], competiti
     statistics: {
       ...home.statistics,
       ...(publicProfiles.length ? { members: publicProfiles.length } : {}),
-      ...(publicProjects.length ? { activeProjects: publicProjects.filter((project) => !['COMPLETED', 'ARCHIVED'].includes(project.status)).length } : {}),
+      ...(publicProjects.length
+        ? {
+            activeProjects: publicProjects.filter((project) => !['COMPLETED', 'ARCHIVED'].includes(project.status))
+              .length,
+          }
+        : {}),
     },
     projects: visibleProjects.map((project, index) => ({
       ...project,
@@ -175,7 +188,13 @@ function normalizeCompetition(item) {
 
 function toShowcaseProject(project, index) {
   const typeLabels = { COMPETITION: '竞赛', RESEARCH: '科研', INTERNAL: '内部项目', OPEN_SOURCE: '开源' }
-  const statusLabels = { PLANNING: '筹备中', ACTIVE: '进行中', PAUSED: '已暂停', COMPLETED: '已完成', ARCHIVED: '已归档' }
+  const statusLabels = {
+    PLANNING: '筹备中',
+    ACTIVE: '进行中',
+    PAUSED: '已暂停',
+    COMPLETED: '已完成',
+    ARCHIVED: '已归档',
+  }
   return {
     slug: project.id,
     number: String(index + 1).padStart(2, '0'),

@@ -3,8 +3,8 @@ name: yes-lab
 x-default-logging: &default-logging
   driver: json-file
   options:
-    max-size: "10m"
-    max-file: "3"
+    max-size: '10m'
+    max-file: '3'
 
 services:
   mysql:
@@ -24,7 +24,7 @@ services:
     volumes:
       - ${YESLAB_DATA_ROOT:-/srv/yeslab/data}/mysql:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping --host=127.0.0.1 --user=root --silent"]
+      test: ['CMD-SHELL', 'MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping --host=127.0.0.1 --user=root --silent']
       interval: 10s
       timeout: 5s
       retries: 12
@@ -63,7 +63,7 @@ services:
     volumes:
       - ${YESLAB_DATA_ROOT:-/srv/yeslab/data}/uploads:/var/lib/yeslab/uploads
     healthcheck:
-      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/actuator/health"]
+      test: ['CMD', 'curl', '--fail', '--silent', 'http://127.0.0.1:8080/actuator/health']
       interval: 10s
       timeout: 5s
       retries: 12
@@ -86,9 +86,9 @@ services:
     environment:
       YESLAB_SITE_ADDRESS: ${YESLAB_SITE_ADDRESS}
     ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
     volumes:
       - caddy_data:/data
       - caddy_config:/config

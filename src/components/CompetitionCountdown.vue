@@ -1,5 +1,5 @@
 <script setup>
-import { CalendarDays, Clock3 } from 'lucide-vue-next'
+import { CalendarDays, Clock3 } from '@lucide/vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { authState, getOwnCompetitionCountdown } from '../services/authApi'
 import { fetchPublicCompetitionCountdown } from '../services/publicApi'
@@ -16,9 +16,11 @@ const daysRemaining = computed(() => {
 })
 const formattedDate = computed(() => {
   if (!item.value?.date) return ''
-  return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' }).format(parseLocalDate(item.value.date))
+  return new Intl.DateTimeFormat('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' }).format(
+    parseLocalDate(item.value.date),
+  )
 })
-const destination = computed(() => isLabMember.value ? '/competitions' : null)
+const destination = computed(() => (isLabMember.value ? '/competitions' : null))
 
 watch(
   () => `${authState.ready}:${authState.account?.role || 'ANONYMOUS'}:${authState.account?.username || ''}`,
@@ -65,7 +67,10 @@ function dayOrdinal(value) {
 
 function labTodayKey() {
   const parts = new Intl.DateTimeFormat('zh-CN', {
-    timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
   }).formatToParts(new Date())
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
   const year = values.year
@@ -82,9 +87,15 @@ function labTodayKey() {
       <div class="competition-countdown-copy">
         <p>{{ isLabMember ? '我的最近比赛' : '最近的比赛' }} · {{ item.stage }}</p>
         <strong>{{ item.name }}</strong>
-        <span><CalendarDays :size="14" aria-hidden="true" />{{ formattedDate }}<small v-if="item.track">{{ item.track }}</small></span>
+        <span
+          ><CalendarDays :size="14" aria-hidden="true" />{{ formattedDate
+          }}<small v-if="item.track">{{ item.track }}</small></span
+        >
       </div>
-      <div class="competition-countdown-days"><b>{{ daysRemaining }}</b><span>天</span></div>
+      <div class="competition-countdown-days">
+        <b>{{ daysRemaining }}</b
+        ><span>天</span>
+      </div>
       <RouterLink v-if="destination" :to="destination" aria-label="进入我的比赛列表">查看比赛</RouterLink>
     </aside>
   </Transition>

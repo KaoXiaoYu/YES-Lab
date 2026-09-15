@@ -139,13 +139,13 @@ systemctl list-timers yeslab-backup.timer
 
 ### 3.3 首次安装常见报错
 
-| 终端提示 | 原因 | 处理方式 |
-| --- | --- | --- |
-| `No such file or directory`、`cd: /opt/yes-lab` | 仓库尚未克隆成功，当前目录中也没有部署脚本 | 先完成 Deploy Key 绑定并重新克隆，不要继续运行相对路径脚本 |
-| `Permission denied (publickey)` | 本地密钥存在，但对应公钥没有绑定到该仓库，或绑定的是旧服务器公钥 | 执行 `cat /root/.ssh/yeslab_deploy.pub`，把该完整公钥添加到仓库 Deploy keys，再用 `ssh -T` 测试 |
-| `unauthorized` 或 `denied` | 当前 Linux 用户尚未登录私有 GHCR，或 PAT 缺少 `read:packages` | 以实际运行部署的同一用户执行 `docker login ghcr.io`，再重跑脚本 |
-| 其他镜像显示 `Interrupted` | Compose 在其中一个镜像失败后取消了其他并行拉取 | 先解决最先出现的 `Error`，这不代表 MySQL 或其他镜像损坏 |
-| `cannot change to '/opt/yes-lab'` | 前面的 `git clone` 已失败，后续 `git -C` 只是连锁报错 | 不要继续执行后续命令，先修复 Git 认证并确认目录已经生成 |
+| 终端提示                                        | 原因                                                             | 处理方式                                                                                        |
+| ----------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `No such file or directory`、`cd: /opt/yes-lab` | 仓库尚未克隆成功，当前目录中也没有部署脚本                       | 先完成 Deploy Key 绑定并重新克隆，不要继续运行相对路径脚本                                      |
+| `Permission denied (publickey)`                 | 本地密钥存在，但对应公钥没有绑定到该仓库，或绑定的是旧服务器公钥 | 执行 `cat /root/.ssh/yeslab_deploy.pub`，把该完整公钥添加到仓库 Deploy keys，再用 `ssh -T` 测试 |
+| `unauthorized` 或 `denied`                      | 当前 Linux 用户尚未登录私有 GHCR，或 PAT 缺少 `read:packages`    | 以实际运行部署的同一用户执行 `docker login ghcr.io`，再重跑脚本                                 |
+| 其他镜像显示 `Interrupted`                      | Compose 在其中一个镜像失败后取消了其他并行拉取                   | 先解决最先出现的 `Error`，这不代表 MySQL 或其他镜像损坏                                         |
+| `cannot change to '/opt/yes-lab'`               | 前面的 `git clone` 已失败，后续 `git -C` 只是连锁报错            | 不要继续执行后续命令，先修复 Git 认证并确认目录已经生成                                         |
 
 脚本可以安全重跑，并会保留现有 `deploy/.env.production`、MySQL 数据和上传文件。不要通过删除整个 `/opt/yes-lab` 来处理镜像认证错误，因为该目录内的 `.env.production` 不受 Git 管理，删除后会丢失数据库密码和 JWT 密钥。若目录已经误删且要接管已有数据，应先从可信备份或旧服务器恢复原生产配置。
 
@@ -366,10 +366,10 @@ cd /opt/yes-lab
 
 域名注册在腾讯云并不要求网站也运行在腾讯云。若 `yeslab.tech` 当前使用腾讯云云解析 DNS，在腾讯云控制台进入“云解析 DNS → 权威解析 → yeslab.tech → 记录管理”，修改或添加以下记录：
 
-| 主机记录 | 记录类型 | 线路类型 | 记录值 | TTL |
-| --- | --- | --- | --- | --- |
-| `@` | `A` | 默认 | 新服务器公网 IPv4 | `600` |
-| `www` | `CNAME` | 默认 | `yeslab.tech` | `600` |
+| 主机记录 | 记录类型 | 线路类型 | 记录值            | TTL   |
+| -------- | -------- | -------- | ----------------- | ----- |
+| `@`      | `A`      | 默认     | 新服务器公网 IPv4 | `600` |
+| `www`    | `CNAME`  | 默认     | `yeslab.tech`     | `600` |
 
 `@` 代表根域名 `yeslab.tech`。记录值必须填写公网 IP，不能填写 `10.x`、`172.16—31.x` 或 `192.168.x` 等内网地址，也不要填写 `http://`、`https://`、端口或路径。若不需要 `www.yeslab.tech`，第二条可以不添加。
 

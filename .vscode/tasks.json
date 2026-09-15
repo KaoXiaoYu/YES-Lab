@@ -33,10 +33,7 @@
     },
     {
       "label": "YES Lab: 一键启动本地开发",
-      "dependsOn": [
-        "YES Lab: 启动后端",
-        "YES Lab: 启动前端"
-      ],
+      "dependsOn": ["YES Lab: 启动后端", "YES Lab: 启动前端"],
       "dependsOrder": "parallel",
       "problemMatcher": [],
       "group": {

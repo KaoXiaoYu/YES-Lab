@@ -1,8 +1,13 @@
 <script setup>
-import { Bell, CheckCheck, Inbox, X } from 'lucide-vue-next'
+import { Bell, CheckCheck, Inbox, X } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getNotifications, getNotificationVisibility, markAllNotificationsRead, markNotificationRead } from '../services/authApi'
+import {
+  getNotifications,
+  getNotificationVisibility,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '../services/authApi'
 import MelinaMascot from './MelinaMascot.vue'
 
 const router = useRouter()
@@ -16,7 +21,7 @@ const anchorStyle = ref({})
 let pollTimer
 let toastTimer
 
-const unread = computed(() => inbox.value.messages.filter(message => !message.read))
+const unread = computed(() => inbox.value.messages.filter((message) => !message.read))
 
 onMounted(async () => {
   try {
@@ -45,11 +50,15 @@ onBeforeUnmount(() => {
 
 async function refresh(firstLoad) {
   try {
-    const previousUnread = new Map(unread.value.map(message => [message.id, `${message.aggregationCount}:${message.updatedAt}`]))
+    const previousUnread = new Map(
+      unread.value.map((message) => [message.id, `${message.aggregationCount}:${message.updatedAt}`]),
+    )
     const next = await getNotifications()
     inbox.value = next || { unreadCount: 0, messages: [] }
-    const fresh = inbox.value.messages.filter(message => !message.read
-      && previousUnread.get(message.id) !== `${message.aggregationCount}:${message.updatedAt}`)
+    const fresh = inbox.value.messages.filter(
+      (message) =>
+        !message.read && previousUnread.get(message.id) !== `${message.aggregationCount}:${message.updatedAt}`,
+    )
     if ((firstLoad && unread.value.length) || (!firstLoad && fresh.length)) {
       showToast(firstLoad ? unread.value : fresh)
     }
@@ -62,10 +71,13 @@ async function refresh(firstLoad) {
 function showToast(messages) {
   updatePosition()
   window.clearTimeout(toastTimer)
-  toast.value = messages.length === 1
-    ? { title: messages[0].title, summary: messages[0].summary }
-    : { title: `你有 ${messages.length} 条新消息`, summary: '打开消息中心查看梅琳娜发来的通知。' }
-  toastTimer = window.setTimeout(() => { toast.value = null }, 5000)
+  toast.value =
+    messages.length === 1
+      ? { title: messages[0].title, summary: messages[0].summary }
+      : { title: `你有 ${messages.length} 条新消息`, summary: '打开消息中心查看梅琳娜发来的通知。' }
+  toastTimer = window.setTimeout(() => {
+    toast.value = null
+  }, 5000)
 }
 
 function togglePanel() {
@@ -107,33 +119,65 @@ function handleNotificationUpdate() {
 </script>
 
 <template>
-  <div v-if="visible" ref="notificationRoot" class="notification-center" :style="anchorStyle" @keydown.esc="open = false">
-    <button type="button" class="notification-trigger" aria-label="打开站内消息"
-      :aria-expanded="open" aria-controls="notification-panel" @click="togglePanel">
+  <div
+    v-if="visible"
+    ref="notificationRoot"
+    class="notification-center"
+    :style="anchorStyle"
+    @keydown.esc="open = false"
+  >
+    <button
+      type="button"
+      class="notification-trigger"
+      aria-label="打开站内消息"
+      :aria-expanded="open"
+      aria-controls="notification-panel"
+      @click="togglePanel"
+    >
       <Bell :size="18" aria-hidden="true" />
-      <span v-if="inbox.unreadCount" class="notification-badge">{{ inbox.unreadCount > 99 ? '99+' : inbox.unreadCount }}</span>
+      <span v-if="inbox.unreadCount" class="notification-badge">{{
+        inbox.unreadCount > 99 ? '99+' : inbox.unreadCount
+      }}</span>
     </button>
 
     <section v-if="open" id="notification-panel" class="notification-panel" aria-label="站内消息">
-      <header><div><span><strong>梅琳娜</strong><small>站内消息</small></span></div>
+      <header>
+        <div>
+          <span><strong>梅琳娜</strong><small>站内消息</small></span>
+        </div>
         <button v-if="inbox.unreadCount" type="button" @click="readAll"><CheckCheck :size="16" />全部已读</button>
       </header>
       <div class="notification-list">
         <div class="notification-companion">
           <MelinaMascot />
-          <div><strong>{{ unread.length ? '有新的信，我替你收好了。' : '未读消息已经处理完啦。' }}</strong><p>完整记录会一直留在站内信箱。</p></div>
+          <div>
+            <strong>{{ unread.length ? '有新的信，我替你收好了。' : '未读消息已经处理完啦。' }}</strong>
+            <p>完整记录会一直留在站内信箱。</p>
+          </div>
         </div>
         <button v-for="message in unread" :key="message.id" type="button" class="unread" @click="openMessage(message)">
-          <span class="notification-dot" aria-hidden="true" /><span><strong>{{ message.title }}</strong><p>{{ message.summary }}</p><small>{{ new Date(message.createdAt).toLocaleString('zh-CN') }}</small></span>
+          <span class="notification-dot" aria-hidden="true" /><span
+            ><strong>{{ message.title }}</strong>
+            <p>{{ message.summary }}</p>
+            <small>{{ new Date(message.createdAt).toLocaleString('zh-CN') }}</small></span
+          >
         </button>
         <p v-if="initialized && !unread.length" class="notification-empty">暂时没有未读消息。</p>
       </div>
-      <RouterLink class="notification-inbox-link" to="/inbox" @click="open = false"><Inbox :size="16" aria-hidden="true" />打开完整站内信箱</RouterLink>
+      <RouterLink class="notification-inbox-link" to="/inbox" @click="open = false"
+        ><Inbox :size="16" aria-hidden="true" />打开完整站内信箱</RouterLink
+      >
     </section>
 
     <aside v-if="toast" class="notification-toast" role="status" aria-live="polite">
-      <MelinaMascot class="notification-toast-mascot" /><div><small class="notification-sender">梅琳娜来信</small><strong>{{ toast.title }}</strong><p>{{ toast.summary }}</p></div>
-      <button type="button" class="notification-toast-close" aria-label="关闭消息提醒" @click="toast = null"><X :size="16" /></button>
+      <MelinaMascot class="notification-toast-mascot" />
+      <div>
+        <small class="notification-sender">梅琳娜来信</small><strong>{{ toast.title }}</strong>
+        <p>{{ toast.summary }}</p>
+      </div>
+      <button type="button" class="notification-toast-close" aria-label="关闭消息提醒" @click="toast = null">
+        <X :size="16" />
+      </button>
     </aside>
   </div>
 </template>

@@ -13,14 +13,22 @@ onBeforeUnmount(revoke)
 
 async function load() {
   const current = ++version
-  revoke(); failed.value = false
+  revoke()
+  failed.value = false
   try {
     const url = await getAuthenticatedFile(props.src)
     if (current !== version) return URL.revokeObjectURL(url)
-    objectUrl = url; source.value = url
-  } catch { if (current === version) failed.value = true }
+    objectUrl = url
+    source.value = url
+  } catch {
+    if (current === version) failed.value = true
+  }
 }
-function revoke() { if (objectUrl) URL.revokeObjectURL(objectUrl); objectUrl = ''; source.value = '' }
+function revoke() {
+  if (objectUrl) URL.revokeObjectURL(objectUrl)
+  objectUrl = ''
+  source.value = ''
+}
 </script>
 
 <template>

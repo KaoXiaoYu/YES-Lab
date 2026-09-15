@@ -1,6 +1,6 @@
 <script setup>
 import ThemeToggle from '../components/ThemeToggle.vue'
-import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from '@lucide/vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { login, register } from '../services/authApi'
@@ -19,11 +19,14 @@ const isRegister = computed(() => mode.value === 'register')
 const normalizedUsername = computed(() => normalizeUsername(form.username))
 const accountType = computed(() => identifyAccountType(form.username))
 
-watch(() => route.path, (path) => {
-  mode.value = path === '/register' ? 'register' : 'login'
-  errorMessage.value = ''
-  fieldErrors.value = {}
-})
+watch(
+  () => route.path,
+  (path) => {
+    mode.value = path === '/register' ? 'register' : 'login'
+    errorMessage.value = ''
+    fieldErrors.value = {}
+  },
+)
 
 async function submit() {
   const registering = isRegister.value
@@ -84,14 +87,15 @@ function validateUsername() {
     fieldErrors.value = { ...fieldErrors.value, username: '请输入有效的邮箱' }
     return false
   }
-  const { username, ...remainingErrors } = fieldErrors.value
+  const { username: _username, ...remainingErrors } = fieldErrors.value
   fieldErrors.value = remainingErrors
   return true
 }
 </script>
 
 <template>
-  <main class="auth-page"><ThemeToggle class="auth-theme" />
+  <main class="auth-page">
+    <ThemeToggle class="auth-theme" />
     <section class="auth-story">
       <RouterLink class="auth-back" to="/"><ArrowLeft :size="17" aria-hidden="true" />返回公开首页</RouterLink>
       <div>
@@ -101,7 +105,9 @@ function validateUsername() {
         <span>Yichun Embodied Science</span>
       </div>
       <ol aria-label="新成员成长流程">
-        <li><span>01</span>报名与初筛</li><li><span>02</span>面试与技能测试</li><li><span>03</span>试用期与正式成员</li>
+        <li><span>01</span>报名与初筛</li>
+        <li><span>02</span>面试与技能测试</li>
+        <li><span>03</span>试用期与正式成员</li>
       </ol>
     </section>
 
@@ -118,32 +124,90 @@ function validateUsername() {
       </header>
 
       <form novalidate @submit.prevent="submit">
-        <div v-if="route.query.passwordChanged === '1'" class="save-message" role="status">密码已修改，请使用新密码重新登录。</div>
+        <div v-if="route.query.passwordChanged === '1'" class="save-message" role="status">
+          密码已修改，请使用新密码重新登录。
+        </div>
         <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
         <label for="username">{{ isRegister ? '邮箱' : '账号' }}</label>
-        <div class="input-shell" :class="{ invalid: fieldErrors.username }"><UserRound :size="18" aria-hidden="true" /><input id="username" v-model="form.username" :type="isRegister ? 'email' : 'text'" name="username" autocomplete="username" required maxlength="190" :placeholder="isRegister ? 'name@example.com' : '邮箱、手机号或实验室账号'" :aria-invalid="Boolean(fieldErrors.username)" :aria-describedby="fieldErrors.username ? 'username-error' : undefined" @blur="isRegister && validateUsername()" /></div>
+        <div class="input-shell" :class="{ invalid: fieldErrors.username }">
+          <UserRound :size="18" aria-hidden="true" /><input
+            id="username"
+            v-model="form.username"
+            :type="isRegister ? 'email' : 'text'"
+            name="username"
+            autocomplete="username"
+            required
+            maxlength="190"
+            :placeholder="isRegister ? 'name@example.com' : '邮箱、手机号或实验室账号'"
+            :aria-invalid="Boolean(fieldErrors.username)"
+            :aria-describedby="fieldErrors.username ? 'username-error' : undefined"
+            @blur="isRegister && validateUsername()"
+          />
+        </div>
         <small v-if="fieldErrors.username" id="username-error" class="field-error">{{ fieldErrors.username }}</small>
 
         <label for="password">密码</label>
-        <div class="input-shell" :class="{ invalid: fieldErrors.password }"><LockKeyhole :size="18" aria-hidden="true" /><input id="password" v-model="form.password" :minlength="isRegister ? 6 : undefined" :maxlength="isRegister ? 18 : undefined" :aria-invalid="Boolean(fieldErrors.password)" :aria-describedby="[isRegister ? 'password-help' : null, fieldErrors.password ? 'password-error' : null].filter(Boolean).join(' ') || undefined" name="password" :type="showPassword ? 'text' : 'password'" :autocomplete="isRegister ? 'new-password' : 'current-password'" required placeholder="输入密码" /><button type="button" :aria-label="showPassword ? '隐藏密码' : '显示密码'" @click="showPassword = !showPassword"><EyeOff v-if="showPassword" :size="18" aria-hidden="true" /><Eye v-else :size="18" aria-hidden="true" /></button></div>
+        <div class="input-shell" :class="{ invalid: fieldErrors.password }">
+          <LockKeyhole :size="18" aria-hidden="true" /><input
+            id="password"
+            v-model="form.password"
+            :minlength="isRegister ? 6 : undefined"
+            :maxlength="isRegister ? 18 : undefined"
+            :aria-invalid="Boolean(fieldErrors.password)"
+            :aria-describedby="
+              [isRegister ? 'password-help' : null, fieldErrors.password ? 'password-error' : null]
+                .filter(Boolean)
+                .join(' ') || undefined
+            "
+            name="password"
+            :type="showPassword ? 'text' : 'password'"
+            :autocomplete="isRegister ? 'new-password' : 'current-password'"
+            required
+            placeholder="输入密码"
+          /><button
+            type="button"
+            :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+            @click="showPassword = !showPassword"
+          >
+            <EyeOff v-if="showPassword" :size="18" aria-hidden="true" /><Eye v-else :size="18" aria-hidden="true" />
+          </button>
+        </div>
         <small v-if="isRegister" id="password-help" class="field-help">密码长度为 6—18 位。</small>
         <small v-if="fieldErrors.password" id="password-error" class="field-error">{{ fieldErrors.password }}</small>
 
         <template v-if="isRegister">
           <label for="confirm-password">确认密码</label>
-          <div class="input-shell" :class="{ invalid: fieldErrors.confirmPassword }"><LockKeyhole :size="18" aria-hidden="true" /><input id="confirm-password" v-model="form.confirmPassword" name="confirm-password" :type="showPassword ? 'text' : 'password'" autocomplete="new-password" required placeholder="再次输入密码" /></div>
+          <div class="input-shell" :class="{ invalid: fieldErrors.confirmPassword }">
+            <LockKeyhole :size="18" aria-hidden="true" /><input
+              id="confirm-password"
+              v-model="form.confirmPassword"
+              name="confirm-password"
+              :type="showPassword ? 'text' : 'password'"
+              autocomplete="new-password"
+              required
+              placeholder="再次输入密码"
+            />
+          </div>
           <small v-if="fieldErrors.confirmPassword" class="field-error">{{ fieldErrors.confirmPassword }}</small>
         </template>
 
         <label v-else class="remember-login">
           <input v-model="form.rememberMe" type="checkbox" name="remember-me" />
-          <span><strong>记住我的登录状态</strong><small>仅在这台可信设备上勾选；关闭浏览器后仍保持登录 30 天。</small></span>
+          <span
+            ><strong>记住我的登录状态</strong
+            ><small>仅在这台可信设备上勾选；关闭浏览器后仍保持登录 30 天。</small></span
+          >
         </label>
 
-        <button class="auth-submit" type="submit" :disabled="submitting"><span>{{ submitting ? '正在提交…' : (isRegister ? '注册并填写报名表' : '登录成员系统') }}</span><ArrowRight :size="19" aria-hidden="true" /></button>
+        <button class="auth-submit" type="submit" :disabled="submitting">
+          <span>{{ submitting ? '正在提交…' : isRegister ? '注册并填写报名表' : '登录成员系统' }}</span
+          ><ArrowRight :size="19" aria-hidden="true" />
+        </button>
       </form>
 
-      <p v-if="!isRegister" class="auth-note">教师、核心学生和正式成员账号由实验室统一维护；公开注册账号默认身份为游客。</p>
+      <p v-if="!isRegister" class="auth-note">
+        教师、核心学生和正式成员账号由实验室统一维护；公开注册账号默认身份为游客。
+      </p>
     </section>
   </main>
 </template>

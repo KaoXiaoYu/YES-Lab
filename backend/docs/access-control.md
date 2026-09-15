@@ -2,35 +2,35 @@
 
 ## 账号类型
 
-| 角色 | 身份说明 | 权限范围 |
-| --- | --- | --- |
-| `TEACHER` | 指导教师 | 系统管理员；拥有全部模块管理权限 |
-| `CORE_STUDENT` | 核心学生 | 系统管理员；权限与教师完全一致 |
-| `MEMBER` | 正式普通成员 | 编辑自己的个人主页、在讨论板发布普通内容或不可修改公告、回复/点赞并查看站内消息；保留参与测验、写题权限 |
-| `VISITOR` | 未加入实验室的注册用户 | 填写自己的报名表、查看招新进度与面试预约、公开浏览讨论板、接收站内消息；不能参与讨论互动 |
+| 角色           | 身份说明               | 权限范围                                                                                                |
+| -------------- | ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| `TEACHER`      | 指导教师               | 系统管理员；拥有全部模块管理权限                                                                        |
+| `CORE_STUDENT` | 核心学生               | 系统管理员；权限与教师完全一致                                                                          |
+| `MEMBER`       | 正式普通成员           | 编辑自己的个人主页、在讨论板发布普通内容或不可修改公告、回复/点赞并查看站内消息；保留参与测验、写题权限 |
+| `VISITOR`      | 未加入实验室的注册用户 | 填写自己的报名表、查看招新进度与面试预约、公开浏览讨论板、接收站内消息；不能参与讨论互动                |
 
 教师与核心学生保留不同角色名称，便于展示和后续规则调整，但当前权限集合相同。
 
 ## 权限矩阵
 
-| 权限代码 | 教师 | 核心学生 | 普通成员 | 游客 |
-| --- | :---: | :---: | :---: | :---: |
-| `SYSTEM_ADMIN` | ✓ | ✓ |  |  |
-| `MEMBER_MANAGE` | ✓ | ✓ |  |  |
-| `RECRUITMENT_MANAGE` | ✓ | ✓ |  |  |
-| `TAG_MANAGE` | ✓ | ✓ |  |  |
-| `QUIZ_MANAGE` | ✓ | ✓ |  |  |
-| `POINTS_MANAGE` | ✓ | ✓ |  |  |
-| `PROJECT_MANAGE` | ✓ | ✓ |  |  |
-| `ACHIEVEMENT_MANAGE` | ✓ | ✓ |  |  |
-| `CONTENT_MANAGE` | ✓ | ✓ |  |  |
-| `DISCUSSION_ACCESS` | ✓ | ✓ | ✓ |  |
-| `NOTIFICATION_VIEW` | ✓ | ✓ | ✓ | ✓ |
-| `PROFILE_SELF_EDIT` | ✓ | ✓ | ✓ |  |
-| `QUIZ_PARTICIPATE` | ✓ | ✓ | ✓ |  |
-| `QUESTION_WRITE` | ✓ | ✓ | ✓ |  |
-| `RECRUITMENT_SELF_EDIT` |  |  |  | ✓ |
-| `RECRUITMENT_SELF_VIEW` |  |  |  | ✓ |
+| 权限代码                | 教师 | 核心学生 | 普通成员 | 游客 |
+| ----------------------- | :--: | :------: | :------: | :--: |
+| `SYSTEM_ADMIN`          |  ✓   |    ✓     |          |      |
+| `MEMBER_MANAGE`         |  ✓   |    ✓     |          |      |
+| `RECRUITMENT_MANAGE`    |  ✓   |    ✓     |          |      |
+| `TAG_MANAGE`            |  ✓   |    ✓     |          |      |
+| `QUIZ_MANAGE`           |  ✓   |    ✓     |          |      |
+| `POINTS_MANAGE`         |  ✓   |    ✓     |          |      |
+| `PROJECT_MANAGE`        |  ✓   |    ✓     |          |      |
+| `ACHIEVEMENT_MANAGE`    |  ✓   |    ✓     |          |      |
+| `CONTENT_MANAGE`        |  ✓   |    ✓     |          |      |
+| `DISCUSSION_ACCESS`     |  ✓   |    ✓     |    ✓     |      |
+| `NOTIFICATION_VIEW`     |  ✓   |    ✓     |    ✓     |  ✓   |
+| `PROFILE_SELF_EDIT`     |  ✓   |    ✓     |    ✓     |      |
+| `QUIZ_PARTICIPATE`      |  ✓   |    ✓     |    ✓     |      |
+| `QUESTION_WRITE`        |  ✓   |    ✓     |    ✓     |      |
+| `RECRUITMENT_SELF_EDIT` |      |          |          |  ✓   |
+| `RECRUITMENT_SELF_VIEW` |      |          |          |  ✓   |
 
 测验、写题和积分相关权限已定义，但本阶段不提供对应业务接口。
 
