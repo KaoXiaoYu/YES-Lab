@@ -63,11 +63,11 @@ const isTeacher = computed(() => props.profile.role === 'TEACHER')
         <template v-if="!isTeacher">
           <article>
             <span>POINTS</span><strong>{{ profile.totalPoints }}</strong
-            ><small>积分系统暂未接入</small>
+            ><small>来自已审计的积分流水</small>
           </article>
           <article>
             <span>RANK</span><strong>{{ profile.currentRank || '—' }}</strong
-            ><small>排名将在积分系统启用后更新</small>
+            ><small>学期排行榜暂未启用</small>
           </article>
         </template>
         <article>

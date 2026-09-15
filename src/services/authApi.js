@@ -91,6 +91,26 @@ export function resetMemberPassword(profileId) {
   return apiRequest(`/api/v1/admin/members/${profileId}/password`, { method: 'PUT' })
 }
 
+export function getPointRules() {
+  return apiRequest('/api/v1/points/rules')
+}
+
+export function getOwnPoints() {
+  return apiRequest('/api/v1/member/points')
+}
+
+export function listPointGrants() {
+  return apiRequest('/api/v1/admin/points/grants')
+}
+
+export function grantPoints(payload) {
+  return apiRequest('/api/v1/admin/points/grants', { method: 'POST', body: payload })
+}
+
+export function reversePointGrant(grantId, payload) {
+  return apiRequest(`/api/v1/admin/points/grants/${grantId}/reversal`, { method: 'POST', body: payload })
+}
+
 export function createCoreStudent(payload) {
   return apiRequest('/api/v1/admin/members/core-students', { method: 'POST', body: payload })
 }

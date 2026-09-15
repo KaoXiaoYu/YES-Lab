@@ -25,8 +25,12 @@
     }
 
     handle {
-        root * /srv
-        try_files {path} /index.html
-        file_server
+        route {
+            root * /srv
+            try_files {path} /index.html
+            @appShell path / /index.html
+            header @appShell Cache-Control "no-cache, no-store, must-revalidate"
+            file_server
+        }
     }
 }

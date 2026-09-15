@@ -86,6 +86,12 @@ const routes = [
     meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
   },
   {
+    path: '/admin/points',
+    name: 'admin-points',
+    component: () => import('../views/AdminPointsView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
+  },
+  {
     path: '/admin/achievements',
     name: 'admin-achievements',
     component: () => import('../views/AdminAchievementsView.vue'),
@@ -113,6 +119,25 @@ router.beforeEach(async (to) => {
   if (to.meta.roles && !authState.account) return { path: '/login', query: { redirect: to.fullPath } }
   if (to.meta.roles && !to.meta.roles.includes(role)) return role === 'VISITOR' ? '/application' : '/profile'
   return true
+})
+
+const chunkRecoveryKey = 'yeslab-route-chunk-recovery'
+const chunkLoadFailure =
+  /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError/i
+
+router.onError((error, to) => {
+  if (!chunkLoadFailure.test(String(error?.message || error))) return
+  const target = to?.fullPath || window.location.pathname + window.location.search + window.location.hash
+  if (sessionStorage.getItem(chunkRecoveryKey) === target) {
+    sessionStorage.removeItem(chunkRecoveryKey)
+    return
+  }
+  sessionStorage.setItem(chunkRecoveryKey, target)
+  window.location.replace(target)
+})
+
+router.afterEach((to, _from, failure) => {
+  if (!failure && sessionStorage.getItem(chunkRecoveryKey) === to.fullPath) sessionStorage.removeItem(chunkRecoveryKey)
 })
 
 export default router

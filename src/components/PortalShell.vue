@@ -2,9 +2,11 @@
 import ThemeToggle from './ThemeToggle.vue'
 import NotificationCenter from './NotificationCenter.vue'
 import {
+  BadgePlus,
   ClipboardList,
   FolderKanban,
   Home,
+  LayoutDashboard,
   LayoutTemplate,
   LogOut,
   Medal,
@@ -15,7 +17,7 @@ import {
   UsersRound,
 } from '@lucide/vue'
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { authState, logout } from '../services/authApi'
 
 defineProps({
@@ -25,6 +27,7 @@ defineProps({
 })
 
 const router = useRouter()
+const route = useRoute()
 const roleLabels = {
   TEACHER: '教师 · 系统管理员',
   CORE_STUDENT: '核心学生 · 系统管理员',
@@ -33,6 +36,7 @@ const roleLabels = {
 }
 const accountLabel = computed(() => roleLabels[authState.account?.role] || authState.account?.role)
 const accountName = computed(() => authState.account?.displayName || authState.account?.username || '')
+const adminSectionActive = computed(() => route.path.startsWith('/admin/'))
 
 async function signOut() {
   await logout()
@@ -62,18 +66,37 @@ async function signOut() {
         <RouterLink v-if="authState.account?.role === 'VISITOR'" to="/application"
           ><ClipboardList :size="17" aria-hidden="true" />我的报名</RouterLink
         >
-        <RouterLink v-if="authState.account?.systemAdmin" to="/admin/members"
+        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/members"
           ><UsersRound :size="17" aria-hidden="true" />成员管理</RouterLink
         >
-        <RouterLink v-if="authState.account?.systemAdmin" to="/admin/recruitment"
+        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/points"
+          ><BadgePlus :size="17" aria-hidden="true" />积分管理</RouterLink
+        >
+        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/recruitment"
           ><ShieldCheck :size="17" aria-hidden="true" />招新管理</RouterLink
         >
-        <RouterLink v-if="authState.account?.systemAdmin" to="/admin/achievements"
+        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/achievements"
           ><Newspaper :size="17" aria-hidden="true" />成果管理</RouterLink
         >
-        <RouterLink v-if="authState.account?.systemAdmin" to="/admin/homepage"
+        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/homepage"
           ><LayoutTemplate :size="17" aria-hidden="true" />主页编辑</RouterLink
         >
+        <details
+          v-if="authState.account?.systemAdmin"
+          class="portal-admin-menu"
+          @click="(event) => event.target.closest('a') && event.currentTarget.removeAttribute('open')"
+        >
+          <summary :class="{ active: adminSectionActive }">
+            <LayoutDashboard :size="17" aria-hidden="true" />后台管理
+          </summary>
+          <div>
+            <RouterLink to="/admin/members"><UsersRound :size="17" aria-hidden="true" />成员管理</RouterLink>
+            <RouterLink to="/admin/points"><BadgePlus :size="17" aria-hidden="true" />积分管理</RouterLink>
+            <RouterLink to="/admin/recruitment"><ShieldCheck :size="17" aria-hidden="true" />招新管理</RouterLink>
+            <RouterLink to="/admin/achievements"><Newspaper :size="17" aria-hidden="true" />成果管理</RouterLink>
+            <RouterLink to="/admin/homepage"><LayoutTemplate :size="17" aria-hidden="true" />主页编辑</RouterLink>
+          </div>
+        </details>
       </nav>
       <div class="portal-account">
         <ThemeToggle /><NotificationCenter v-if="authState.account" />

@@ -1020,6 +1020,7 @@ body {
 }
 .portal-topbar nav {
   justify-content: flex-start;
+  overflow: visible;
   scrollbar-width: thin;
 }
 .portal-topbar nav a {
@@ -1528,6 +1529,10 @@ body {
   }
 }
 @media (max-width: 760px) {
+  .portal-topbar nav {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
   .hero {
     padding: calc(var(--site-header-height) + 40px) 20px 24px;
   }
