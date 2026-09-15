@@ -57,6 +57,44 @@ JWT 使用 HS256 签名，API 保持无状态；生产环境必须替换 `YESLAB
 
 姓名、编号、专业、班级、年级、成员状态和能力标签仍由管理员维护。富文本在后端通过 OWASP HTML Sanitizer 白名单清洗。
 
+## 成员积分
+
+- `GET /api/v1/points/rules`：登录账号读取积分分类、分配方式和月度上限。
+- `GET /api/v1/member/points`：成员读取本人总积分、分类汇总、子类汇总和最近 200 笔流水。
+- `POST /api/v1/admin/points/grants`：具有 `POINTS_MANAGE` 权限的教师或核心学生发放一批积分。
+- `GET /api/v1/admin/points/grants`：积分管理员读取最近 200 次发放与撤销记录。
+- `POST /api/v1/admin/points/grants/{grantId}/reversal`：为一批错误发放创建等额反向流水；原记录不会修改或删除。
+
+积分子类包括 `COMPETITION_AWARD`、`PROJECT_TASK`、`LAB_ACTIVITY`、`MEDIA_CONTENT`、`MEDIA_OPERATION` 和 `MEDIA_REACH`。竞赛积分采用 `PER_MEMBER`，每名成员的分值必须等于奖项分值；其他类型采用 `SHARED_TOTAL`，全部成员的应得分之和必须等于事项总分。实验室贡献每人每月最多 100 分，运营执行和传播效果分别每人每月最多 200 分，按 `occurredOn` 所在历史月份校验；后一笔超过上限时保留应得分并只计入剩余额度，已经达到上限后拒绝继续发放。竞赛、项目和内容制作暂不设月度上限。
+
+发放请求必须包含事项名称、子类、成果日期、事项总分、全局唯一来源编号、凭证链接和一至一百条成员分配；每条成员分配都要填写个人贡献说明，事项本身可再填写整体说明。只允许给正式核心学生或普通成员加正分；指导教师不参评，管理员不能给自己发分。`sourceReference` 防止重试导致重复发放，成员总积分随流水在同一事务更新，发放与撤销都会产生梅琳娜站内消息。
+
+```json
+{
+  "title": "完成 SLAM 部署任务",
+  "subcategory": "PROJECT_TASK",
+  "occurredOn": "2026-09-15",
+  "itemTotalPoints": 50,
+  "sourceReference": "PROJECT:8f12:SLAM-DEPLOYMENT",
+  "evidenceUrl": "https://example.com/evidence/slam",
+  "description": "任务已经按登记条件验收",
+  "allocations": [
+    {
+      "memberProfileId": "00000000-0000-0000-0000-000000000001",
+      "points": 30,
+      "contribution": "完成部署配置与数据采集"
+    },
+    {
+      "memberProfileId": "00000000-0000-0000-0000-000000000002",
+      "points": 20,
+      "contribution": "完成复现测试与验收记录"
+    }
+  ]
+}
+```
+
+参考制度中的具体事项分值没有硬编码进接口。管理员按最终确认的制度填写事项总分，接口负责权限、分配合计、月度封顶、凭证、重复来源和撤销留痕。公开排行榜目前仍使用展示端兜底数据，不从积分流水自动发布。
+
 ## 招新管理
 
 教师和核心学生均拥有系统管理员权限，可访问：
@@ -141,7 +179,7 @@ JWT 使用 HS256 签名，API 保持无状态；生产环境必须替换 `YESLAB
 ## 暂不实现
 
 - 测验与写题业务接口。
-- 积分计算、积分变更与排行榜写入。
+- 成员积分申请/终审工作流、附件上传、具体事项规则后台配置与公开排行榜写入。
 - 新闻正文抓取或复制；当前只保存外部标题、来源、链接、摘要和发布日期。
 - 竞赛记录删除、批量导入和通用操作审计。
 - 登录失败限流、异常登录告警与完整通用审计系统。

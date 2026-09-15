@@ -1,6 +1,6 @@
 # YES Lab API
 
-YES Lab API 是平台的 Spring Boot 后端，提供身份认证、公开内容、成员、招新、项目、竞赛成果、讨论板和站内通知接口。
+YES Lab API 是平台的 Spring Boot 后端，提供身份认证、公开内容、成员、招新、项目、竞赛成果、积分账本、讨论板和站内通知接口。
 
 ## 技术基线
 
@@ -38,6 +38,8 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 - 公开首页：`GET /api/v1/public/home`
 - 公开首页 3D 模型：`GET /api/v1/public/homepage/models/{id}`
 - 当前账号：`GET /api/v1/auth/me`
+- 本人积分：`GET /api/v1/member/points`
+- 积分口径：`GET /api/v1/points/rules`
 
 本地配置默认启用 H2 文件数据库，数据写入 `backend/data/`。生产环境必须启用 `prod` profile，并提供 MySQL、JWT、CORS 和持久化上传目录配置。
 
@@ -63,6 +65,7 @@ cn.yeslab.platform
 ├── identity         # 账号、角色、JWT 与刷新会话
 ├── member           # 成员资料、头像和公开主页
 ├── notification     # 梅琳娜站内通知与展示设置
+├── points           # 积分发放、封顶、流水和撤销
 ├── project          # 项目资料、团队和主图
 ├── publicsite       # 公开聚合接口与主页 CMS
 └── recruitment      # 报名、面试、状态机和作品集

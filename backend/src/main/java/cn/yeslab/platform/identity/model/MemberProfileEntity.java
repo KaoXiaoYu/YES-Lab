@@ -186,6 +186,15 @@ public class MemberProfileEntity {
         this.updatedAt = Instant.now();
     }
 
+    public void applyPointDelta(int delta) {
+        int updatedTotal = Math.addExact(this.totalPoints, delta);
+        if (updatedTotal < 0) {
+            throw new IllegalStateException("成员积分不能小于 0");
+        }
+        this.totalPoints = updatedTotal;
+        this.updatedAt = Instant.now();
+    }
+
     public void updateShowcase(List<UUID> projectIds, List<UUID> competitionIds) {
         this.featuredProjectIds = new ArrayList<>(projectIds);
         this.featuredCompetitionIds = new ArrayList<>(competitionIds);
