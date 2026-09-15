@@ -404,7 +404,7 @@ curl --resolve yeslab.tech:443:新服务器公网IPv4 \
 生产数据不会存入 Git：
 
 - MySQL：`/srv/yeslab/data/mysql`
-- 证书、比赛图片、项目主图和成员头像：`/srv/yeslab/data/uploads`
+- 证书、比赛图片、项目主图、成员头像、赞助商 Logo 和首页 GLB 模型：`/srv/yeslab/data/uploads`
 - 本机备份：`/srv/yeslab/backups`
 - HTTPS 证书：Docker 命名卷 `caddy_data`
 
@@ -421,12 +421,46 @@ Flyway 的行为分两种：
 
 ## 5. 日常发布
 
-本地完成修改、测试并推送 `main` 后：
+生产发布以 GitHub Actions 构建的不可变提交 SHA 镜像为准。`latest` 适合首次验证，不建议作为可审计的长期生产版本。
 
-1. 等待 GitHub Actions 测试和镜像发布成功。
-2. 登录服务器，进入 `/opt/yes-lab`。
-3. 建议把 `YESLAB_IMAGE_TAG` 更新为本次提交完整 SHA。
-4. 执行：
+如果部署的是 Fork，需要先把工作流中的 GHCR 镜像命名空间、`deploy/.env.production` 中的 `YESLAB_API_IMAGE` 与 `YESLAB_WEB_IMAGE`，以及 GHCR 登录用户名改为 Fork 所有者。GHCR 路径必须使用小写；Fork 的 `GITHUB_TOKEN` 不能向原仓库所有者的命名空间发布镜像。
+
+### 5.1 开发机发布代码
+
+在开发机完成修改后，先执行：
+
+```bash
+npm ci
+npm run check
+cd backend
+./mvnw test
+```
+
+检查通过后提交并推送 `main`，等待 GitHub Actions 的 **Test and publish images** 工作流全部成功。工作流会同时发布：
+
+- `ghcr.io/kaoxiaoyu/yes-lab-web:latest`
+- `ghcr.io/kaoxiaoyu/yes-lab-web:<完整提交SHA>`
+- `ghcr.io/kaoxiaoyu/yes-lab-api:latest`
+- `ghcr.io/kaoxiaoyu/yes-lab-api:<完整提交SHA>`
+
+不要在 Actions 尚未成功时更新服务器，否则目标 SHA 镜像可能不存在或只发布了其中一个服务。
+
+### 5.2 服务器在线更新
+
+从 GitHub 提交页面复制本次完整的 40 位 SHA，然后登录服务器：
+
+```bash
+cd /opt/yes-lab
+nano deploy/.env.production
+```
+
+将环境文件中的镜像标签修改为本次 SHA：
+
+```dotenv
+YESLAB_IMAGE_TAG=0123456789abcdef0123456789abcdef01234567
+```
+
+环境文件不受 Git 管理，更新代码不会覆盖它。保存后执行：
 
 ```bash
 ./deploy/scripts/deploy.sh
@@ -440,7 +474,57 @@ Flyway 的行为分两种：
 4. 拉取指定镜像，先启动 MySQL，再启动并健康检查 API。
 5. API 通过检查后才更新 Web。
 
+发布完成后立即验证：
+
+```bash
+docker compose --env-file deploy/.env.production ps
+docker compose --env-file deploy/.env.production logs --tail 120 api
+curl --fail https://你的域名/actuator/health
+```
+
+然后人工检查首页、登录、成员头像、项目封面、竞赛图片和至少一个管理员页面。容器为 `running` 只表示进程存在，不能替代业务验收。
+
+### 5.3 日常启动、停止和日志
+
+```bash
+cd /opt/yes-lab
+
+# 启动全部服务并等待健康检查
+docker compose --env-file deploy/.env.production up -d --wait --wait-timeout 240
+
+# 查看状态
+docker compose --env-file deploy/.env.production ps
+
+# 持续查看日志，Ctrl+C 仅退出日志
+docker compose --env-file deploy/.env.production logs --tail 200 -f api
+docker compose --env-file deploy/.env.production logs --tail 200 -f web
+
+# 停止但不删除数据
+docker compose --env-file deploy/.env.production stop
+
+# 重启单个服务
+docker compose --env-file deploy/.env.production restart api
+```
+
+三个服务均使用 `restart: unless-stopped`。系统或 Docker 正常重启后容器会自动恢复；如果管理员此前手工停止了容器，应再次执行 `up -d`。禁止执行 `docker compose down -v`。
+
+`docker compose restart` 只重启已有容器，不会拉取新镜像，也不会应用新环境变量。代码发布必须使用第 5.2 节的版本标签和发布脚本；环境变量改变后使用 `up -d --force-recreate <服务名>` 重建对应服务。
+
+### 5.4 回滚到上一应用版本
+
 迁移必须保持向前兼容，因此若新 API 启动失败，可将 `YESLAB_IMAGE_TAG` 改回上一提交 SHA 并再次执行 `docker compose ... up -d`。数据库不自动降级；需要回退数据库时必须先停机并从已验证备份恢复。
+
+```bash
+cd /opt/yes-lab
+nano deploy/.env.production
+# YESLAB_IMAGE_TAG 改回上一份已验证的完整提交 SHA
+
+docker compose --env-file deploy/.env.production pull api web
+docker compose --env-file deploy/.env.production up -d --wait --wait-timeout 240
+docker compose --env-file deploy/.env.production ps
+```
+
+回滚后重新检查健康接口和核心业务。若失败原因来自不兼容的数据迁移，不要修改 Flyway 历史、删除迁移记录或把生产 `ddl-auto` 改为 `update`；先停止 Web/API，再按第 6 节从经过校验的备份恢复。
 
 面试预约、站内消息和讨论板随 `V7__interviews_notifications_discussions.sql` 发布。该迁移只新建独立业务表及其外键/索引，不修改、删除或重建已有账号、报名、成员、项目、比赛和主页表。部署脚本会在迁移前完成 MySQL 与上传目录备份；不要手工创建这些表，也不要修改已经执行过的 V1—V7 迁移。若新 API 健康检查失败，保持 Web 旧版本运行并按上一段回退镜像；数据库表可暂时保留，不影响旧版本读取既有表。
 

@@ -15,6 +15,8 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.List;
 import java.util.Base64;
 import java.util.UUID;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import org.springframework.mock.web.MockMultipartFile;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -232,6 +234,76 @@ class HomepageContentApiTests {
         mvc.perform(get("/api/v1/public/home")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.sponsors[0].logoUrl").value(url))
                 .andExpect(jsonPath("$.data.sponsors[0].cooperationDescription").value("提供设备与技术交流"));
+    }
+
+    @Test
+    void homepageGlbUploadIsAdminOnlyAndCanBePublishedInTheCarousel() throws Exception {
+        String teacher = login("teacher", "YesLab-Teacher-2026!");
+        String member = login("member", "YesLab-Member-2026!");
+        byte[] glb = minimalGlb();
+        var model = new MockMultipartFile("model", "robot.glb", "model/gltf-binary", glb);
+
+        mvc.perform(multipart("/api/v1/admin/homepage/models").file(model))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(multipart("/api/v1/admin/homepage/models").file(model).header("Authorization", bearer(member)))
+                .andExpect(status().isForbidden());
+        mvc.perform(multipart("/api/v1/admin/homepage/models")
+                        .file(new MockMultipartFile("model", "fake.glb", "model/gltf-binary", "not glb".getBytes()))
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isBadRequest());
+
+        String response = mvc.perform(multipart("/api/v1/admin/homepage/models")
+                        .file(model)
+                        .header("Authorization", bearer(teacher)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String url = JsonPath.read(response, "$.data.modelUrl");
+        mvc.perform(get(url))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("model/gltf-binary"))
+                .andExpect(content().bytes(glb))
+                .andExpect(header().string("Cache-Control", org.hamcrest.Matchers.containsString("immutable")));
+
+        HomepageModels.HomepageContent defaults = HomepageModels.defaultContent();
+        HomepageModels.HomepageContent edited = new HomepageModels.HomepageContent(
+                defaults.profile(), defaults.sections(), defaults.proofItems(), defaults.updates(), defaults.awards(),
+                defaults.sponsors(), defaults.externalLinks(), defaults.advisorProfileId(),
+                defaults.featuredAdvisorProfileIds(), defaults.featuredMemberProfileIds(), defaults.featuredProjectIds(),
+                defaults.display(), List.of(new HomepageModels.HeroModelItem("测试机器人", "后台上传模型", url, true))
+        );
+        mvc.perform(put("/api/v1/admin/homepage")
+                        .header("Authorization", bearer(teacher))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(edited)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content.heroModels[0].title").value("测试机器人"))
+                .andExpect(jsonPath("$.data.content.heroModels[0].modelUrl").value(url));
+        mvc.perform(get("/api/v1/public/home"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.homepageContent.heroModels[0].description").value("后台上传模型"));
+
+        HomepageModels.HomepageContent disabled = new HomepageModels.HomepageContent(
+                defaults.profile(), defaults.sections(), defaults.proofItems(), defaults.updates(), defaults.awards(),
+                defaults.sponsors(), defaults.externalLinks(), defaults.advisorProfileId(),
+                defaults.featuredAdvisorProfileIds(), defaults.featuredMemberProfileIds(), defaults.featuredProjectIds(),
+                defaults.display(), List.of(new HomepageModels.HeroModelItem("停用模型", "不能单独发布", url, false))
+        );
+        mvc.perform(put("/api/v1/admin/homepage")
+                        .header("Authorization", bearer(teacher))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(disabled)))
+                .andExpect(status().isBadRequest());
+    }
+
+    private byte[] minimalGlb() {
+        ByteBuffer buffer = ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN);
+        buffer.put("glTF".getBytes());
+        buffer.putInt(2);
+        buffer.putInt(24);
+        buffer.putInt(4);
+        buffer.putInt(0x4E4F534A);
+        buffer.put("{}  ".getBytes());
+        return buffer.array();
     }
 
     private String login(String username, String password) throws Exception {

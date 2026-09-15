@@ -1,17 +1,45 @@
 <script setup>
-import { onMounted, onBeforeUnmount, ref } from 'vue'
-import { RotateCcw, Pause, Play, Move } from '@lucide/vue'
-defineProps({
+import { ChevronLeft, ChevronRight, Move, Pause, Play, RotateCcw, RotateCw } from '@lucide/vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+
+const props = defineProps({
   fullName: { type: String, default: '' },
   displayName: { type: String, default: '' },
+  models: { type: Array, default: () => [] },
 })
+
 const mount = ref(null)
+const activeIndex = ref(0)
 const ready = ref(false)
 const failed = ref(false)
 const paused = ref(false)
-let teardown = () => {},
-  resetView = () => {}
+const interactionHeld = ref(false)
+
+const enabledModels = computed(() =>
+  props.models.filter((item) => item && item.enabled !== false && item.modelUrl && item.title),
+)
+const activeModel = computed(() => enabledModels.value[activeIndex.value] || null)
+const hasMultipleModels = computed(() => enabledModels.value.length > 1)
+
 let disposed = false
+let teardown = () => {}
+let selectModel = () => {}
+let resetView = () => {}
+
+function changeSlide(delta) {
+  if (!enabledModels.value.length) return
+  const next = (activeIndex.value + delta + enabledModels.value.length) % enabledModels.value.length
+  selectModel(next)
+}
+
+function retryModel() {
+  selectModel(activeIndex.value)
+}
+
+function releaseFocusPause(event) {
+  if (!event.currentTarget.contains(event.relatedTarget)) interactionHeld.value = false
+}
+
 onMounted(async () => {
   try {
     const [T, { GLTFLoader }, { OrbitControls }, { RoomEnvironment }] = await Promise.all([
@@ -21,6 +49,7 @@ onMounted(async () => {
       import('three/addons/environments/RoomEnvironment.js'),
     ])
     if (disposed) return
+
     const host = mount.value
     const scene = new T.Scene()
     const camera = new T.PerspectiveCamera(34, 1, 0.01, 30)
@@ -28,14 +57,14 @@ onMounted(async () => {
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75))
     renderer.setClearColor(0x000000, 0)
     renderer.shadowMap.enabled = true
-    renderer.shadowMap.type = T.PCFSoftShadowMap
+    renderer.shadowMap.type = T.PCFShadowMap
     renderer.toneMapping = T.ACESFilmicToneMapping
     renderer.toneMappingExposure = 0.85
-    renderer.domElement.setAttribute('aria-label', '可拖动旋转的 Go2 与无人机三维模型')
     renderer.domElement.setAttribute('role', 'img')
     renderer.domElement.tabIndex = 0
     renderer.domElement.setAttribute('aria-description', '拖动或使用方向键旋转，Home 键重置视角')
     host.appendChild(renderer.domElement)
+
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
     controls.enableZoom = false
@@ -45,22 +74,23 @@ onMounted(async () => {
     controls.rotateSpeed = 0.55
     resetView = () => {
       camera.position.set(1.15, 1.2, 2.05)
-      controls.target.set(0, 0.48, 0)
+      controls.target.set(0, 0.5, 0)
       controls.update()
     }
     resetView()
-    const keyboard = (e) => {
-      if (e.key === 'Home') {
-        e.preventDefault()
+
+    const keyboard = (event) => {
+      if (event.key === 'Home') {
+        event.preventDefault()
         resetView()
         return
       }
-      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return
-      e.preventDefault()
+      if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return
+      event.preventDefault()
       const spherical = new T.Spherical().setFromVector3(camera.position.clone().sub(controls.target))
-      spherical.theta += e.key === 'ArrowLeft' ? -0.12 : e.key === 'ArrowRight' ? 0.12 : 0
+      spherical.theta += event.key === 'ArrowLeft' ? -0.12 : event.key === 'ArrowRight' ? 0.12 : 0
       spherical.phi = T.MathUtils.clamp(
-        spherical.phi + (e.key === 'ArrowUp' ? -0.1 : e.key === 'ArrowDown' ? 0.1 : 0),
+        spherical.phi + (event.key === 'ArrowUp' ? -0.1 : event.key === 'ArrowDown' ? 0.1 : 0),
         controls.minPolarAngle,
         controls.maxPolarAngle,
       )
@@ -68,14 +98,15 @@ onMounted(async () => {
       controls.update()
     }
     renderer.domElement.addEventListener('keydown', keyboard)
+
     const pmrem = new T.PMREMGenerator(renderer)
     const room = new RoomEnvironment()
     const environment = pmrem.fromScene(room, 0.04)
     scene.environment = environment.texture
     room.dispose()
     pmrem.dispose()
-    const ambient = new T.HemisphereLight(0xddefff, 0x556071, 0.8)
-    scene.add(ambient)
+
+    scene.add(new T.HemisphereLight(0xddefff, 0x556071, 0.8))
     const key = new T.DirectionalLight(0xfff8ed, 2.2)
     key.position.set(-1, 3, 2)
     key.castShadow = true
@@ -92,125 +123,203 @@ onMounted(async () => {
     scene.add(rim)
     const floor = new T.Mesh(new T.PlaneGeometry(200, 200), new T.ShadowMaterial({ color: 0x193656, opacity: 0.16 }))
     floor.rotation.x = -Math.PI / 2
-    floor.position.y = -0.005
     floor.receiveShadow = true
     scene.add(floor)
+
     const resize = () => {
       if (!host.clientWidth) return
       camera.aspect = host.clientWidth / host.clientHeight
       camera.updateProjectionMatrix()
       renderer.setSize(host.clientWidth, host.clientHeight, false)
     }
-    const observer = new ResizeObserver(resize)
-    observer.observe(host)
+    const resizeObserver = new ResizeObserver(resize)
+    resizeObserver.observe(host)
     resize()
+
     const motion = matchMedia('(prefers-reduced-motion: reduce)')
     paused.value = motion.matches
     const onMotion = () => {
-      paused.value = motion.matches
+      if (motion.matches) paused.value = true
     }
     motion.addEventListener('change', onMotion)
+
     let visible = true
-    const intersection = new IntersectionObserver(([entry]) => {
+    const intersectionObserver = new IntersectionObserver(([entry]) => {
       visible = entry.isIntersecting
     })
-    intersection.observe(host)
-    let dog,
-      drone,
-      last = 0,
-      elapsed = 0,
-      frame
+    intersectionObserver.observe(host)
+
+    const loader = new GLTFLoader()
+    let currentRoot = null
+    let currentAnimationRoot = null
+    let currentMixer = null
+    let loadRevision = 0
+    let lastFrame = performance.now()
+    let animationElapsed = 0
+    let carouselElapsed = 0
+    let frame = 0
+
+    const disposeRoot = (root) => {
+      if (!root) return
+      const geometries = new Set()
+      const materials = new Set()
+      const textures = new Set()
+      root.traverse((object) => {
+        if (object.geometry) geometries.add(object.geometry)
+        const objectMaterials = Array.isArray(object.material) ? object.material : [object.material]
+        objectMaterials.filter(Boolean).forEach((material) => materials.add(material))
+      })
+      materials.forEach((material) => {
+        Object.values(material).forEach((value) => {
+          if (value?.isTexture) textures.add(value)
+        })
+        material.dispose()
+      })
+      textures.forEach((texture) => texture.dispose())
+      geometries.forEach((geometry) => geometry.dispose())
+      scene.remove(root)
+    }
+
+    const clearCurrentModel = () => {
+      if (currentMixer && currentAnimationRoot) {
+        currentMixer.stopAllAction()
+        currentMixer.uncacheRoot(currentAnimationRoot)
+      }
+      currentMixer = null
+      currentAnimationRoot = null
+      disposeRoot(currentRoot)
+      currentRoot = null
+    }
+
+    const fitModel = (model) => {
+      model.updateMatrixWorld(true)
+      const initialBox = new T.Box3().setFromObject(model)
+      const initialSize = initialBox.getSize(new T.Vector3())
+      const largestDimension = Math.max(initialSize.x, initialSize.y, initialSize.z)
+      if (!Number.isFinite(largestDimension) || largestDimension <= 0) throw new Error('Model has no visible geometry')
+      model.scale.multiplyScalar(1.35 / largestDimension)
+      model.updateMatrixWorld(true)
+      const normalizedBox = new T.Box3().setFromObject(model)
+      const center = normalizedBox.getCenter(new T.Vector3())
+      model.position.x -= center.x
+      model.position.y -= normalizedBox.min.y
+      model.position.z -= center.z
+      model.updateMatrixWorld(true)
+    }
+
+    selectModel = async (index) => {
+      const items = enabledModels.value
+      if (!items.length) {
+        ready.value = false
+        failed.value = true
+        return
+      }
+      const normalizedIndex = Math.min(Math.max(index, 0), items.length - 1)
+      const item = items[normalizedIndex]
+      activeIndex.value = normalizedIndex
+      ready.value = false
+      failed.value = false
+      carouselElapsed = 0
+      const revision = ++loadRevision
+      try {
+        const asset = await loader.loadAsync(item.modelUrl)
+        if (disposed || revision !== loadRevision) {
+          disposeRoot(asset.scene)
+          return
+        }
+        asset.scene.traverse((object) => {
+          if (!object.isMesh) return
+          object.castShadow = true
+          object.receiveShadow = true
+          const objectMaterials = Array.isArray(object.material) ? object.material : [object.material]
+          objectMaterials.filter(Boolean).forEach((material) => {
+            material.envMapIntensity = 0.85
+          })
+        })
+        fitModel(asset.scene)
+        const wrapper = new T.Group()
+        wrapper.add(asset.scene)
+        clearCurrentModel()
+        scene.add(wrapper)
+        currentRoot = wrapper
+        if (asset.animations.length) {
+          currentMixer = new T.AnimationMixer(asset.scene)
+          currentAnimationRoot = asset.scene
+          currentMixer.clipAction(asset.animations[0]).play()
+        }
+        renderer.domElement.setAttribute('aria-label', `可拖动旋转的 ${item.title} 三维模型`)
+        host.dataset.modelUrl = item.modelUrl
+        host.dataset.animationClips = String(asset.animations.length)
+        animationElapsed = 0
+        ready.value = true
+      } catch (error) {
+        if (revision !== loadRevision || disposed) return
+        console.error('3D model loading failed', error)
+        failed.value = true
+      }
+    }
+
+    const modelSignature = () =>
+      enabledModels.value.map((item) => `${item.modelUrl}|${item.title}|${item.description}`).join('||')
+    const stopModelWatch = watch(modelSignature, () => selectModel(0))
+
     const animate = (now) => {
       frame = requestAnimationFrame(animate)
-      const dt = Math.min((now - last) / 1000, 0.05)
-      last = now
+      const delta = Math.min((now - lastFrame) / 1000, 0.05)
+      lastFrame = now
       if (!visible || document.hidden) return
-      if (!paused.value) elapsed += dt
-      if (drone) {
-        drone.position.y = 0.76 + Math.sin(elapsed * 1.6) * 0.018
-        drone.rotation.z = Math.sin(elapsed * 1.1) * 0.015
+      if (!paused.value) {
+        animationElapsed += delta
+        currentMixer?.update(delta)
+        if (currentRoot) {
+          currentRoot.rotation.y += delta * 0.12
+          currentRoot.position.y = 0.04 + Math.sin(animationElapsed * 1.4) * 0.012
+        }
+        if (!interactionHeld.value && ready.value && enabledModels.value.length > 1) {
+          carouselElapsed += delta
+          if (carouselElapsed >= 8) selectModel((activeIndex.value + 1) % enabledModels.value.length)
+        }
       }
       controls.update()
       renderer.render(scene, camera)
     }
-    const onContextLost = (e) => {
-      e.preventDefault()
+
+    const onContextLost = (event) => {
+      event.preventDefault()
       failed.value = true
       ready.value = false
       cancelAnimationFrame(frame)
     }
     renderer.domElement.addEventListener('webglcontextlost', onContextLost)
+
     teardown = () => {
+      loadRevision += 1
       cancelAnimationFrame(frame)
-      observer.disconnect()
-      intersection.disconnect()
+      stopModelWatch()
+      resizeObserver.disconnect()
+      intersectionObserver.disconnect()
       motion.removeEventListener('change', onMotion)
       renderer.domElement.removeEventListener('keydown', keyboard)
+      renderer.domElement.removeEventListener('webglcontextlost', onContextLost)
       controls.dispose()
+      clearCurrentModel()
       environment.dispose()
-      const geometries = new Set(),
-        materials = new Set(),
-        textures = new Set()
-      scene.traverse((o) => {
-        if (o.geometry) geometries.add(o.geometry)
-        if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => materials.add(m))
-      })
-      materials.forEach((m) => {
-        Object.values(m).forEach((v) => {
-          if (v?.isTexture) textures.add(v)
-        })
-        m.dispose()
-      })
-      textures.forEach((t) => t.dispose())
-      geometries.forEach((g) => g.dispose())
+      floor.geometry.dispose()
+      floor.material.dispose()
       renderer.dispose()
+      renderer.forceContextLoss()
       renderer.domElement.remove()
     }
-    const loader = new GLTFLoader()
-    const [dogAsset, droneAsset] = await Promise.all([
-      loader.loadAsync('/models/go2.glb'),
-      loader.loadAsync('/models/skydio-x2.glb'),
-    ])
-    if (disposed) {
-      for (const asset of [dogAsset, droneAsset])
-        asset.scene.traverse((o) => {
-          o.geometry?.dispose()
-          o.material?.map?.dispose()
-          o.material?.dispose()
-        })
-      return
-    }
-    dog = dogAsset.scene
-    drone = droneAsset.scene
-    dog.position.set(0.19, 0, 0.14)
-    dog.rotation.y = -0.22
-    drone.position.set(-0.28, 0.76, -0.12)
-    drone.rotation.y = 0.25
-    drone.scale.setScalar(1.15)
-    // The source asset already uses motion-blurred rotor discs. Rotating the
-    // separated mesh nodes caused two discs to orbit their imported pivots.
-    // Keep all four rotor assemblies fixed to their motors and animate only
-    // the aircraft's subtle hover motion.
-    for (const object of [dog, drone]) {
-      object.traverse((o) => {
-        if (o.isMesh) {
-          o.castShadow = true
-          o.receiveShadow = true
-          if (o.material) o.material.envMapIntensity = 0.85
-        }
-      })
-      scene.add(object)
-    }
-    host.dataset.models = 'go2,skydio-x2'
-    host.dataset.rotorMotion = 'fixed-to-motors'
-    ready.value = true
+
     frame = requestAnimationFrame(animate)
+    await selectModel(0)
   } catch (error) {
     console.error('3D scene loading failed', error)
     teardown()
     if (!disposed) failed.value = true
   }
 })
+
 onBeforeUnmount(() => {
   disposed = true
   teardown()
@@ -218,34 +327,66 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <figure class="research-visual product-scene">
+  <figure
+    class="research-visual product-scene"
+    @mouseenter="interactionHeld = true"
+    @mouseleave="interactionHeld = false"
+    @focusin="interactionHeld = true"
+    @focusout="releaseFocusPause"
+  >
     <header class="product-scene-heading">
-      <span><i /> {{ fullName || 'AIR × GROUND' }}</span
-      ><span>{{ displayName || '空地协同' }}</span>
+      <span><i /> {{ fullName || 'AIR × GROUND' }}</span>
+      <span>{{ displayName || '空地协同' }}</span>
     </header>
     <div class="product-scene-stage">
       <div ref="mount" class="product-scene-canvas" :class="{ 'is-ready': ready }" />
-      <div v-if="!ready" class="product-scene-status" role="status">
+      <div v-if="!ready" class="product-scene-status" role="status" aria-live="polite">
         <span v-if="!failed" class="model-loading-dot" />
-        <p>{{ failed ? '3D 展示暂未加载，请刷新页面重试' : '正在加载三维模型…' }}</p>
+        <div>
+          <p>{{ failed ? '当前 3D 模型加载失败' : '正在加载三维模型…' }}</p>
+          <button v-if="failed" type="button" @click="retryModel"><RotateCw :size="15" />重新加载</button>
+        </div>
       </div>
-      <div v-if="ready" class="product-scene-caption">
-        <strong>Unitree Go2</strong><span>四足机器人 × 自主飞行</span>
+      <div v-if="activeModel" class="product-scene-caption" aria-live="off">
+        <span v-if="hasMultipleModels">MODEL {{ activeIndex + 1 }} / {{ enabledModels.length }}</span>
+        <strong>{{ activeModel.title }}</strong>
+        <small>{{ activeModel.description }}</small>
       </div>
     </div>
     <div class="product-scene-footer">
-      <span><Move :size="14" /> 拖动查看</span>
-      <div>
+      <span><Move :size="14" aria-hidden="true" />拖动查看</span>
+      <div class="product-scene-controls" aria-label="3D 模型轮播控制">
+        <button type="button" :disabled="!hasMultipleModels" aria-label="上一个 3D 模型" @click="changeSlide(-1)">
+          <ChevronLeft :size="17" aria-hidden="true" />
+        </button>
+        <div v-if="hasMultipleModels" class="product-scene-dots" aria-label="选择 3D 模型">
+          <button
+            v-for="(item, index) in enabledModels"
+            :key="item.modelUrl"
+            type="button"
+            :class="{ active: index === activeIndex }"
+            :aria-label="`显示 ${item.title}`"
+            :aria-current="index === activeIndex ? 'true' : undefined"
+            @click="selectModel(index)"
+          >
+            <span />
+          </button>
+        </div>
+        <button type="button" :disabled="!hasMultipleModels" aria-label="下一个 3D 模型" @click="changeSlide(1)">
+          <ChevronRight :size="17" aria-hidden="true" />
+        </button>
         <button
           type="button"
           :disabled="!ready"
-          :aria-label="paused ? '播放模型动画' : '暂停模型动画'"
+          :aria-label="paused ? '播放模型动画和自动轮播' : '暂停模型动画和自动轮播'"
           :aria-pressed="paused"
           @click="paused = !paused"
         >
-          <Play v-if="paused" :size="16" /><Pause v-else :size="16" /></button
-        ><button type="button" :disabled="!ready" aria-label="重置模型视角" @click="resetView()">
-          <RotateCcw :size="16" />
+          <Play v-if="paused" :size="16" aria-hidden="true" />
+          <Pause v-else :size="16" aria-hidden="true" />
+        </button>
+        <button type="button" :disabled="!ready" aria-label="重置模型视角" @click="resetView()">
+          <RotateCcw :size="16" aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -287,7 +428,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   opacity: 0;
-  transition: opacity 0.5s ease;
+  transition: opacity 0.35s ease;
   cursor: grab;
 }
 .product-scene-canvas:active {
@@ -311,74 +452,139 @@ onBeforeUnmount(() => {
   gap: 12px;
   color: var(--color-muted-foreground);
   font-size: 14px;
+  text-align: center;
+}
+.product-scene-status p {
+  margin: 0;
+}
+.product-scene-status button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-primary);
+  background: var(--color-card);
+  cursor: pointer;
 }
 .model-loading-dot {
   width: 8px;
   height: 8px;
   background: #62b9ac;
   border-radius: 50%;
+  animation: model-loading-pulse 1s ease-in-out infinite alternate;
 }
 .product-scene-caption {
   position: absolute;
-  bottom: 22px;
+  bottom: 18px;
   left: 24px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
+  max-width: min(70%, 360px);
   pointer-events: none;
 }
+.product-scene-caption > span {
+  color: var(--color-accent);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
 .product-scene-caption strong {
+  color: var(--color-primary);
   font-size: 20px;
   font-weight: 500;
   letter-spacing: -0.035em;
-  color: var(--color-primary);
 }
-.product-scene-caption span {
-  font-size: 12px;
+.product-scene-caption small {
   color: var(--color-muted-foreground);
+  font-size: 12px;
+  line-height: 1.45;
 }
 .product-scene-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   margin: 0 20px;
-  padding: 10px 0;
+  padding: 8px 0;
   border-top: 1px solid var(--color-border-faint);
   color: var(--color-muted-foreground);
 }
 .product-scene-footer > span {
   display: flex;
+  flex: 0 0 auto;
   gap: 8px;
   align-items: center;
   font-size: 12px;
 }
-.product-scene-footer > div {
+.product-scene-controls {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 0;
 }
-.product-scene-footer button {
-  width: 38px;
-  height: 38px;
+.product-scene-controls > button,
+.product-scene-dots button {
   display: grid;
   place-items: center;
-  background: transparent;
-  color: inherit;
+  width: 44px;
+  height: 44px;
+  padding: 0;
   border: 0;
   border-radius: 50%;
+  color: inherit;
+  background: transparent;
   cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease;
 }
-.product-scene-footer button:hover {
+.product-scene-controls button:hover {
+  color: var(--color-primary);
   background: var(--color-surface-muted);
 }
-.product-scene-footer button:focus-visible {
+.product-scene-controls button:focus-visible,
+.product-scene-status button:focus-visible {
   outline: 2px solid var(--color-secondary);
   outline-offset: 2px;
 }
-.product-scene-footer button:disabled {
-  opacity: 0.4;
+.product-scene-controls button:disabled {
+  opacity: 0.35;
   cursor: default;
 }
-@media (max-width: 430px) {
+.product-scene-dots {
+  display: flex;
+  align-items: center;
+}
+.product-scene-dots button {
+  width: 44px;
+}
+.product-scene-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border);
+  transition:
+    width 0.18s ease,
+    background 0.18s ease;
+}
+.product-scene-dots button.active span {
+  width: 16px;
+  border-radius: 999px;
+  background: var(--color-primary);
+}
+@keyframes model-loading-pulse {
+  to {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+@media (max-width: 620px) {
   .product-scene-stage {
     min-height: 280px;
   }
@@ -386,16 +592,31 @@ onBeforeUnmount(() => {
     padding-inline: 4px;
   }
   .product-scene-caption {
-    left: 8px;
     bottom: 8px;
+    left: 8px;
   }
   .product-scene-footer {
+    align-items: flex-start;
+    flex-direction: column;
     margin-inline: 4px;
+  }
+  .product-scene-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .product-scene-dots {
+    overflow-x: auto;
+    max-width: 156px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .product-scene-canvas {
+  .product-scene-canvas,
+  .product-scene-controls button,
+  .product-scene-dots span {
     transition: none;
+  }
+  .model-loading-dot {
+    animation: none;
   }
 }
 </style>

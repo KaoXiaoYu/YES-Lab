@@ -17,7 +17,7 @@ spring:
     enabled: false
   servlet:
     multipart:
-      max-file-size: 10MB
+      max-file-size: 20MB
       max-request-size: 80MB
 
 server:
@@ -37,6 +37,7 @@ management:
 yeslab:
   storage:
     sponsors-directory: ${YESLAB_SPONSORS_DIRECTORY:./data/sponsors}
+    homepage-models-directory: ${YESLAB_HOMEPAGE_MODELS_DIRECTORY:./data/homepage-models}
     achievements-directory: ${YESLAB_ACHIEVEMENTS_DIRECTORY:./data/achievements}
     projects-directory: ${YESLAB_PROJECTS_DIRECTORY:./data/projects}
     members-directory: ${YESLAB_MEMBERS_DIRECTORY:./data/members}

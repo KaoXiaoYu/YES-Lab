@@ -8,7 +8,7 @@ YES Lab（Yichun Embodied Science）是一个面向高校实验室的开源准�
 
 ## 功能概览
 
-- **公开展示**：实验室介绍、研究方向、成员、项目、竞赛成果、新闻、赞助伙伴与内容管理。
+- **公开展示**：实验室介绍、可替换 3D 模型轮播、研究方向、成员、项目、竞赛成果、新闻、赞助伙伴与内容管理。
 - **账号与权限**：教师、核心学生、普通成员、游客四类角色；JWT 访问令牌与可轮换刷新令牌。
 - **招新管理**：报名、初筛、面试预约与叫号、技能测试占位、试用期和正式成员转换。
 - **成员主页**：公开资料、富文本介绍、头像、项目和获奖成果展示顺序。
@@ -139,6 +139,16 @@ npm run dev
 3. 打开“主页编辑”，维护品牌文案、研究方向、栏目标题、赞助伙伴和展示顺序。
 4. 成员、项目、比赛和新闻的详细数据仍在各自管理模块维护；主页编辑只控制聚合展示。
 
+### 首页 3D 模型轮播
+
+1. 使用教师或核心学生账号进入“主页编辑 → 3D 模型”。
+2. 点击“添加模型”，选择一个 `.glb` 文件。仅支持 GLB 2.0，单个文件最大 20MB；服务端会校验扩展名、MIME 类型、GLB 文件头、版本和声明长度。
+3. 填写公开展示标题与说明，按需启用或停用该项。至少需要保留并启用一个模型，最多配置 8 个。
+4. 使用上移、下移按钮调整轮播顺序，也可以直接替换某一项的 GLB 文件。上传成功后还需要点击页面底部“保存主页内容”才会发布。
+5. 公开首页每 8 秒自动切换。访客可使用上一项、下一项、圆点导航、暂停和重置按钮，也可拖动或用方向键查看；鼠标悬停、键盘焦点和系统“减少动态效果”偏好会暂停自动轮播。
+
+项目内置的 Go2 与 Skydio X2 会作为旧配置的默认两个轮播项。上传模型会自动适配画面尺寸，并播放 GLB 中的第一段动画；未包含动画的模型仍有轻微旋转展示。为控制首页流量和显存，请在导出前压缩网格与纹理，不要把 20MB 上限当作推荐大小。
+
 ### 招新流程
 
 1. 游客注册后填写自己的报名表。
@@ -217,6 +227,8 @@ VITE_API_BASE_URL=https://api.example.com
 | `YESLAB_CORS_ALLOWED_ORIGINS` | 本地地址与已配置站点                          | 跨域来源白名单             |
 | `YESLAB_*_DIRECTORY`          | `./data/...`                                  | 各类上传文件目录           |
 
+首页上传的 GLB 默认保存在 `backend/data/homepage-models/`；生产环境保存到上传卷中的 `homepage-models/`，会被现有上传目录备份和迁移流程一并处理。
+
 完整配置以 [`application.yml`](backend/src/main/resources/application.yml) 和 [`application-prod.yml`](backend/src/main/resources/application-prod.yml) 为准。生产环境变量示例位于 [`deploy/.env.production.example`](deploy/.env.production.example)。
 
 不要提交 `.env.local`、`deploy/.env.production`、数据库、上传文件、令牌或真实账号信息；这些路径已由 `.gitignore` 排除。
@@ -233,7 +245,206 @@ VITE_API_BASE_URL=https://api.example.com
 
 仓库提供面向 Ubuntu 24.04 的完整部署基线：GitHub Actions 在 `main` 分支通过检查后构建 Web/API 镜像并发布到 GHCR，服务器通过 Docker Compose 运行 MySQL、Spring Boot 和 Caddy。
 
-生产部署涉及域名、HTTPS、镜像权限、数据库密钥、首次管理员、备份和回滚。请不要只复制 README 中的本地命令上线，按[正式部署手册](docs/production-deployment.md)逐项执行。
+```text
+推送 main
+   ↓
+GitHub Actions：前端检查 + 后端测试
+   ↓
+构建并发布 Web/API 镜像（latest + 提交 SHA）
+   ↓
+服务器 deploy.sh：备份 → 更新代码 → 拉取镜像
+   ↓
+MySQL → API/Flyway → 健康检查 → Web/Caddy
+```
+
+生产部署涉及域名、HTTPS、镜像权限、数据库密钥、首次管理员、备份和回滚。下面给出完整操作入口；首次上线和数据恢复仍应同时对照[正式部署手册](docs/production-deployment.md)。
+
+### 服务器要求
+
+- Ubuntu 24.04 LTS；其他发行版需要手动安装并验证 Docker。
+- 建议至少 2 核 CPU、2 GB 内存、40 GB 磁盘，并配置 swap。
+- 一个已经解析到服务器的域名。
+- 云安全组开放 TCP 22、80、443 和 UDP 443，不开放 3306、8080。
+- 可读取仓库的 Deploy Key；私有 GHCR 镜像还需要具有 `read:packages` 权限的 classic PAT。
+
+服务器不需要安装 Java、Node.js、Maven、MySQL 或 Caddy，它们都在容器或构建流水线中运行。
+
+部署 Fork 时，需要把克隆地址、`.github/workflows/ci-images.yml` 中的 GHCR 命名空间，以及生产环境中的 `YESLAB_API_IMAGE`、`YESLAB_WEB_IMAGE` 和 `docker login` 用户名替换为自己的 GitHub 账号；GHCR 镜像路径必须使用小写。
+
+### 首次部署到 Ubuntu 24.04
+
+以下操作在服务器的 root shell 中执行。先创建只读 Deploy Key：
+
+```bash
+apt-get update
+apt-get install -y git
+install -d -m 700 /root/.ssh
+ssh-keygen -t ed25519 -C 'yes-lab-production' -f /root/.ssh/yeslab_deploy -N ''
+cat /root/.ssh/yeslab_deploy.pub
+```
+
+将输出的 `.pub` 公钥添加到 GitHub 仓库的 **Settings → Deploy keys**，不要勾选写权限。然后测试并克隆：
+
+```bash
+ssh -i /root/.ssh/yeslab_deploy -o IdentitiesOnly=yes -T git@github.com
+GIT_SSH_COMMAND="ssh -i /root/.ssh/yeslab_deploy -o IdentitiesOnly=yes" \
+  git clone git@github.com:KaoXiaoYu/YES-Lab.git /opt/yes-lab
+git -C /opt/yes-lab config core.sshCommand \
+  "ssh -i /root/.ssh/yeslab_deploy -o IdentitiesOnly=yes"
+```
+
+先运行幂等引导脚本，把示例域名换成真实域名：
+
+```bash
+cd /opt/yes-lab
+./deploy/scripts/bootstrap-ubuntu.sh \
+  --domain lab.example.edu.cn \
+  --admin-user teacher \
+  --admin-name '系统管理员' \
+  --admin-code T-001
+```
+
+脚本会安装 Docker、创建 2 GB swap、生成生产密钥和仓库外数据目录。若 GHCR 镜像是私有的，首次运行通常会在镜像拉取阶段提示 `unauthorized` 或 `denied` 并安全停止；此时 Docker 已经安装，可以用同一个 Linux 用户登录镜像仓库：
+
+```bash
+read -rsp 'GitHub PAT: ' GHCR_TOKEN
+echo
+printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u KaoXiaoYu --password-stdin
+unset GHCR_TOKEN
+```
+
+PAT 不应写入命令、配置文件或聊天记录。若镜像已经设为公开，可以跳过登录。
+
+登录成功后原样重跑引导脚本：
+
+```bash
+cd /opt/yes-lab
+./deploy/scripts/bootstrap-ubuntu.sh \
+  --domain lab.example.edu.cn \
+  --admin-user teacher \
+  --admin-name '系统管理员' \
+  --admin-code T-001
+```
+
+脚本会继续启动 MySQL/API/Web、创建首个教师管理员，并配置每天约 03:30 的自动备份。脚本最后显示的随机管理员密码只出现于终端，请立即保存到密码管理器。
+
+引导脚本可以重复运行，已有 `deploy/.env.production`、数据库、上传文件和账号密码不会被覆盖。不要为了重试而删除 `/opt/yes-lab` 或 `/srv/yeslab/data`。
+
+### 服务器启动、停止与查看状态
+
+所有命令都在 `/opt/yes-lab` 执行：
+
+```bash
+cd /opt/yes-lab
+
+# 启动全部服务并等待健康检查
+docker compose --env-file deploy/.env.production \
+  up -d --wait --wait-timeout 240
+
+# 查看容器状态
+docker compose --env-file deploy/.env.production ps
+
+# 查看 API 或 Web 日志；Ctrl+C 退出日志，不会停止容器
+docker compose --env-file deploy/.env.production logs --tail 200 -f api
+docker compose --env-file deploy/.env.production logs --tail 200 -f web
+
+# 停止业务服务但保留容器、数据库和上传文件
+docker compose --env-file deploy/.env.production stop
+
+# 单独重启 API
+docker compose --env-file deploy/.env.production restart api
+```
+
+`restart` 只重启当前容器，不会拉取新镜像或应用新的环境变量；发布代码请使用下一节的 `deploy.sh`。Compose 已设置 `restart: unless-stopped`，Docker 服务和机器正常重启后容器会自动恢复。若此前手工执行过 `stop`，需要再次执行 `up -d`。
+
+不要执行 `docker compose down -v`；`-v` 会删除 Caddy 命名卷。也不要删除 `/srv/yeslab/data`，其中保存正式 MySQL 与上传文件。
+
+### 在线更新
+
+推荐通过“提交 SHA 镜像”更新，而不是让服务器现场编译：
+
+1. 在开发机完成修改并运行 `npm run check`、`cd backend && ./mvnw test`。
+2. 提交并推送到 `main`，等待 GitHub Actions 的 **Test and publish images** 全部成功。
+3. 在 GitHub 提交页面复制本次完整的 40 位提交 SHA。
+4. SSH 登录服务器，将 `deploy/.env.production` 中的 `YESLAB_IMAGE_TAG` 改为该 SHA。
+5. 执行发布脚本并完成上线检查。
+
+服务器命令：
+
+```bash
+cd /opt/yes-lab
+nano deploy/.env.production
+# 将 YESLAB_IMAGE_TAG=latest 改为 YESLAB_IMAGE_TAG=本次完整提交SHA
+
+./deploy/scripts/deploy.sh
+```
+
+发布脚本会自动：
+
+- 拒绝覆盖服务器仓库中的未提交修改；
+- 在更新前备份 MySQL 和上传目录；
+- 以 `git merge --ff-only` 更新 `main`；
+- 校验 Compose 配置并拉取指定 SHA 镜像；
+- 先启动 MySQL，再启动 API 并执行 Flyway；
+- API 健康检查通过后才更新 Web。
+
+更新结束后检查：
+
+```bash
+docker compose --env-file deploy/.env.production ps
+docker compose --env-file deploy/.env.production logs --tail 120 api
+curl --fail https://lab.example.edu.cn/actuator/health
+```
+
+还应人工检查首页、登录、成员头像、项目封面、竞赛图片以及一个管理员页面。不要只凭容器显示 `running` 判断发布成功。
+
+### 手动备份与自动备份
+
+执行一次完整备份：
+
+```bash
+cd /opt/yes-lab
+./deploy/scripts/backup.sh
+```
+
+备份包含 MySQL 逻辑 SQL、完整上传目录和 SHA-256 校验文件，默认写入 `/srv/yeslab/backups/<UTC时间>/` 并保留 7 天。
+
+检查自动备份：
+
+```bash
+systemctl status yeslab-backup.timer
+journalctl -u yeslab-backup.service --since today
+ls -lah /srv/yeslab/backups
+```
+
+本机备份不能替代异地备份。建议把备份同步到学校存储或私有对象存储，并至少每月在临时数据库中做一次恢复演练。
+
+### 应用版本回滚
+
+如果新 API 未通过健康检查，发布脚本不会切换 Web。回滚前先找到上一次验证通过的提交 SHA，然后修改生产环境文件：
+
+```bash
+cd /opt/yes-lab
+nano deploy/.env.production
+# 将 YESLAB_IMAGE_TAG 改回上一次完整提交 SHA
+
+docker compose --env-file deploy/.env.production pull api web
+docker compose --env-file deploy/.env.production up -d --wait --wait-timeout 240
+docker compose --env-file deploy/.env.production ps
+```
+
+应用镜像回滚不会自动撤销 Flyway 数据库迁移。所有迁移都应保持向前兼容；如果必须回退数据库，应停止 Web/API、校验备份，并按[正式部署手册的恢复流程](docs/production-deployment.md#6-备份验证与恢复原则)人工处理，不能直接修改 Flyway 历史或已执行 SQL。
+
+### 常见服务器问题
+
+| 现象                            | 常见原因                                                    | 处理                                                                |
+| ------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------- |
+| `unauthorized` / `denied`       | 当前 Linux 用户未登录私有 GHCR，或 PAT 缺少 `read:packages` | 使用实际部署用户重新执行 `docker login ghcr.io`                     |
+| `Permission denied (publickey)` | Deploy Key 未绑定、使用了错误私钥或仓库 SSH 配置缺失        | 检查 `.pub` 是否添加到目标仓库，并重新运行 `ssh -T`                 |
+| API `unhealthy`                 | 数据库未就绪、Flyway 失败、配置缺失或实体与表结构不匹配     | 查看 `logs --tail 200 api`，不要改回 `ddl-auto=update`              |
+| HTTPS 无法访问                  | DNS 尚未生效或 80/443 被安全组拦截                          | 核对 A/AAAA 记录、TCP 80/443 和 Caddy 日志                          |
+| 磁盘持续增长                    | 上传文件、备份或 Docker 日志累积                            | 检查 `df -h`、备份留存和 `/srv/yeslab/data`，不要直接删除数据库目录 |
+| 服务器仓库有未提交修改          | 线上直接改过受 Git 管理的文件                               | 先审查并妥善保存改动，保持生产仓库只通过发布流程更新                |
 
 ## 文档索引
 

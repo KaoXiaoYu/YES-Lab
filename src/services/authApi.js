@@ -484,3 +484,9 @@ export function uploadSponsorLogo(logo) {
   form.append('logo', logo)
   return formRequest('/api/v1/admin/homepage/sponsors/logo', { method: 'POST', body: form })
 }
+
+export function uploadHomepageModel(model) {
+  const form = new FormData()
+  form.append('model', model)
+  return formRequest('/api/v1/admin/homepage/models', { method: 'POST', body: form })
+}

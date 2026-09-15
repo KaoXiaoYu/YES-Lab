@@ -104,11 +104,18 @@ public class HomepageContentService {
         HomepageModels.HomepageDisplayOptions display = normalizeDisplayOptions(
                 content.display(), advisorIds, content.featuredMemberProfileIds(), content.featuredProjectIds()
         );
+        List<HomepageModels.HeroModelItem> heroModels = content.heroModels() == null
+                ? HomepageModels.defaultHeroModels()
+                : content.heroModels().stream()
+                .map(item -> new HomepageModels.HeroModelItem(
+                        item.title(), item.description(), item.modelUrl(), defaultBoolean(item.enabled(), true)
+                ))
+                .toList();
         return new HomepageModels.HomepageContent(
                 profile, sections, proofItems, List.copyOf(content.updates()),
                 List.copyOf(content.awards()), List.copyOf(content.sponsors()), List.copyOf(content.externalLinks()),
                 legacyAdvisorId, advisorIds, unique(content.featuredMemberProfileIds()),
-                unique(content.featuredProjectIds()), display
+                unique(content.featuredProjectIds()), display, heroModels
         );
     }
 
@@ -233,6 +240,10 @@ public class HomepageContentService {
             }
             if (link.url() != null && !link.url().isBlank()) validateUrl(link.url(), "外部入口", false);
         });
+        if (content.heroModels().stream().noneMatch(item -> Boolean.TRUE.equals(item.enabled()))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "至少启用一个首页 3D 模型");
+        }
+        content.heroModels().forEach(item -> validateHeroModelUrl(item.modelUrl()));
     }
 
     private void validateEnabledNavigationUrl(Boolean enabled, String value, String label) {
@@ -256,6 +267,23 @@ public class HomepageContentService {
             if (!isHttp || uri.getHost() == null || uri.getHost().isBlank()) throw new IllegalArgumentException();
         } catch (IllegalArgumentException error) {
             throw new ApiException(HttpStatus.BAD_REQUEST, label + "地址需使用 http、https" + (allowRelative ? " 或站内绝对路径" : ""));
+        }
+    }
+
+    private void validateHeroModelUrl(String value) {
+        boolean bundledModel = value.matches("^/models/[A-Za-z0-9._-]+\\.glb$");
+        boolean uploadedModel = false;
+        String uploadedPrefix = "/api/v1/public/homepage/models/";
+        if (value.startsWith(uploadedPrefix)) {
+            try {
+                java.util.UUID.fromString(value.substring(uploadedPrefix.length()));
+                uploadedModel = true;
+            } catch (IllegalArgumentException ignored) {
+                // The shared validation message below is clearer for an administrator.
+            }
+        }
+        if (!bundledModel && !uploadedModel) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "3D 模型必须使用后台上传的 GLB 文件或项目内置模型");
         }
     }
 

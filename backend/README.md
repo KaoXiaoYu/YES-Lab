@@ -36,9 +36,12 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 
 - 健康检查：`GET /actuator/health`
 - 公开首页：`GET /api/v1/public/home`
+- 公开首页 3D 模型：`GET /api/v1/public/homepage/models/{id}`
 - 当前账号：`GET /api/v1/auth/me`
 
 本地配置默认启用 H2 文件数据库，数据写入 `backend/data/`。生产环境必须启用 `prod` profile，并提供 MySQL、JWT、CORS 和持久化上传目录配置。
+
+具有 `CONTENT_MANAGE` 权限的账号可通过 `POST /api/v1/admin/homepage/models` 上传单个最大 20MB 的 GLB 2.0 文件。返回的公开 URL 需要写入主页配置并保存后才会进入轮播；文件默认保存在 `data/homepage-models/`。
 
 ## 测试与构建
 

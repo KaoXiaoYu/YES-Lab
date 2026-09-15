@@ -220,6 +220,20 @@ const defaultHomepageContent = {
     { platform: 'wechat', label: '微信公众号', url: '', enabled: false },
     { platform: 'douyin', label: '抖音', url: '', enabled: false },
   ],
+  heroModels: [
+    {
+      title: 'Unitree Go2',
+      description: '四足机器人 · 具身智能研究平台',
+      modelUrl: '/models/go2.glb',
+      enabled: true,
+    },
+    {
+      title: 'Skydio X2',
+      description: '自主飞行 · 空中感知平台',
+      modelUrl: '/models/skydio-x2.glb',
+      enabled: true,
+    },
+  ],
   featuredAdvisorProfileIds: [],
   display: {
     showProjects: true,
@@ -278,6 +292,7 @@ function normalizeHomepageContent(value) {
       return { ...item, metric, target: item.target || proofTargets[metric] }
     }),
     externalLinks: source.externalLinks || defaultHomepageContent.externalLinks,
+    heroModels: Array.isArray(source.heroModels) ? source.heroModels : defaultHomepageContent.heroModels,
     featuredAdvisorProfileIds,
     display: {
       ...defaultHomepageContent.display,
@@ -665,7 +680,12 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <ResearchVisual v-if="homepageReady" :full-name="profile.fullName" :display-name="profile.displayName" />
+        <ResearchVisual
+          v-if="homepageReady"
+          :full-name="profile.fullName"
+          :display-name="profile.displayName"
+          :models="homepageContent.heroModels"
+        />
       </div>
 
       <div class="hero-directory" data-reveal>

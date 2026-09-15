@@ -5,6 +5,7 @@ import {
   Award,
   Building2,
   Check,
+  Cuboid,
   ExternalLink,
   Eye,
   FileText,
@@ -15,6 +16,7 @@ import {
   Save,
   Search,
   Trash2,
+  Upload,
   UsersRound,
 } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
@@ -24,12 +26,14 @@ import {
   listMembers,
   listProjects,
   updateHomepageContent,
+  uploadHomepageModel,
   uploadSponsorLogo,
 } from '../services/authApi'
 import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const tabs = [
   { id: 'identity', label: '品牌与首屏', icon: LayoutTemplate },
+  { id: 'models', label: '3D 模型', icon: Cuboid },
   { id: 'sections', label: '栏目文案', icon: FileText },
   { id: 'display', label: '展示选择', icon: Eye },
   { id: 'proof', label: '概览与比赛', icon: Award },
@@ -66,8 +70,11 @@ const projects = ref([])
 const loading = ref(true)
 const saving = ref(false)
 const uploadingLogo = ref(false)
+const uploadingModelIndex = ref(-1)
 const uploadMessage = ref('')
 const uploadError = ref('')
+const modelUploadMessage = ref('')
+const modelUploadError = ref('')
 const message = ref('')
 const errorMessage = ref('')
 const updatedAt = ref(null)
@@ -105,6 +112,7 @@ onMounted(async () => {
     content.value = structuredClone(homepage.content)
     content.value.featuredAdvisorProfileIds ||= content.value.advisorProfileId ? [content.value.advisorProfileId] : []
     content.value.display.advisorLimit ||= 6
+    content.value.heroModels ||= []
     members.value = memberData
     projects.value = projectData
     updatedAt.value = homepage.updatedAt
@@ -187,6 +195,10 @@ function addSponsor() {
   })
 }
 
+function addHeroModel() {
+  content.value.heroModels.push({ title: '', description: '', modelUrl: '', enabled: true })
+}
+
 function addLink() {
   content.value.externalLinks.push({
     platform: 'website',
@@ -218,8 +230,31 @@ async function chooseSponsorLogo(item, event) {
   }
 }
 
+async function chooseHomepageModel(item, index, event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+  modelUploadError.value = ''
+  modelUploadMessage.value = ''
+  if (!file.name.toLocaleLowerCase().endsWith('.glb') || file.size > 20 * 1024 * 1024) {
+    modelUploadError.value = '请选择不超过 20MB 的 GLB 2.0 模型文件。'
+    return
+  }
+  uploadingModelIndex.value = index
+  try {
+    const uploaded = await uploadHomepageModel(file)
+    item.modelUrl = uploaded.modelUrl
+    if (!item.title) item.title = file.name.replace(/\.glb$/i, '')
+    modelUploadMessage.value = '模型已上传，请填写展示信息并保存整份主页配置。'
+  } catch (error) {
+    modelUploadError.value = error.message
+  } finally {
+    uploadingModelIndex.value = -1
+  }
+}
+
 async function save() {
-  if (uploadingLogo.value) return
+  if (uploadingLogo.value || uploadingModelIndex.value >= 0) return
   saving.value = true
   message.value = ''
   errorMessage.value = ''
@@ -383,6 +418,92 @@ function formatTime(value) {
               </article>
             </div>
           </div>
+        </section>
+
+        <section v-show="activeTab === 'models'" class="homepage-editor-section">
+          <header>
+            <p>3D / MODEL CAROUSEL</p>
+            <h2>首屏 3D 模型轮播</h2>
+            <span>每个轮播项使用一个 GLB 2.0 模型；公开首页会按下方顺序自动切换。</span>
+          </header>
+          <div class="homepage-section-action">
+            <span>最多 8 项，单个文件不超过 20MB；建议压缩纹理和网格以缩短首屏加载时间。</span>
+            <button
+              type="button"
+              :disabled="content.heroModels.length >= 8 || uploadingModelIndex >= 0 || saving"
+              @click="addHeroModel"
+            >
+              <Plus :size="16" aria-hidden="true" />添加模型
+            </button>
+          </div>
+          <p v-if="modelUploadMessage" class="save-message" role="status">{{ modelUploadMessage }}</p>
+          <p v-if="modelUploadError" class="form-alert" role="alert">{{ modelUploadError }}</p>
+          <article
+            v-for="(item, index) in content.heroModels"
+            :key="`${item.modelUrl}-${index}`"
+            class="homepage-model-editor"
+          >
+            <header>
+              <div>
+                <span>{{ String(index + 1).padStart(2, '0') }}</span>
+                <h3>{{ item.title || '未命名模型' }}</h3>
+              </div>
+              <div class="row-actions">
+                <button
+                  type="button"
+                  :disabled="index === 0 || uploadingModelIndex >= 0"
+                  aria-label="上移 3D 模型"
+                  @click="move(content.heroModels, index, -1)"
+                >
+                  <ArrowUp :size="15" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  :disabled="index === content.heroModels.length - 1 || uploadingModelIndex >= 0"
+                  aria-label="下移 3D 模型"
+                  @click="move(content.heroModels, index, 1)"
+                >
+                  <ArrowDown :size="15" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  :disabled="content.heroModels.length <= 1 || uploadingModelIndex >= 0"
+                  aria-label="删除 3D 模型"
+                  @click="remove(content.heroModels, index)"
+                >
+                  <Trash2 :size="15" aria-hidden="true" />
+                </button>
+              </div>
+            </header>
+            <div class="homepage-model-grid">
+              <div class="homepage-model-upload">
+                <Cuboid :size="32" aria-hidden="true" />
+                <div>
+                  <strong>{{ item.modelUrl ? '模型文件已就绪' : '尚未上传模型' }}</strong>
+                  <small>{{ item.modelUrl || '请选择 GLB 2.0 文件' }}</small>
+                </div>
+                <label>
+                  <Upload :size="16" aria-hidden="true" />
+                  {{ item.modelUrl ? '替换 GLB' : '上传 GLB' }}
+                  <input
+                    type="file"
+                    accept=".glb,model/gltf-binary,application/octet-stream"
+                    :disabled="uploadingModelIndex >= 0 || saving"
+                    @change="chooseHomepageModel(item, index, $event)"
+                  />
+                </label>
+                <span v-if="uploadingModelIndex === index" role="status">上传并校验中…</span>
+              </div>
+              <div class="homepage-field-grid">
+                <label>展示标题<input v-model.trim="item.title" required maxlength="80" /></label>
+                <label class="homepage-inline-switch">
+                  <input v-model="item.enabled" type="checkbox" /><span>参与公开轮播</span>
+                </label>
+                <label class="full"> 展示说明<input v-model.trim="item.description" required maxlength="240" /> </label>
+              </div>
+            </div>
+          </article>
+          <p class="homepage-mode-note">至少保留并启用一个模型。上传完成后仍需点击页面底部“保存主页内容”才会公开。</p>
         </section>
 
         <section v-show="activeTab === 'sections'" class="homepage-editor-section">
@@ -1111,7 +1232,7 @@ function formatTime(value) {
           <div><strong>保存整份主页配置</strong><span>所有分区会作为一个版本同时更新。</span></div>
           <a href="/" target="_blank" rel="noopener noreferrer"
             >预览公开首页 <ExternalLink :size="16" aria-hidden="true" /></a
-          ><button class="portal-primary" type="submit" :disabled="saving || uploadingLogo">
+          ><button class="portal-primary" type="submit" :disabled="saving || uploadingLogo || uploadingModelIndex >= 0">
             <Save :size="17" aria-hidden="true" />{{ saving ? '保存中…' : '保存主页内容' }}
           </button>
         </footer>

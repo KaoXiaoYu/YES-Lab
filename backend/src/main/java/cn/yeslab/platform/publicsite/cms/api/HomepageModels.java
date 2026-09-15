@@ -28,7 +28,8 @@ public final class HomepageModels {
             @Size(max = 6) List<@NotNull UUID> featuredAdvisorProfileIds,
             @NotNull @Size(max = 12) List<UUID> featuredMemberProfileIds,
             @NotNull @Size(max = 12) List<UUID> featuredProjectIds,
-            @Valid HomepageDisplayOptions display
+            @Valid HomepageDisplayOptions display,
+            @Size(min = 1, max = 8) List<@Valid HeroModelItem> heroModels
     ) {
         public HomepageContent(
                 ProfileContent profile,
@@ -43,7 +44,7 @@ public final class HomepageModels {
                 List<UUID> featuredProjectIds
         ) {
             this(profile, sections, proofItems, updates, awards, sponsors, externalLinks,
-                    advisorProfileId, null, featuredMemberProfileIds, featuredProjectIds, null);
+                    advisorProfileId, null, featuredMemberProfileIds, featuredProjectIds, null, null);
         }
 
         public HomepageContent(
@@ -60,7 +61,26 @@ public final class HomepageModels {
                 HomepageDisplayOptions display
         ) {
             this(profile, sections, proofItems, updates, awards, sponsors, externalLinks,
-                    advisorProfileId, null, featuredMemberProfileIds, featuredProjectIds, display);
+                    advisorProfileId, null, featuredMemberProfileIds, featuredProjectIds, display, null);
+        }
+
+        public HomepageContent(
+                ProfileContent profile,
+                PageSections sections,
+                List<ProofItem> proofItems,
+                List<UpdateItem> updates,
+                List<AwardItem> awards,
+                List<SponsorItem> sponsors,
+                List<ExternalLinkItem> externalLinks,
+                UUID advisorProfileId,
+                List<UUID> featuredAdvisorProfileIds,
+                List<UUID> featuredMemberProfileIds,
+                List<UUID> featuredProjectIds,
+                HomepageDisplayOptions display
+        ) {
+            this(profile, sections, proofItems, updates, awards, sponsors, externalLinks,
+                    advisorProfileId, featuredAdvisorProfileIds, featuredMemberProfileIds,
+                    featuredProjectIds, display, null);
         }
     }
 
@@ -261,6 +281,14 @@ public final class HomepageModels {
     ) {
     }
 
+    public record HeroModelItem(
+            @NotBlank @Size(max = 80) String title,
+            @NotBlank @Size(max = 240) String description,
+            @NotBlank @Size(max = 800) String modelUrl,
+            Boolean enabled
+    ) {
+    }
+
     public record HomepageAdminView(HomepageContent content, Instant updatedAt, String updatedBy) {
     }
 
@@ -327,7 +355,8 @@ public final class HomepageModels {
                 List.of(),
                 List.of(),
                 List.of(),
-                defaultDisplayOptions()
+                defaultDisplayOptions(),
+                defaultHeroModels()
         );
     }
 
@@ -345,6 +374,13 @@ public final class HomepageModels {
                 new AboutFeatureItem("真实问题驱动", "从无人系统的真实任务出发，把研究目标拆解为可以验证的算法、硬件与系统方案。"),
                 new AboutFeatureItem("跨平台协同", "连接无人机、机器狗与具身智能平台，在异构系统协同中训练完整工程能力。"),
                 new AboutFeatureItem("项目制人才培养", "以竞赛和科研项目贯穿学习路径，让成员在实践、复盘和公开成果中持续成长。")
+        );
+    }
+
+    public static List<HeroModelItem> defaultHeroModels() {
+        return List.of(
+                new HeroModelItem("Unitree Go2", "四足机器人 · 具身智能研究平台", "/models/go2.glb", true),
+                new HeroModelItem("Skydio X2", "自主飞行 · 空中感知平台", "/models/skydio-x2.glb", true)
         );
     }
 }
