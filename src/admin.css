@@ -1,0 +1,1318 @@
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+/*
+ * YES Lab admin workspace
+ *
+ * Tailwind supplies the small layout utilities used by PortalShell. The rules
+ * below deliberately target the existing admin classes so the business forms,
+ * validation, API calls, and permissions remain untouched.
+ */
+.portal-page--admin {
+  --admin-sidebar-width: 252px;
+  --admin-topbar-height: 64px;
+  --admin-bg: #f6f7f9;
+  --admin-card: #ffffff;
+  --admin-card-muted: #f9fafb;
+  --admin-foreground: #18181b;
+  --admin-muted: #667085;
+  --admin-subtle: #98a2b3;
+  --admin-border: #e4e7ec;
+  --admin-border-strong: #d0d5dd;
+  --admin-primary: #172033;
+  --admin-primary-hover: #25314a;
+  --admin-accent: #2563eb;
+  --admin-accent-soft: #eff6ff;
+  --admin-danger: #b42318;
+  --admin-danger-soft: #fff4f2;
+  --admin-success: #067647;
+  --admin-success-soft: #ecfdf3;
+  min-height: 100vh;
+  color: var(--admin-foreground);
+  background: var(--admin-bg);
+  font-family:
+    Inter,
+    'Noto Sans SC',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+:root[data-theme='dark'] .portal-page--admin {
+  --admin-bg: #0d1117;
+  --admin-card: #141a23;
+  --admin-card-muted: #10161f;
+  --admin-foreground: #f2f4f7;
+  --admin-muted: #aab4c3;
+  --admin-subtle: #7c899b;
+  --admin-border: #2a3442;
+  --admin-border-strong: #3a4657;
+  --admin-primary: #edf2f7;
+  --admin-primary-hover: #ffffff;
+  --admin-accent: #7cb5ff;
+  --admin-accent-soft: #172b48;
+  --admin-danger: #fda29b;
+  --admin-danger-soft: #351b1f;
+  --admin-success: #75e0a7;
+  --admin-success-soft: #143329;
+}
+
+.portal-page--admin *,
+.portal-page--admin *::before,
+.portal-page--admin *::after {
+  box-sizing: border-box;
+}
+
+.admin-shell-sidebar {
+  position: fixed;
+  z-index: 70;
+  inset: 0 auto 0 0;
+  width: var(--admin-sidebar-width);
+  padding: 18px 14px 14px;
+  color: #d6deea;
+  background: #101725;
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.admin-shell-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  margin-bottom: 24px;
+  padding: 0 8px;
+}
+
+.admin-shell-brand {
+  min-width: 0;
+  gap: 10px;
+  color: #fff;
+  text-decoration: none;
+}
+
+.admin-shell-brand img {
+  width: 56px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.admin-shell-brand span {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  padding-left: 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.admin-shell-brand b {
+  font-size: 13px;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+}
+
+.admin-shell-brand small {
+  color: #8491a5;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.admin-shell-sidebar-head > button {
+  display: none;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #aab4c3;
+  background: transparent;
+}
+
+.admin-shell-nav-label {
+  margin: 0 10px 8px;
+  color: #66748a;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.admin-shell-nav-label.secondary {
+  margin-top: 26px;
+}
+
+.admin-shell-nav {
+  gap: 4px;
+}
+
+.admin-shell-nav a {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 42px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  color: #aab4c3;
+  font-size: 13px;
+  font-weight: 560;
+  text-decoration: none;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.admin-shell-nav a svg {
+  flex: 0 0 auto;
+  color: #7f8ca1;
+  stroke-width: 1.8;
+}
+
+.admin-shell-nav a.router-link-active {
+  color: #fff;
+  background: #25314a;
+}
+
+.admin-shell-nav a.router-link-active::before {
+  position: absolute;
+  left: -4px;
+  width: 3px;
+  height: 18px;
+  border-radius: 999px;
+  background: #7cb5ff;
+  content: '';
+}
+
+.admin-shell-nav a.router-link-active svg {
+  color: #fff;
+}
+
+.admin-shell-nav--secondary a {
+  color: #8794a8;
+}
+
+.admin-shell-user {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  gap: 10px;
+  align-items: center;
+  margin-top: auto;
+  min-height: auto;
+  padding: 14px 8px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+}
+
+.admin-shell-user-avatar,
+.admin-shell-top-avatar {
+  display: grid;
+  overflow: hidden;
+  place-items: center;
+  border-radius: 50%;
+  text-decoration: none;
+}
+
+.admin-shell-user-avatar {
+  width: 36px;
+  height: 36px;
+  color: #dce7f7;
+  background: #2a3852;
+}
+
+.admin-shell-user-avatar img,
+.admin-shell-top-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admin-shell-user-avatar b,
+.admin-shell-top-avatar b {
+  font-size: 12px;
+}
+
+.admin-shell-user > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-shell-user strong,
+.admin-shell-user small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-shell-user strong {
+  color: #f3f6fb;
+  font-size: 12px;
+}
+
+.admin-shell-user small {
+  color: #7f8ca1;
+  font-size: 9px;
+}
+
+.admin-shell-user > button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #8390a3;
+  background: transparent;
+}
+
+.admin-shell-topbar {
+  position: fixed;
+  z-index: 60;
+  inset: 0 0 auto var(--admin-sidebar-width);
+  min-height: var(--admin-topbar-height);
+  padding: 0 28px;
+  border-bottom: 1px solid var(--admin-border);
+  background: color-mix(in srgb, var(--admin-card) 94%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.admin-shell-topbar > div:first-child {
+  gap: 12px;
+  min-width: 0;
+}
+
+.admin-sidebar-trigger {
+  display: none;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  color: var(--admin-muted);
+  background: var(--admin-card);
+}
+
+.admin-shell-context {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.admin-shell-context small {
+  color: var(--admin-subtle);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.admin-shell-context strong {
+  overflow: hidden;
+  color: var(--admin-foreground);
+  font-size: 14px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-shell-actions {
+  gap: 8px;
+}
+
+.portal-page--admin .admin-shell-actions .theme-toggle,
+.portal-page--admin .admin-shell-actions .notification-trigger {
+  width: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border-color: var(--admin-border);
+  color: var(--admin-muted);
+  background: var(--admin-card);
+}
+
+.portal-page--admin .admin-shell-actions .theme-toggle > span:last-child {
+  display: none;
+}
+
+.admin-shell-top-avatar {
+  width: 36px;
+  height: 36px;
+  margin-left: 2px;
+  color: var(--admin-primary);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-card-muted);
+}
+
+.portal-page--admin > .portal-main {
+  width: auto;
+  max-width: none;
+  min-height: 100vh;
+  margin: 0 0 0 var(--admin-sidebar-width);
+  padding: calc(var(--admin-topbar-height) + 34px) clamp(24px, 3vw, 48px) 72px;
+}
+
+.portal-page--admin .portal-heading {
+  display: block;
+  margin: 0 0 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.portal-page--admin .portal-heading p {
+  margin: 0 0 8px;
+  color: var(--admin-accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.portal-page--admin .portal-heading h1 {
+  margin: 0;
+  color: var(--admin-foreground);
+  font-family: inherit;
+  font-size: clamp(28px, 3vw, 38px);
+  font-weight: 680;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+
+.portal-page--admin .portal-heading > span {
+  display: block;
+  max-width: 720px;
+  margin-top: 9px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.portal-page--admin
+  :is(
+    .portal-state,
+    .member-admin-list,
+    .member-admin-detail,
+    .applicant-list,
+    .application-detail,
+    .achievement-admin-list,
+    .achievement-admin-detail,
+    .news-form-card,
+    .news-admin-list,
+    .points-grant-card,
+    .points-ledger-card,
+    .homepage-editor-nav,
+    .homepage-editor-section
+  ) {
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-card);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
+}
+
+.portal-page--admin .portal-state {
+  min-height: 180px;
+  padding: 40px;
+  color: var(--admin-muted);
+}
+
+.portal-page--admin :is(.form-alert, .save-message) {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.portal-page--admin .portal-primary,
+.portal-page--admin :is(.member-admin-submit button, .detail-actions button:not(.danger), .review-approve) {
+  min-height: 40px;
+  padding: 9px 14px;
+  border: 1px solid var(--admin-primary);
+  border-radius: 8px;
+  color: var(--admin-card);
+  background: var(--admin-primary);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
+  font-size: 12px;
+  font-weight: 650;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 120ms ease-out;
+}
+
+:root[data-theme='dark'] .portal-page--admin .portal-primary,
+:root[data-theme='dark']
+  .portal-page--admin
+  :is(.member-admin-submit button, .detail-actions button:not(.danger), .review-approve) {
+  color: #111827;
+}
+
+.portal-page--admin button:active,
+.portal-page--admin a:active {
+  transform: scale(0.98);
+}
+
+.portal-page--admin :is(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
+}
+
+.portal-page--admin :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), textarea, select) {
+  min-height: 40px;
+  padding: 9px 11px;
+  border: 1px solid var(--admin-border-strong);
+  border-radius: 8px;
+  color: var(--admin-foreground);
+  background: var(--admin-card);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.025);
+  font: inherit;
+  font-size: 13px;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.portal-page--admin :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), textarea, select):focus {
+  border-color: var(--admin-accent);
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 14%, transparent);
+}
+
+.portal-page--admin :is(label, legend) {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.portal-page--admin :is(h2, h3, h4) {
+  color: var(--admin-foreground);
+  font-family: inherit;
+  letter-spacing: -0.02em;
+}
+
+/* Member visibility settings stay fully functional, but read as a compact
+   settings panel instead of a second page hero. */
+.portal-page--admin .melina-visibility-manager {
+  margin-bottom: 20px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-card);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
+}
+
+.portal-page--admin .melina-visibility-manager > header {
+  min-height: 76px;
+  padding: 16px 20px;
+  border-bottom-color: var(--admin-border);
+  background: var(--admin-card-muted);
+}
+
+.portal-page--admin .melina-visibility-manager > header > span {
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  color: var(--admin-accent);
+  background: var(--admin-accent-soft);
+}
+
+.portal-page--admin .melina-visibility-manager > header p {
+  margin-bottom: 3px;
+  color: var(--admin-subtle);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.portal-page--admin .melina-visibility-manager > header h2 {
+  color: var(--admin-foreground);
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 670;
+}
+
+.portal-page--admin .melina-visibility-manager > header small {
+  color: var(--admin-muted);
+  font-size: 11px;
+}
+
+.portal-page--admin .melina-visibility-manager > form {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(380px, 1.1fr);
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.portal-page--admin .melina-visibility-manager fieldset {
+  min-width: 0;
+  padding: 14px;
+  border-color: var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-card-muted);
+}
+
+.portal-page--admin .melina-visibility-manager legend {
+  color: var(--admin-muted);
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.portal-page--admin .melina-role-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.portal-page--admin .melina-role-options > label {
+  min-height: 72px;
+  padding: 12px;
+  border-color: var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-card);
+}
+
+.portal-page--admin .melina-role-options strong,
+.portal-page--admin .melina-account-list strong {
+  color: var(--admin-foreground);
+  font-size: 11px;
+}
+
+.portal-page--admin .melina-role-options small,
+.portal-page--admin .melina-account-list small {
+  color: var(--admin-muted);
+  font-size: 9px;
+}
+
+.portal-page--admin .melina-account-search {
+  min-height: 40px;
+  border-color: var(--admin-border-strong);
+  border-radius: 8px;
+  background: var(--admin-card);
+}
+
+.portal-page--admin .melina-account-list {
+  max-height: 198px;
+  border-color: var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-card);
+}
+
+.portal-page--admin .melina-account-list > label {
+  min-height: 58px;
+  border-color: var(--admin-border);
+}
+
+.portal-page--admin .melina-account-list select {
+  width: 116px;
+  min-height: 36px;
+  font-size: 11px;
+}
+
+.portal-page--admin .melina-visibility-manager > form > :is(.form-alert, .save-message),
+.portal-page--admin .melina-visibility-manager footer {
+  grid-column: 1 / -1;
+}
+
+.portal-page--admin .melina-visibility-manager footer {
+  margin: 0;
+  padding-top: 14px;
+  border-top-color: var(--admin-border);
+}
+
+.portal-page--admin .melina-visibility-manager footer p {
+  color: var(--admin-muted);
+  font-size: 10px;
+}
+
+.portal-page--admin .melina-visibility-manager footer button {
+  min-height: 40px;
+  padding: 8px 13px;
+  border-color: var(--admin-primary);
+  color: var(--admin-card);
+  background: var(--admin-primary);
+}
+
+/* Shared master-detail layouts */
+.portal-page--admin :is(.admin-members-layout, .admin-recruitment-layout, .achievement-admin-layout) {
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 20px;
+}
+
+.portal-page--admin :is(.member-admin-list, .applicant-list, .achievement-admin-list) {
+  top: calc(var(--admin-topbar-height) + 20px);
+  max-height: calc(100vh - var(--admin-topbar-height) - 40px);
+  overflow: auto;
+}
+
+.portal-page--admin :is(.member-admin-list > header, .applicant-list > header, .achievement-admin-list > header) {
+  min-height: 72px;
+  padding: 16px 18px;
+  border-bottom-color: var(--admin-border);
+}
+
+.portal-page--admin :is(.member-admin-list h2, .applicant-list h2, .achievement-admin-list h2) {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.portal-page--admin
+  :is(
+    .member-admin-list header p,
+    .member-admin-head p,
+    .applicant-list header p,
+    .detail-head p,
+    .achievement-admin-list header p,
+    .achievement-admin-detail > header p,
+    .news-form-card header p,
+    .news-admin-list header p
+  ) {
+  margin: 0 0 4px;
+  color: var(--admin-subtle);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.portal-page--admin
+  :is(.member-list-actions > span, .applicant-list header > span, .achievement-admin-list > header > span) {
+  width: auto;
+  min-width: 30px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  color: var(--admin-muted);
+  background: var(--admin-card-muted);
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.portal-page--admin .member-list-actions > button {
+  width: 38px;
+  height: 38px;
+  border-color: var(--admin-primary);
+  color: var(--admin-card);
+  background: var(--admin-primary);
+}
+
+.portal-page--admin :is(.member-admin-tools, .applicant-tools) {
+  gap: 8px;
+  padding: 12px;
+  border-bottom-color: var(--admin-border);
+  background: var(--admin-card-muted);
+}
+
+.portal-page--admin :is(.member-admin-tools label:first-child, .applicant-tools label) {
+  min-height: 40px;
+  border-color: var(--admin-border-strong);
+  border-radius: 8px;
+  background: var(--admin-card);
+}
+
+.portal-page--admin
+  :is(.member-admin-tools input, .member-admin-tools select, .applicant-tools input, .applicant-tools select) {
+  min-height: 38px;
+  font-size: 12px;
+}
+
+.portal-page--admin :is(.member-admin-rows > button, .applicant-list > button, .achievement-admin-list > button) {
+  min-height: 68px;
+  padding: 11px 13px;
+  border-bottom-color: var(--admin-border);
+  color: var(--admin-foreground);
+  background: var(--admin-card);
+  transition: background-color 140ms ease;
+}
+
+.portal-page--admin
+  :is(.member-admin-rows > button.active, .applicant-list > button.active, .achievement-admin-list > button.active) {
+  background: var(--admin-accent-soft);
+  box-shadow: inset 3px 0 var(--admin-accent);
+}
+
+.portal-page--admin
+  :is(.member-admin-rows strong, .applicant-list > button strong, .achievement-admin-list > button strong) {
+  color: var(--admin-foreground);
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.portal-page--admin
+  :is(.member-admin-rows small, .applicant-list > button small, .achievement-admin-list > button small) {
+  color: var(--admin-muted);
+  font-size: 10px;
+}
+
+.portal-page--admin :is(.member-admin-detail, .application-detail, .achievement-admin-detail) {
+  padding: clamp(22px, 3vw, 34px);
+}
+
+.portal-page--admin :is(.member-admin-head, .detail-head, .achievement-admin-detail > header) {
+  align-items: center;
+  padding-bottom: 20px;
+  border-bottom-color: var(--admin-border);
+}
+
+.portal-page--admin :is(.member-admin-head h2, .detail-head h2, .achievement-admin-detail > header h2) {
+  margin: 0;
+  font-size: clamp(24px, 2.4vw, 32px);
+  font-weight: 670;
+}
+
+.portal-page--admin :is(.member-admin-form, .detail-grid) {
+  padding-top: 22px;
+}
+
+.portal-page--admin .member-admin-form fieldset {
+  padding: 20px;
+  border-color: var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-card-muted);
+}
+
+.portal-page--admin .member-admin-form legend {
+  color: var(--admin-foreground);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.portal-page--admin :is(.admin-form-grid, .competition-form-grid, .homepage-field-grid) {
+  gap: 16px;
+}
+
+.portal-page--admin
+  :is(
+    .password-settings-card,
+    .admin-form-card,
+    .admin-history,
+    .screening-decision-card,
+    .admin-showcase-review,
+    .achievement-review-box,
+    .achievement-display-box
+  ) {
+  border-color: var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-card-muted);
+  box-shadow: none;
+}
+
+.portal-page--admin .detail-grid {
+  gap: 0;
+  margin: 22px 0;
+  border-color: var(--admin-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--admin-card);
+}
+
+.portal-page--admin .detail-grid article {
+  min-height: 94px;
+  padding: 16px;
+  border-color: var(--admin-border);
+}
+
+.portal-page--admin .screening-decision-card {
+  padding: 20px;
+}
+
+.portal-page--admin .screening-decision-card h3,
+.portal-page--admin :is(.admin-form-card h3, .admin-history h3) {
+  font-family: inherit;
+  font-size: 17px;
+}
+
+.portal-page--admin .screening-decision-option {
+  border-color: var(--admin-border);
+  border-radius: 9px;
+  background: var(--admin-card);
+}
+
+/* Points administration */
+.portal-page--admin .points-rule-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.portal-page--admin .points-rule-grid article {
+  min-height: 92px;
+  padding: 15px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-card);
+  box-shadow: none;
+}
+
+.portal-page--admin .points-rule-grid span {
+  color: var(--admin-subtle);
+}
+
+.portal-page--admin .points-rule-grid strong {
+  color: var(--admin-foreground);
+  font-family: inherit;
+  font-size: 15px;
+}
+
+.portal-page--admin .points-rule-grid small {
+  color: var(--admin-muted);
+}
+
+.portal-page--admin .points-admin-layout {
+  grid-template-columns: minmax(0, 0.95fr) minmax(420px, 1.05fr);
+  gap: 20px;
+}
+
+.portal-page--admin :is(.points-grant-card, .points-ledger-card) {
+  padding: 0;
+  overflow: hidden;
+}
+
+.portal-page--admin :is(.points-grant-card > header, .points-ledger-card > header) {
+  min-height: 72px;
+  margin: 0;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-card-muted);
+}
+
+.portal-page--admin :is(.points-grant-card > header h2, .points-ledger-card > header h2) {
+  font-family: inherit;
+  font-size: 18px;
+}
+
+.portal-page--admin .points-grant-form {
+  gap: 16px;
+  padding: 20px;
+}
+
+.portal-page--admin .points-allocation-editor {
+  padding: 16px;
+  border-color: var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-card-muted);
+}
+
+.portal-page--admin .points-allocation-list article {
+  border-color: var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-card);
+}
+
+.portal-page--admin .points-ledger-list {
+  max-height: min(760px, calc(100vh - 190px));
+  overflow: auto;
+}
+
+.portal-page--admin .points-ledger-list > article {
+  padding: 18px 20px;
+  border-color: var(--admin-border);
+}
+
+.portal-page--admin .points-ledger-list article > header h3 {
+  font-family: inherit;
+  font-size: 14px;
+}
+
+/* Achievements and news */
+.portal-page--admin .achievement-admin-tabs {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding: 4px;
+  border: 1px solid var(--admin-border);
+  border-radius: 9px;
+  background: var(--admin-card-muted);
+}
+
+.portal-page--admin .achievement-admin-tabs button {
+  min-height: 36px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--admin-muted);
+  background: transparent;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.portal-page--admin .achievement-admin-tabs button.active {
+  color: var(--admin-foreground);
+  background: var(--admin-card);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+}
+
+.portal-page--admin .achievement-detail-grid {
+  border-color: var(--admin-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.portal-page--admin .achievement-detail-grid article {
+  border-color: var(--admin-border);
+  background: var(--admin-card-muted);
+}
+
+.portal-page--admin .achievement-review-box,
+.portal-page--admin .achievement-display-box {
+  padding: 20px;
+}
+
+.portal-page--admin .news-admin-layout {
+  grid-template-columns: minmax(0, 0.9fr) minmax(420px, 1.1fr);
+  gap: 20px;
+}
+
+.portal-page--admin :is(.news-form-card, .news-admin-list) {
+  padding: 22px;
+}
+
+.portal-page--admin .news-admin-list article {
+  border-color: var(--admin-border);
+  border-radius: 9px;
+  background: var(--admin-card-muted);
+}
+
+/* Homepage editor */
+.portal-page--admin .homepage-editor {
+  grid-template-columns: 224px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.portal-page--admin .homepage-editor-nav {
+  top: calc(var(--admin-topbar-height) + 20px);
+  padding: 8px;
+  overflow: hidden;
+}
+
+.portal-page--admin .homepage-editor-nav > header {
+  margin: -8px -8px 8px;
+  padding: 17px 18px;
+  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-card-muted);
+}
+
+.portal-page--admin .homepage-editor-nav > header h2 {
+  font-family: inherit;
+  font-size: 16px;
+}
+
+.portal-page--admin .homepage-editor-nav > button {
+  min-height: 40px;
+  margin: 2px 0;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--admin-muted);
+  background: transparent;
+  font-size: 12px;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease;
+}
+
+.portal-page--admin .homepage-editor-nav > button.active {
+  color: var(--admin-foreground);
+  background: var(--admin-accent-soft);
+  box-shadow: inset 3px 0 var(--admin-accent);
+}
+
+.portal-page--admin .homepage-editor-nav > div {
+  margin: 8px -8px -8px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--admin-border);
+  background: var(--admin-card-muted);
+}
+
+.portal-page--admin .homepage-editor-main {
+  min-width: 0;
+}
+
+.portal-page--admin .homepage-editor-section {
+  padding: clamp(22px, 3vw, 32px);
+}
+
+.portal-page--admin .homepage-editor-section > header {
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.portal-page--admin .homepage-editor-section > header h2 {
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 670;
+}
+
+.portal-page--admin
+  :is(
+    .homepage-copy-card,
+    .homepage-selection-card,
+    .homepage-array-block,
+    .homepage-row-card,
+    .homepage-model-editor,
+    .homepage-sponsor-editor,
+    .homepage-link-row
+  ) {
+  border-color: var(--admin-border);
+  border-radius: 10px;
+  background: var(--admin-card-muted);
+  box-shadow: none;
+}
+
+.portal-page--admin .homepage-save-bar {
+  bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--admin-card) 94%, transparent);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.1);
+  backdrop-filter: blur(14px);
+}
+
+.admin-shell-scrim {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .admin-shell-nav a:hover,
+  .admin-shell-user > button:hover,
+  .admin-shell-sidebar-head > button:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .portal-page--admin .portal-primary:hover,
+  .portal-page--admin :is(.member-admin-submit button, .detail-actions button:not(.danger), .review-approve):hover {
+    border-color: var(--admin-primary-hover);
+    background: var(--admin-primary-hover);
+  }
+
+  .portal-page--admin
+    :is(.member-admin-rows > button, .applicant-list > button, .achievement-admin-list > button):hover {
+    background: var(--admin-card-muted);
+  }
+}
+
+@media (max-width: 1180px) {
+  .portal-page--admin :is(.admin-members-layout, .admin-recruitment-layout, .achievement-admin-layout) {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .portal-page--admin .points-rule-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .portal-page--admin .points-admin-layout,
+  .portal-page--admin .news-admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-page--admin .melina-visibility-manager > form {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-page--admin .melina-visibility-manager > form > :is(.form-alert, .save-message),
+  .portal-page--admin .melina-visibility-manager footer {
+    grid-column: 1;
+  }
+
+  .portal-page--admin .points-ledger-list {
+    max-height: none;
+  }
+}
+
+@media (max-width: 960px) {
+  .admin-shell-sidebar {
+    width: min(86vw, 288px);
+    transform: translateX(-100%);
+    transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .admin-shell-sidebar.open {
+    transform: translateX(0);
+  }
+
+  .admin-shell-sidebar-head > button,
+  .admin-sidebar-trigger {
+    display: grid;
+  }
+
+  .admin-shell-scrim {
+    position: fixed;
+    z-index: 65;
+    inset: 0;
+    display: block;
+    border: 0;
+    background: rgba(12, 18, 28, 0.52);
+    backdrop-filter: blur(2px);
+  }
+
+  .admin-shell-topbar {
+    left: 0;
+    padding-inline: 18px;
+  }
+
+  .portal-page--admin > .portal-main {
+    margin-left: 0;
+    padding-inline: 20px;
+  }
+
+  .portal-page--admin :is(.admin-members-layout, .admin-recruitment-layout, .achievement-admin-layout) {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-page--admin :is(.member-admin-list, .applicant-list, .achievement-admin-list) {
+    position: static;
+    max-height: 420px;
+  }
+
+  .portal-page--admin .homepage-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-page--admin .homepage-editor-nav {
+    position: static;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 6px;
+  }
+
+  .portal-page--admin .homepage-editor-nav > header,
+  .portal-page--admin .homepage-editor-nav > div {
+    display: none;
+  }
+
+  .portal-page--admin .homepage-editor-nav > button {
+    flex: 0 0 auto;
+    padding-inline: 12px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 680px) {
+  .portal-page--admin > .portal-main {
+    padding: calc(var(--admin-topbar-height) + 24px) 14px 56px;
+  }
+
+  .admin-shell-topbar {
+    padding-inline: 12px;
+  }
+
+  .admin-shell-context small {
+    display: none;
+  }
+
+  .admin-shell-context strong {
+    max-width: 42vw;
+  }
+
+  .admin-shell-top-avatar {
+    display: none;
+  }
+
+  .portal-page--admin .portal-heading {
+    margin-bottom: 20px;
+  }
+
+  .portal-page--admin .portal-heading h1 {
+    font-size: 26px;
+  }
+
+  .portal-page--admin .portal-heading > span {
+    font-size: 12px;
+  }
+
+  .portal-page--admin
+    :is(
+      .member-admin-detail,
+      .application-detail,
+      .achievement-admin-detail,
+      .news-form-card,
+      .news-admin-list,
+      .homepage-editor-section
+    ) {
+    padding: 18px;
+  }
+
+  .portal-page--admin
+    :is(.member-admin-head, .detail-head, .achievement-admin-detail > header, .screening-decision-card > header) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .portal-page--admin .detail-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .portal-page--admin .points-rule-grid,
+  .portal-page--admin .melina-role-options,
+  .portal-page--admin .screening-decision-options,
+  .portal-page--admin .admin-form-grid,
+  .portal-page--admin .competition-form-grid,
+  .portal-page--admin .homepage-field-grid,
+  .portal-page--admin .achievement-detail-grid,
+  .portal-page--admin .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-page--admin
+    :is(
+      .admin-form-grid .full,
+      .competition-form-grid .full,
+      .homepage-field-grid .full,
+      .achievement-detail-grid article.full,
+      .detail-grid article.full
+    ) {
+    grid-column: 1;
+  }
+
+  .portal-page--admin .points-grant-form {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .portal-page--admin .melina-visibility-manager > header,
+  .portal-page--admin .melina-visibility-manager > form {
+    padding-inline: 14px;
+  }
+
+  .portal-page--admin .melina-account-list > label {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .portal-page--admin .melina-account-list select {
+    width: 100%;
+  }
+
+  .portal-page--admin .points-member-adder {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-page--admin .homepage-save-bar {
+    bottom: 8px;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .portal-page--admin .homepage-save-bar .portal-primary {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell-sidebar,
+  .portal-page--admin button,
+  .portal-page--admin a,
+  .portal-page--admin input,
+  .portal-page--admin textarea,
+  .portal-page--admin select {
+    transition: none !important;
+  }
+
+  .portal-page--admin button:active,
+  .portal-page--admin a:active {
+    transform: none;
+  }
+}

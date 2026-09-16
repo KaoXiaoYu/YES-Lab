@@ -1,9 +1,10 @@
 import { sites } from '@openai/sites-vite-plugin'
+import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  plugins: [vue(), sites()],
+  plugins: [vue(), tailwindcss(), sites()],
   server: {
     host: '0.0.0.0',
     proxy: {
