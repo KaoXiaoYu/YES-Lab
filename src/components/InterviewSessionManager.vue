@@ -305,7 +305,20 @@ function toLocalInput(value) {
               }}
             </h3>
           </div>
-          <strong>{{ session.bookedCount }} / {{ session.capacity }}</strong>
+          <div
+            class="session-booking-summary"
+            :aria-label="`已预约 ${session.bookedCount} 人，容量 ${session.capacity} 人；大一 ${session.firstYearCount ?? 0} 人，大二 ${session.secondYearCount ?? 0} 人`"
+          >
+            <strong>{{ session.bookedCount }} / {{ session.capacity }}</strong>
+            <div class="session-grade-counts" aria-hidden="true">
+              <span
+                >大一 <b>{{ session.firstYearCount ?? 0 }}</b></span
+              >
+              <span
+                >大二 <b>{{ session.secondYearCount ?? 0 }}</b></span
+              >
+            </div>
+          </div>
         </header>
         <div class="session-meta">
           <span><MapPin :size="16" />{{ session.location }}</span

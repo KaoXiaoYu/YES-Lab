@@ -25,16 +25,22 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class InterviewScheduleService {
 
+    private static final ZoneId LAB_TIME_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final Pattern COHORT_YEAR_PATTERN = Pattern.compile("(?<!\\d)(20\\d{2}|\\d{2})\\s*级?(?!\\d)");
     private static final List<InterviewBookingStatus> OPEN_BOOKING_STATUSES = List.of(
             InterviewBookingStatus.WAITING, InterviewBookingStatus.CALLED, InterviewBookingStatus.IN_PROGRESS);
 
@@ -322,17 +328,41 @@ public class InterviewScheduleService {
     }
 
     private InterviewScheduleModels.AdminSessionView toAdminView(InterviewSessionEntity session, AccountEntity operator) {
-        List<InterviewScheduleModels.QueueEntryView> queue = bookings.findBySessionIdOrderByQueueNumberAsc(session.getId()).stream()
+        List<InterviewBookingEntity> sessionBookings = bookings.findBySessionIdOrderByQueueNumberAsc(session.getId());
+        List<InterviewScheduleModels.QueueEntryView> queue = sessionBookings.stream()
                 .map(booking -> new InterviewScheduleModels.QueueEntryView(booking.getId(), booking.getApplication().getId(),
                         booking.getApplication().getName(), booking.getQueueNumber(), booking.getStatus(), booking.getBookedAt()))
                 .toList();
+        LocalDate today = LocalDate.now(LAB_TIME_ZONE);
+        int firstYearCount = (int) sessionBookings.stream()
+                .filter(booking -> studyYear(booking.getApplication().getGrade(), today) == 1)
+                .count();
+        int secondYearCount = (int) sessionBookings.stream()
+                .filter(booking -> studyYear(booking.getApplication().getGrade(), today) == 2)
+                .count();
         List<InterviewScheduleModels.InterviewerView> interviewerViews = session.getInterviewers().stream()
                 .sorted(Comparator.comparing(AccountEntity::getUsername))
                 .map(this::toInterviewer).toList();
         return new InterviewScheduleModels.AdminSessionView(session.getId(), session.getStartAt(), session.getEndAt(),
-                session.getLocation(), session.getCapacity(), queue.size(), session.getStatus(),
+                session.getLocation(), session.getCapacity(), queue.size(), firstYearCount, secondYearCount, session.getStatus(),
                 session.getPublisher().getUsername(), interviewerViews, queue,
                 session.getInterviewers().stream().anyMatch(item -> item.getId().equals(operator.getId())));
+    }
+
+    private static int studyYear(String grade, LocalDate today) {
+        if (grade == null || grade.isBlank()) return 0;
+        String normalized = grade.replaceAll("\\s+", "");
+        if (normalized.contains("大一") || normalized.contains("一年级")) return 1;
+        if (normalized.contains("大二") || normalized.contains("二年级")) return 2;
+
+        Matcher matcher = COHORT_YEAR_PATTERN.matcher(normalized);
+        if (!matcher.find()) return 0;
+        String yearText = matcher.group(1);
+        int cohortYear = Integer.parseInt(yearText);
+        if (yearText.length() == 2) cohortYear += 2000;
+        int academicStartYear = today.getMonthValue() >= 9 ? today.getYear() : today.getYear() - 1;
+        int calculatedYear = academicStartYear - cohortYear + 1;
+        return calculatedYear == 1 || calculatedYear == 2 ? calculatedYear : 0;
     }
 
     private InterviewScheduleModels.ApplicantSessionView toApplicantSession(InterviewSessionEntity session) {

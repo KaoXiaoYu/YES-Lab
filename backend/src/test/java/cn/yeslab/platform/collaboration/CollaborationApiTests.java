@@ -19,6 +19,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -63,8 +65,10 @@ class CollaborationApiTests {
         String secondEmail = "interview-two-" + suffix + "@example.com";
         String firstToken = register(firstEmail);
         String secondToken = register(secondEmail);
-        createInterviewApplication(firstEmail, "候选人甲");
-        createInterviewApplication(secondEmail, "候选人乙");
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
+        int academicStartYear = today.getMonthValue() >= 9 ? today.getYear() : today.getYear() - 1;
+        createInterviewApplication(firstEmail, "候选人甲", String.valueOf(academicStartYear));
+        createInterviewApplication(secondEmail, "候选人乙", (academicStartYear - 1) + "级");
 
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
         Instant startAt = Instant.now().plusSeconds(2 * 3600);
@@ -124,6 +128,8 @@ class CollaborationApiTests {
         String called = mvc.perform(post("/api/v1/admin/recruitment/interview-sessions/{id}/call-next", sessionId)
                         .header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.firstYearCount").value(1))
+                .andExpect(jsonPath("$.data.secondYearCount").value(1))
                 .andExpect(jsonPath("$.data.queue[0].status").value("CALLED"))
                 .andReturn().getResponse().getContentAsString();
         String noShowBookingId = JsonPath.read(called, "$.data.queue[0].bookingId");
@@ -340,9 +346,9 @@ class CollaborationApiTests {
                 .andExpect(status().isOk());
     }
 
-    private void createInterviewApplication(String username, String name) {
+    private void createInterviewApplication(String username, String name, String grade) {
         var applicant = accounts.findByUsernameIgnoreCase(username).orElseThrow();
-        var application = new RecruitmentApplicationEntity(applicant, name, "计算机科学", "计科 2501", "2025",
+        var application = new RecruitmentApplicationEntity(applicant, name, "计算机科学", "计科 2501", grade,
                 username, List.of("机器人"), List.of("Java"), "项目经历", List.of("工程实现"));
         application.changeStage(RecruitmentStage.INTERVIEW);
         applications.saveAndFlush(application);

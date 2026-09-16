@@ -6878,9 +6878,38 @@ body.submission-feedback-open {
   color: var(--color-primary);
   font-size: 16px;
 }
-.interview-session-card > header > strong {
+.session-booking-summary {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 7px;
+  justify-items: end;
+}
+.session-booking-summary > strong {
   color: var(--color-accent);
   font-size: 20px;
+}
+.session-grade-counts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.session-grade-counts span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid var(--color-border-faint);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  background: var(--color-card);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.session-grade-counts b {
+  color: var(--color-primary);
+  font-size: 13px;
 }
 .session-status {
   display: inline-flex;
@@ -8130,6 +8159,18 @@ body.submission-feedback-open {
   }
   .interview-session-form > div {
     grid-template-columns: 1fr;
+  }
+  .interview-session-card > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .session-booking-summary {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    justify-items: start;
+  }
+  .session-grade-counts {
+    justify-content: flex-start;
   }
   .interview-queue li {
     grid-template-columns: 42px minmax(0, 1fr);

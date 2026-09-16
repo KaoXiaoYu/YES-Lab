@@ -43,6 +43,8 @@ public final class InterviewScheduleModels {
             String location,
             int capacity,
             int bookedCount,
+            int firstYearCount,
+            int secondYearCount,
             InterviewSessionStatus status,
             String publisherUsername,
             List<InterviewerView> interviewers,
