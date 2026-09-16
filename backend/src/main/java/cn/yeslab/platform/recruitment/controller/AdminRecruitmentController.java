@@ -56,12 +56,12 @@ public class AdminRecruitmentController {
     }
 
     @PatchMapping("/applications/{applicationId}/interview-decision")
-    public ApiResponse<RecruitmentModels.ApplicationView> resolveWaitlist(
+    public ApiResponse<RecruitmentModels.ApplicationView> resolveInterviewDecision(
             Authentication authentication,
             @PathVariable UUID applicationId,
-            @Valid @RequestBody RecruitmentModels.WaitlistResolutionRequest request
+            @Valid @RequestBody RecruitmentModels.InterviewDecisionResolutionRequest request
     ) {
-        return ApiResponse.ok(service.resolveWaitlist(authentication, applicationId, request));
+        return ApiResponse.ok(service.resolveInterviewDecision(authentication, applicationId, request));
     }
 
     @PutMapping("/applications/{applicationId}/password")

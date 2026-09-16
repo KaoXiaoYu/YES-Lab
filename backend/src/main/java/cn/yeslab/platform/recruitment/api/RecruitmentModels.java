@@ -74,7 +74,7 @@ public final class RecruitmentModels {
     ) {
     }
 
-    public record WaitlistResolutionRequest(
+    public record InterviewDecisionResolutionRequest(
             @NotNull InterviewDecision decision,
             @Size(max = 20) List<@NotBlank @Size(max = 80) String> interviewerNames,
             @Size(max = 5000) String opinion
@@ -104,6 +104,7 @@ public final class RecruitmentModels {
             InterviewDecision decision,
             List<String> decisionInterviewerNames,
             String decisionOpinion,
+            boolean finalDecisionAllowed,
             Boolean passed
     ) {
     }

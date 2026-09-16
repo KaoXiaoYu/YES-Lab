@@ -172,6 +172,8 @@ class CollaborationApiTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + firstEmail + "')].interview.decision",
                         hasItem("WAITLIST")))
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + firstEmail
+                        + "')].interview.finalDecisionAllowed", hasItem(true)))
                 .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + firstEmail + "')].interview.passed",
                         hasItem(org.hamcrest.Matchers.nullValue())));
 
@@ -198,6 +200,16 @@ class CollaborationApiTests {
                 .andExpect(jsonPath("$.data.booking.queueNumber").value(4))
                 .andExpect(jsonPath("$.data.booking.currentlyCalledNumber").value(org.hamcrest.Matchers.nullValue()));
 
+        UUID secondApplicationId = applications
+                .findByApplicantId(accounts.findByUsernameIgnoreCase(secondEmail).orElseThrow().getId())
+                .orElseThrow().getId();
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-decision", secondApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"decision\":\"PASSED\",\"interviewerNames\":[\"汤洪\"],"
+                                + "\"opinion\":\"同意录取\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message", containsString("有效面试场次")));
+
         mvc.perform(post("/api/v1/admin/recruitment/interview-sessions/{id}/end-early", sessionId)
                         .header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())
@@ -215,7 +227,31 @@ class CollaborationApiTests {
         mvc.perform(get("/api/v1/admin/recruitment/applications").header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + firstEmail + "')]", hasSize(0)))
-                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + secondEmail + "')]", hasSize(1)));
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + secondEmail + "')]", hasSize(1)))
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + secondEmail
+                        + "')].interview.finalDecisionAllowed", hasItem(true)));
+
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/stage", secondApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"stage\":\"SKILL_TEST\",\"note\":\"绕过补录\",\"linkedQuizId\":null}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("补录面试官姓名和意见")));
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-decision", secondApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"decision\":\"PASSED\"}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-decision", secondApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"decision\":\"PASSED\",\"interviewerNames\":[\"汤洪\",\"范卓轩\"],"
+                                + "\"opinion\":\"场次结束后讨论，同意单独录取\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stage").value("SKILL_TEST"))
+                .andExpect(jsonPath("$.data.interview.decision").value("PASSED"))
+                .andExpect(jsonPath("$.data.interview.decisionOpinion").value("场次结束后讨论，同意单独录取"));
+        mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(secondToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.messages[0].type").value("INTERVIEW_PASSED"))
+                .andExpect(jsonPath("$.data.messages[0].summary").value("场次结束后讨论，同意单独录取"));
 
         assertEquals(1, interviewRetention.purgeExpiredBefore(Instant.now().plusSeconds(1)));
         assertFalse(sessions.existsById(UUID.fromString(sessionId)));

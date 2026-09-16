@@ -10,11 +10,13 @@ import cn.yeslab.platform.identity.repository.MemberProfileRepository;
 import cn.yeslab.platform.identity.service.AuthService;
 import cn.yeslab.platform.notification.service.NotificationService;
 import cn.yeslab.platform.recruitment.api.RecruitmentModels;
-import cn.yeslab.platform.recruitment.model.RecruitmentApplicationEntity;
+import cn.yeslab.platform.recruitment.model.InterviewBookingStatus;
 import cn.yeslab.platform.recruitment.model.InterviewDecision;
+import cn.yeslab.platform.recruitment.model.RecruitmentApplicationEntity;
 import cn.yeslab.platform.recruitment.model.RecruitmentPortfolioImageEntity;
 import cn.yeslab.platform.recruitment.model.RecruitmentStage;
 import cn.yeslab.platform.recruitment.model.RecruitmentStatusHistoryEntity;
+import cn.yeslab.platform.recruitment.repository.InterviewBookingRepository;
 import cn.yeslab.platform.recruitment.repository.RecruitmentApplicationRepository;
 import cn.yeslab.platform.recruitment.repository.RecruitmentPortfolioImageRepository;
 import cn.yeslab.platform.recruitment.repository.RecruitmentStatusHistoryRepository;
@@ -69,6 +71,7 @@ public class RecruitmentService {
     private final RecruitmentApplicationRepository applications;
     private final RecruitmentStatusHistoryRepository histories;
     private final RecruitmentPortfolioImageRepository portfolioImages;
+    private final InterviewBookingRepository interviewBookings;
     private final AccountRepository accounts;
     private final MemberProfileRepository profiles;
     private final AuthService authService;
@@ -80,6 +83,7 @@ public class RecruitmentService {
             RecruitmentApplicationRepository applications,
             RecruitmentStatusHistoryRepository histories,
             RecruitmentPortfolioImageRepository portfolioImages,
+            InterviewBookingRepository interviewBookings,
             AccountRepository accounts,
             MemberProfileRepository profiles,
             AuthService authService,
@@ -90,6 +94,7 @@ public class RecruitmentService {
         this.applications = applications;
         this.histories = histories;
         this.portfolioImages = portfolioImages;
+        this.interviewBookings = interviewBookings;
         this.accounts = accounts;
         this.profiles = profiles;
         this.authService = authService;
@@ -249,6 +254,11 @@ public class RecruitmentService {
     ) {
         AccountEntity operator = authService.requireAccount(authentication);
         RecruitmentApplicationEntity application = requireApplication(applicationId);
+        if (application.getStage() == RecruitmentStage.INTERVIEW
+                && request.stage() == RecruitmentStage.SKILL_TEST
+                && application.getInterviewDecision() != InterviewDecision.PASSED) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "请先补录面试官姓名和意见，再确认面试通过");
+        }
         changeStage(application, request.stage(), operator, normalize(request.note()));
         if (request.stage() == RecruitmentStage.SKILL_TEST) {
             application.setLinkedQuizId(normalize(request.linkedQuizId()));
@@ -319,16 +329,20 @@ public class RecruitmentService {
 
     @PreAuthorize("hasAuthority('RECRUITMENT_MANAGE')")
     @Transactional
-    public RecruitmentModels.ApplicationView resolveWaitlist(
+    public RecruitmentModels.ApplicationView resolveInterviewDecision(
             Authentication authentication,
             UUID applicationId,
-            RecruitmentModels.WaitlistResolutionRequest request
+            RecruitmentModels.InterviewDecisionResolutionRequest request
     ) {
         AccountEntity operator = authService.requireAccount(authentication);
         RecruitmentApplicationEntity application = requireApplication(applicationId);
+        InterviewDecision previousDecision = application.getInterviewDecision();
         if (application.getStage() != RecruitmentStage.INTERVIEW
-                || application.getInterviewDecision() != InterviewDecision.WAITLIST) {
-            throw new ApiException(HttpStatus.CONFLICT, "只有候补/观察中的报名者可以最终改判");
+                || (previousDecision != null && previousDecision != InterviewDecision.WAITLIST)) {
+            throw new ApiException(HttpStatus.CONFLICT, "该报名者当前不能补录最终面试结论");
+        }
+        if (!finalDecisionAllowed(application)) {
+            throw new ApiException(HttpStatus.CONFLICT, "该报名者仍在有效面试场次中，请在对应场次内提交结论");
         }
         if (request.decision() == InterviewDecision.WAITLIST) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "最终结论只能选择通过或未通过");
@@ -346,8 +360,11 @@ public class RecruitmentService {
         boolean passed = request.decision() == InterviewDecision.PASSED;
         application.resolveInterviewDecision(request.decision(),
                 passed ? String.join("、", interviewerNames) : null, passed ? opinion : null);
+        boolean fromWaitlist = previousDecision == InterviewDecision.WAITLIST;
         changeStage(application, passed ? RecruitmentStage.SKILL_TEST : RecruitmentStage.REJECTED,
-                operator, passed ? "候补/观察经面试官讨论后转为面试通过" : "候补/观察转为面试未通过");
+                operator, passed
+                        ? fromWaitlist ? "候补/观察经面试官讨论后转为面试通过" : "面试场次结束后补录为面试通过"
+                        : fromWaitlist ? "候补/观察转为面试未通过" : "面试场次结束后补录为面试未通过");
         notificationService.send(application.getApplicant(), passed ? "INTERVIEW_PASSED" : "INTERVIEW_RESULT",
                 passed ? "你已通过面试" : "面试结果已更新",
                 passed ? opinion : "本轮招新流程已结束。", "/application");
@@ -455,6 +472,7 @@ public class RecruitmentService {
                 application.getInterviewerAccountId(), application.getInterviewerName(), application.getInterviewScore(),
                 application.getInterviewEvaluation(), application.getSuggestedTags(), application.getInterviewDecision(),
                 splitStoredNames(application.getInterviewDecisionInterviewerNames()), application.getInterviewDecisionOpinion(),
+                finalDecisionAllowed(application),
                 application.getInterviewPassed()
         );
         List<RecruitmentModels.PortfolioImageView> images = portfolioImages
@@ -485,6 +503,18 @@ public class RecruitmentService {
     private List<String> splitStoredNames(String value) {
         if (value == null || value.isBlank()) return List.of();
         return java.util.Arrays.stream(value.split("、")).map(String::trim).filter(item -> !item.isBlank()).toList();
+    }
+
+    private boolean finalDecisionAllowed(RecruitmentApplicationEntity application) {
+        if (application.getStage() != RecruitmentStage.INTERVIEW) return false;
+        InterviewDecision decision = application.getInterviewDecision();
+        if (decision == InterviewDecision.WAITLIST) return true;
+        if (decision != null) return false;
+        return interviewBookings.findByApplicationId(application.getId())
+                .map(booking -> booking.getStatus() != InterviewBookingStatus.WAITING
+                        && booking.getStatus() != InterviewBookingStatus.CALLED
+                        && booking.getStatus() != InterviewBookingStatus.IN_PROGRESS)
+                .orElse(true);
     }
 
     private String normalize(String value) {

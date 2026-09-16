@@ -850,6 +850,17 @@
   font-weight: 650;
 }
 
+.portal-page--admin .waitlist-decision-form label > span {
+  color: var(--admin-danger);
+}
+
+.portal-page--admin .waitlist-decision-form small {
+  color: var(--admin-subtle);
+  font-size: 11px;
+  font-weight: 450;
+  line-height: 1.5;
+}
+
 .portal-page--admin .waitlist-decision-form :is(input, textarea) {
   width: 100%;
   border-color: var(--admin-border-strong);

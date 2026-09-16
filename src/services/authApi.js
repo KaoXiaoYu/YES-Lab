@@ -284,7 +284,7 @@ export function saveInterview(applicationId, payload) {
   })
 }
 
-export function resolveWaitlistInterview(applicationId, payload) {
+export function resolveInterviewDecision(applicationId, payload) {
   return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/interview-decision`, {
     method: 'PATCH',
     body: payload,

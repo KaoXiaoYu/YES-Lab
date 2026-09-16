@@ -10,7 +10,7 @@ import {
   listInterviewers,
   listRecruitmentApplications,
   resetRecruitmentPassword,
-  resolveWaitlistInterview,
+  resolveInterviewDecision,
 } from '../services/authApi'
 import { showSubmissionFeedback } from '../services/submissionFeedback'
 
@@ -34,11 +34,13 @@ const successMessage = ref('')
 const query = ref('')
 const stageFilter = ref('ALL')
 const convertForm = reactive({ memberCode: '', skillTags: '' })
-const waitlistForm = reactive({ interviewerNames: '', opinion: '' })
+const decisionForm = reactive({ interviewerNames: '', opinion: '' })
 const passwordWorking = ref(false)
 
 function displayStage(application) {
-  return application?.interview?.decision === 'WAITLIST' ? '候补 / 观察' : stageLabels[application?.stage]
+  if (application?.interview?.decision === 'WAITLIST') return '候补 / 观察'
+  if (application?.stage === 'INTERVIEW' && application?.interview?.finalDecisionAllowed) return '待补录面试结果'
+  return stageLabels[application?.stage]
 }
 
 const filteredApplications = computed(() =>
@@ -80,8 +82,8 @@ function selectApplication(application) {
   convertForm.memberCode = ''
   convertForm.skillTags =
     application?.interview?.suggestedTags?.join('、') || application?.intendedTags?.join('、') || ''
-  waitlistForm.interviewerNames = application?.interview?.decisionInterviewerNames?.join('、') || ''
-  waitlistForm.opinion = application?.interview?.decisionOpinion || ''
+  decisionForm.interviewerNames = application?.interview?.decisionInterviewerNames?.join('、') || ''
+  decisionForm.opinion = application?.interview?.decisionOpinion || ''
 }
 
 async function advance() {
@@ -152,12 +154,13 @@ async function rejectScreening() {
   }
 }
 
-async function resolveWaitlist(decision) {
+async function submitFinalInterviewDecision(decision) {
   if (!selected.value) return
   const applicantName = selected.value.name
   const passed = decision === 'PASSED'
-  const interviewerNames = splitTags(waitlistForm.interviewerNames)
-  const opinion = waitlistForm.opinion.trim()
+  const fromWaitlist = selected.value.interview?.decision === 'WAITLIST'
+  const interviewerNames = splitTags(decisionForm.interviewerNames)
+  const opinion = decisionForm.opinion.trim()
   if (passed && !interviewerNames.length) {
     errorMessage.value = '讨论后录取必须填写至少一名面试官姓名。'
     return
@@ -169,8 +172,8 @@ async function resolveWaitlist(decision) {
   if (
     !window.confirm(
       passed
-        ? `确认将 ${applicantName} 从候补/观察转为面试通过吗？对方将进入技能测试阶段。`
-        : `确认将 ${applicantName} 从候补/观察转为未通过吗？本轮招新流程将结束。`,
+        ? `确认${fromWaitlist ? '将候补/观察中的' : '为'} ${applicantName} 补录面试通过吗？对方将进入技能测试阶段。`
+        : `确认将 ${applicantName} 的最终面试结论记为未通过吗？本轮招新流程将结束。`,
     )
   )
     return
@@ -179,15 +182,15 @@ async function resolveWaitlist(decision) {
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    await resolveWaitlistInterview(selected.value.id, {
+    await resolveInterviewDecision(selected.value.id, {
       decision,
       interviewerNames: passed ? interviewerNames : [],
       opinion: passed ? opinion : null,
     })
     await refresh()
     showSubmissionFeedback({
-      eyebrow: passed ? 'WAITLIST APPROVED' : 'WAITLIST CLOSED',
-      title: passed ? '已讨论后录取' : '候补流程已结束',
+      eyebrow: passed ? 'INTERVIEW APPROVED' : 'INTERVIEW CLOSED',
+      title: passed ? '已讨论后录取' : '面试流程已结束',
       message: passed
         ? `${applicantName} 已进入技能测试阶段，并已收到面试通过通知。`
         : `${applicantName} 已标记为本轮未通过，并已收到结果通知。`,
@@ -379,34 +382,56 @@ function splitTags(value) {
         </section>
 
         <section
-          v-if="selected.stage === 'INTERVIEW' && selected.interview?.decision === 'WAITLIST'"
+          v-if="selected.stage === 'INTERVIEW' && selected.interview?.finalDecisionAllowed"
           class="screening-decision-card waitlist-decision-card"
-          aria-labelledby="waitlist-decision-title"
+          aria-labelledby="final-interview-decision-title"
         >
           <header>
             <div>
-              <p>WAITLIST REVIEW</p>
-              <h3 id="waitlist-decision-title">候补 / 观察中</h3>
+              <p>{{ selected.interview.decision === 'WAITLIST' ? 'WAITLIST REVIEW' : 'INTERVIEW FOLLOW-UP' }}</p>
+              <h3 id="final-interview-decision-title">
+                {{ selected.interview.decision === 'WAITLIST' ? '候补 / 观察中' : '补录面试结果' }}
+              </h3>
             </div>
-            <span>面试已完成；确认最终结果后会立即通知报名者。</span>
+            <span>{{
+              selected.interview.decision === 'WAITLIST'
+                ? '面试已完成；确认最终结果后会立即通知报名者。'
+                : '适用于场次已结束或预约已释放的报名者；补录后会立即通知对方。'
+            }}</span>
           </header>
           <div class="waitlist-summary">
             <Eye :size="20" aria-hidden="true" />
-            <p>{{ selected.interview.evaluation || '暂未填写观察简评。' }}</p>
+            <p>
+              {{
+                selected.interview.decision === 'WAITLIST'
+                  ? selected.interview.evaluation || '暂未填写观察简评。'
+                  : '该报名者目前没有活动中的面试预约，可以在这里单独补录最终结论。'
+              }}
+            </p>
           </div>
           <div class="waitlist-decision-form">
-            <label
-              >参与讨论的面试官姓名
-              <input v-model.trim="waitlistForm.interviewerNames" maxlength="1000" placeholder="用逗号或顿号分隔" />
+            <label for="final-interviewer-names"
+              >参与讨论的面试官姓名 <span aria-hidden="true">*</span>
+              <input
+                id="final-interviewer-names"
+                v-model.trim="decisionForm.interviewerNames"
+                maxlength="1000"
+                placeholder="用逗号或顿号分隔"
+                aria-describedby="final-interviewer-names-hint"
+              />
+              <small id="final-interviewer-names-hint">讨论后录取时必填，可填写多名面试官。</small>
             </label>
-            <label
-              >面试官讨论意见
+            <label for="final-interview-opinion"
+              >面试官讨论意见 <span aria-hidden="true">*</span>
               <textarea
-                v-model.trim="waitlistForm.opinion"
+                id="final-interview-opinion"
+                v-model.trim="decisionForm.opinion"
                 rows="4"
                 maxlength="5000"
                 placeholder="填写讨论后的录取依据与综合意见"
+                aria-describedby="final-interview-opinion-hint"
               />
+              <small id="final-interview-opinion-hint">讨论后录取时必填，并会作为录取通知摘要。</small>
             </label>
           </div>
           <div class="screening-decision-options">
@@ -416,7 +441,9 @@ function splitTags(value) {
                 <strong>最终未通过</strong>
                 <p>结束本轮招新流程，并向报名者发送最终结果。</p>
               </div>
-              <button type="button" :disabled="working" @click="resolveWaitlist('REJECTED')">选择未通过</button>
+              <button type="button" :disabled="working" @click="submitFinalInterviewDecision('REJECTED')">
+                选择未通过
+              </button>
             </article>
             <article class="screening-decision-option approve">
               <span><CircleCheck :size="21" aria-hidden="true" /></span>
@@ -426,8 +453,8 @@ function splitTags(value) {
               </div>
               <button
                 type="button"
-                :disabled="working || !splitTags(waitlistForm.interviewerNames).length || !waitlistForm.opinion.trim()"
-                @click="resolveWaitlist('PASSED')"
+                :disabled="working || !splitTags(decisionForm.interviewerNames).length || !decisionForm.opinion.trim()"
+                @click="submitFinalInterviewDecision('PASSED')"
               >
                 <CircleCheck :size="17" aria-hidden="true" />确认讨论后录取
               </button>
