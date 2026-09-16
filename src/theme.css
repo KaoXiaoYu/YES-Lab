@@ -268,7 +268,7 @@ input:autofill {
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 .portal-topbar nav {
-  overflow-x: auto;
+  overflow: visible;
 }
 .portal-topbar nav a {
   flex-shrink: 0;
@@ -311,5 +311,12 @@ input:autofill {
   }
   .portal-account {
     gap: 8px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .portal-topbar nav {
+    overflow-x: auto;
+    overflow-y: hidden;
   }
 }

@@ -65,8 +65,11 @@
 }
 .portal-admin-menu {
   position: relative;
-  display: none;
+  display: block;
   flex: 0 0 auto;
+}
+.portal-admin-direct {
+  display: none !important;
 }
 .portal-admin-menu summary {
   display: inline-flex;
@@ -9324,6 +9327,7 @@ body.submission-feedback-open {
 }
 .points-heatmap-chart {
   width: max-content;
+  margin-inline: auto;
 }
 .points-heatmap-months {
   display: grid;
