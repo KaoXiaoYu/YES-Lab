@@ -26,6 +26,7 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.not;
@@ -154,9 +155,43 @@ class CollaborationApiTests {
         mvc.perform(post("/api/v1/admin/recruitment/interview-sessions/{id}/bookings/{bookingId}/complete",
                         sessionId, secondBookingId).header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"score\":86,\"evaluation\":\"动手能力扎实\",\"suggestedTags\":[\"工程实现\"],\"passed\":true}"))
+                        .content("{\"score\":86,\"evaluation\":\"动手能力扎实\",\"suggestedTags\":[\"工程实现\"],\"decision\":\"WAITLIST\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.queue[0].status").value("COMPLETED"));
+                .andExpect(jsonPath("$.data.queue[0].status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.queue[0].interviewDecision").value("WAITLIST"));
+
+        mvc.perform(get("/api/v1/recruitment/interviews").header("Authorization", bearer(firstToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.message", containsString("候补/观察")))
+                .andExpect(jsonPath("$.data.booking.interviewDecision").value("WAITLIST"))
+                .andExpect(jsonPath("$.data.booking.canCancel").value(false));
+        mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(firstToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.messages[0].type").value("INTERVIEW_WAITLIST"));
+        mvc.perform(get("/api/v1/admin/recruitment/applications").header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + firstEmail + "')].interview.decision",
+                        hasItem("WAITLIST")))
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + firstEmail + "')].interview.passed",
+                        hasItem(org.hamcrest.Matchers.nullValue())));
+
+        UUID firstApplicationId = applications
+                .findByApplicantId(accounts.findByUsernameIgnoreCase(firstEmail).orElseThrow().getId())
+                .orElseThrow().getId();
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-decision", firstApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"decision\":\"PASSED\"}"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-decision", firstApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"decision\":\"PASSED\",\"interviewerNames\":[\"汤洪\",\"范卓轩\"],"
+                                + "\"opinion\":\"多位面试官讨论后同意录取\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stage").value("SKILL_TEST"))
+                .andExpect(jsonPath("$.data.interview.decision").value("PASSED"))
+                .andExpect(jsonPath("$.data.interview.decisionInterviewerNames", hasItems("汤洪", "范卓轩")))
+                .andExpect(jsonPath("$.data.interview.decisionOpinion").value("多位面试官讨论后同意录取"));
 
         mvc.perform(get("/api/v1/recruitment/interviews").header("Authorization", bearer(secondToken)))
                 .andExpect(status().isOk())
@@ -175,7 +210,7 @@ class CollaborationApiTests {
         mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(firstToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.messages[0].type").value("INTERVIEW_PASSED"))
-                .andExpect(jsonPath("$.data.messages[0].summary").value("动手能力扎实"));
+                .andExpect(jsonPath("$.data.messages[0].summary").value("多位面试官讨论后同意录取"));
 
         mvc.perform(get("/api/v1/admin/recruitment/applications").header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())

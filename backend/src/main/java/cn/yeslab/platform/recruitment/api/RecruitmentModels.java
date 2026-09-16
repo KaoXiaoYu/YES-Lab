@@ -1,5 +1,6 @@
 package cn.yeslab.platform.recruitment.api;
 
+import cn.yeslab.platform.recruitment.model.InterviewDecision;
 import cn.yeslab.platform.recruitment.model.RecruitmentStage;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Email;
@@ -73,6 +74,12 @@ public final class RecruitmentModels {
     ) {
     }
 
+    public record WaitlistResolutionRequest(
+            @NotNull InterviewDecision decision,
+            @Size(max = 20) List<@NotBlank @Size(max = 80) String> interviewerNames,
+            @Size(max = 5000) String opinion
+    ) { }
+
     public record ConvertMemberRequest(
             @NotBlank(message = "请输入学号或内部编号") @Size(max = 64) String memberCode,
             @NotEmpty(message = "正式成员至少需要一个能力标签") List<@NotBlank @Size(max = 80) String> skillTags
@@ -94,6 +101,9 @@ public final class RecruitmentModels {
             Integer score,
             String evaluation,
             List<String> suggestedTags,
+            InterviewDecision decision,
+            List<String> decisionInterviewerNames,
+            String decisionOpinion,
             Boolean passed
     ) {
     }

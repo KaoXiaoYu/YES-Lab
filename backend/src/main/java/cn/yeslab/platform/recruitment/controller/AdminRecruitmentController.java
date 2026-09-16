@@ -55,6 +55,15 @@ public class AdminRecruitmentController {
         return ApiResponse.ok(service.recordInterview(authentication, applicationId, request));
     }
 
+    @PatchMapping("/applications/{applicationId}/interview-decision")
+    public ApiResponse<RecruitmentModels.ApplicationView> resolveWaitlist(
+            Authentication authentication,
+            @PathVariable UUID applicationId,
+            @Valid @RequestBody RecruitmentModels.WaitlistResolutionRequest request
+    ) {
+        return ApiResponse.ok(service.resolveWaitlist(authentication, applicationId, request));
+    }
+
     @PutMapping("/applications/{applicationId}/password")
     public ApiResponse<Void> resetPassword(@PathVariable UUID applicationId) {
         service.resetApplicantPassword(applicationId);

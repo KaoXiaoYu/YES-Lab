@@ -118,7 +118,8 @@ class IdentityRecruitmentApiTests {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.stage").value("INTERVIEW"))
-                .andExpect(jsonPath("$.data.interview.score").value(88));
+                .andExpect(jsonPath("$.data.interview.score").value(88))
+                .andExpect(jsonPath("$.data.interview.decision").value("PASSED"));
 
         changeStage(applicationId, teacherToken, "SKILL_TEST");
         changeStage(applicationId, teacherToken, "PROBATION");

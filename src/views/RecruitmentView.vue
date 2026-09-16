@@ -4,6 +4,7 @@ import {
   Check,
   Circle,
   Clock3,
+  Eye,
   ImagePlus,
   Link2,
   MapPin,
@@ -346,37 +347,46 @@ async function deleteExistingImage(imageId) {
         </header>
         <div v-if="interviewLoading" class="empty-note">正在读取面试场次…</div>
         <template v-else-if="interviewSchedule?.booking">
-          <div class="booking-ticket">
-            <div class="booking-number">
-              <small>你的面试号</small><strong>{{ interviewSchedule.booking.queueNumber }}</strong
-              ><span v-if="interviewSchedule.booking.currentlyCalledNumber"
-                >当前叫到 {{ interviewSchedule.booking.currentlyCalledNumber }} 号</span
-              ><span v-else>尚未开始叫号</span>
-            </div>
-            <div class="booking-details">
-              <p>
-                <CalendarDays :size="18" /><span
-                  >{{ new Date(interviewSchedule.booking.startAt).toLocaleDateString('zh-CN') }} ·
-                  {{ formatInterviewTime(interviewSchedule.booking.startAt) }}—{{
-                    formatInterviewTime(interviewSchedule.booking.endAt)
-                  }}</span
-                >
-              </p>
-              <p>
-                <MapPin :size="18" /><span>{{ interviewSchedule.booking.location }}</span>
-              </p>
-              <p><TicketCheck :size="18" /><span>每次叫号 1 人；请留意当前叫号状态。</span></p>
+          <div v-if="interviewSchedule.booking.interviewDecision === 'WAITLIST'" class="interview-observation-state">
+            <span><Eye :size="24" aria-hidden="true" /></span>
+            <div>
+              <strong>候补 / 观察中</strong>
+              <p>{{ interviewSchedule.message }}</p>
             </div>
           </div>
-          <button
-            v-if="interviewSchedule.booking.canCancel"
-            class="portal-secondary danger"
-            type="button"
-            :disabled="saving"
-            @click="cancelInterview"
-          >
-            取消预约
-          </button>
+          <template v-else>
+            <div class="booking-ticket">
+              <div class="booking-number">
+                <small>你的面试号</small><strong>{{ interviewSchedule.booking.queueNumber }}</strong
+                ><span v-if="interviewSchedule.booking.currentlyCalledNumber"
+                  >当前叫到 {{ interviewSchedule.booking.currentlyCalledNumber }} 号</span
+                ><span v-else>尚未开始叫号</span>
+              </div>
+              <div class="booking-details">
+                <p>
+                  <CalendarDays :size="18" /><span
+                    >{{ new Date(interviewSchedule.booking.startAt).toLocaleDateString('zh-CN') }} ·
+                    {{ formatInterviewTime(interviewSchedule.booking.startAt) }}—{{
+                      formatInterviewTime(interviewSchedule.booking.endAt)
+                    }}</span
+                  >
+                </p>
+                <p>
+                  <MapPin :size="18" /><span>{{ interviewSchedule.booking.location }}</span>
+                </p>
+                <p><TicketCheck :size="18" /><span>每次叫号 1 人；请留意当前叫号状态。</span></p>
+              </div>
+            </div>
+            <button
+              v-if="interviewSchedule.booking.canCancel"
+              class="portal-secondary danger"
+              type="button"
+              :disabled="saving"
+              @click="cancelInterview"
+            >
+              取消预约
+            </button>
+          </template>
         </template>
         <template v-else>
           <p class="interview-booking-message">{{ interviewSchedule?.message }}</p>

@@ -825,6 +825,42 @@
   background: var(--admin-card);
 }
 
+.portal-page--admin .waitlist-summary {
+  border-color: var(--admin-border);
+  color: var(--admin-accent);
+  background: var(--admin-card-muted);
+}
+
+.portal-page--admin .waitlist-summary p {
+  color: var(--admin-foreground);
+}
+
+.portal-page--admin .waitlist-decision-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.2fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.portal-page--admin .waitlist-decision-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.portal-page--admin .waitlist-decision-form :is(input, textarea) {
+  width: 100%;
+  border-color: var(--admin-border-strong);
+  color: var(--admin-foreground);
+  background: var(--admin-card);
+}
+
+.portal-page--admin .waitlist-decision-form textarea {
+  resize: vertical;
+}
+
 /* Points administration */
 .portal-page--admin .points-rule-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1248,6 +1284,7 @@
   .portal-page--admin .points-rule-grid,
   .portal-page--admin .melina-role-options,
   .portal-page--admin .screening-decision-options,
+  .portal-page--admin .waitlist-decision-form,
   .portal-page--admin .admin-form-grid,
   .portal-page--admin .competition-form-grid,
   .portal-page--admin .homepage-field-grid,

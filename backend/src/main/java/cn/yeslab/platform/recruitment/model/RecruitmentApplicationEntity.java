@@ -115,6 +115,17 @@ public class RecruitmentApplicationEntity {
 
     private Boolean interviewPassed;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private InterviewDecision interviewDecision;
+
+    @Column(length = 1000)
+    private String interviewDecisionInterviewerNames;
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String interviewDecisionOpinion;
+
     @Column(length = 100)
     private String linkedQuizId;
 
@@ -179,6 +190,13 @@ public class RecruitmentApplicationEntity {
     public String getInterviewEvaluation() { return interviewEvaluation; }
     public List<String> getSuggestedTags() { return List.copyOf(suggestedTags); }
     public Boolean getInterviewPassed() { return interviewPassed; }
+    public InterviewDecision getInterviewDecision() {
+        if (interviewDecision != null) return interviewDecision;
+        if (interviewPassed == null) return null;
+        return interviewPassed ? InterviewDecision.PASSED : InterviewDecision.REJECTED;
+    }
+    public String getInterviewDecisionInterviewerNames() { return interviewDecisionInterviewerNames; }
+    public String getInterviewDecisionOpinion() { return interviewDecisionOpinion; }
     public String getLinkedQuizId() { return linkedQuizId; }
     public UUID getConvertedMemberId() { return convertedMemberId; }
     public Instant getCreatedAt() { return createdAt; }
@@ -226,14 +244,30 @@ public class RecruitmentApplicationEntity {
             Integer score,
             String evaluation,
             List<String> tags,
-            Boolean passed
+            InterviewDecision decision
     ) {
         this.interviewerAccountId = interviewer.getId();
         this.interviewerName = interviewer.getUsername();
         this.interviewScore = score;
         this.interviewEvaluation = evaluation;
         this.suggestedTags = new ArrayList<>(tags);
-        this.interviewPassed = passed;
+        updateInterviewDecision(decision);
+        this.interviewDecisionInterviewerNames = null;
+        this.interviewDecisionOpinion = null;
+        this.updatedAt = Instant.now();
+    }
+
+    public void updateInterviewDecision(InterviewDecision decision) {
+        this.interviewDecision = decision;
+        this.interviewPassed = decision == null || decision == InterviewDecision.WAITLIST
+                ? null : decision == InterviewDecision.PASSED;
+        this.updatedAt = Instant.now();
+    }
+
+    public void resolveInterviewDecision(InterviewDecision decision, String interviewerNames, String opinion) {
+        updateInterviewDecision(decision);
+        this.interviewDecisionInterviewerNames = interviewerNames;
+        this.interviewDecisionOpinion = opinion;
         this.updatedAt = Instant.now();
     }
 

@@ -11,6 +11,7 @@ import cn.yeslab.platform.identity.service.AuthService;
 import cn.yeslab.platform.notification.service.NotificationService;
 import cn.yeslab.platform.recruitment.api.RecruitmentModels;
 import cn.yeslab.platform.recruitment.model.RecruitmentApplicationEntity;
+import cn.yeslab.platform.recruitment.model.InterviewDecision;
 import cn.yeslab.platform.recruitment.model.RecruitmentPortfolioImageEntity;
 import cn.yeslab.platform.recruitment.model.RecruitmentStage;
 import cn.yeslab.platform.recruitment.model.RecruitmentStatusHistoryEntity;
@@ -208,7 +209,7 @@ public class RecruitmentService {
     @Transactional(readOnly = true)
     public List<RecruitmentModels.ApplicationView> listApplications() {
         return applications.findAll().stream()
-                .filter(application -> !Boolean.TRUE.equals(application.getInterviewPassed()))
+                .filter(application -> application.getInterviewDecision() != InterviewDecision.PASSED)
                 .sorted((left, right) -> right.getUpdatedAt().compareTo(left.getUpdatedAt()))
                 .map(this::toView)
                 .toList();
@@ -280,7 +281,8 @@ public class RecruitmentService {
                 request.score(),
                 normalize(request.evaluation()),
                 cleanList(request.suggestedTags()),
-                request.passed()
+                request.passed() == null ? null
+                        : request.passed() ? InterviewDecision.PASSED : InterviewDecision.REJECTED
         );
         return toView(applications.save(application));
     }
@@ -292,19 +294,63 @@ public class RecruitmentService {
             Integer score,
             String evaluation,
             List<String> suggestedTags,
-            boolean passed
+            InterviewDecision decision
     ) {
         RecruitmentApplicationEntity application = requireApplication(applicationId);
         if (application.getStage() != RecruitmentStage.INTERVIEW) {
             throw new ApiException(HttpStatus.CONFLICT, "只有面试阶段可以提交面试结论");
         }
+        if (decision == null) throw new ApiException(HttpStatus.BAD_REQUEST, "请选择面试结论");
         String cleanEvaluation = normalize(evaluation);
-        if (passed && cleanEvaluation == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "通过面试时必须填写简评");
+        if (decision != InterviewDecision.REJECTED && cleanEvaluation == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "通过或候补观察时必须填写简评");
         }
-        application.recordInterview(operator, score, cleanEvaluation, cleanList(suggestedTags), passed);
+        application.recordInterview(operator, score, cleanEvaluation, cleanList(suggestedTags), decision);
+        if (decision == InterviewDecision.WAITLIST) {
+            histories.save(new RecruitmentStatusHistoryEntity(application.getId(), RecruitmentStage.INTERVIEW,
+                    RecruitmentStage.INTERVIEW, snapshot(operator), "面试结果：候补/观察"));
+        } else {
+            changeStage(application, decision == InterviewDecision.PASSED
+                            ? RecruitmentStage.SKILL_TEST : RecruitmentStage.REJECTED,
+                    operator, decision == InterviewDecision.PASSED ? "面试通过" : "面试未通过");
+        }
+        return toView(applications.save(application));
+    }
+
+    @PreAuthorize("hasAuthority('RECRUITMENT_MANAGE')")
+    @Transactional
+    public RecruitmentModels.ApplicationView resolveWaitlist(
+            Authentication authentication,
+            UUID applicationId,
+            RecruitmentModels.WaitlistResolutionRequest request
+    ) {
+        AccountEntity operator = authService.requireAccount(authentication);
+        RecruitmentApplicationEntity application = requireApplication(applicationId);
+        if (application.getStage() != RecruitmentStage.INTERVIEW
+                || application.getInterviewDecision() != InterviewDecision.WAITLIST) {
+            throw new ApiException(HttpStatus.CONFLICT, "只有候补/观察中的报名者可以最终改判");
+        }
+        if (request.decision() == InterviewDecision.WAITLIST) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "最终结论只能选择通过或未通过");
+        }
+        List<String> interviewerNames = request.interviewerNames() == null
+                ? List.of() : cleanList(request.interviewerNames());
+        String opinion = normalize(request.opinion());
+        if (request.decision() == InterviewDecision.PASSED && interviewerNames.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "讨论后录取必须填写面试官姓名");
+        }
+        if (request.decision() == InterviewDecision.PASSED && opinion == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "讨论后录取必须填写面试官意见");
+        }
+
+        boolean passed = request.decision() == InterviewDecision.PASSED;
+        application.resolveInterviewDecision(request.decision(),
+                passed ? String.join("、", interviewerNames) : null, passed ? opinion : null);
         changeStage(application, passed ? RecruitmentStage.SKILL_TEST : RecruitmentStage.REJECTED,
-                operator, passed ? "面试通过" : "面试未通过");
+                operator, passed ? "候补/观察经面试官讨论后转为面试通过" : "候补/观察转为面试未通过");
+        notificationService.send(application.getApplicant(), passed ? "INTERVIEW_PASSED" : "INTERVIEW_RESULT",
+                passed ? "你已通过面试" : "面试结果已更新",
+                passed ? opinion : "本轮招新流程已结束。", "/application");
         return toView(applications.save(application));
     }
 
@@ -407,7 +453,9 @@ public class RecruitmentService {
                 .toList();
         RecruitmentModels.InterviewView interview = new RecruitmentModels.InterviewView(
                 application.getInterviewerAccountId(), application.getInterviewerName(), application.getInterviewScore(),
-                application.getInterviewEvaluation(), application.getSuggestedTags(), application.getInterviewPassed()
+                application.getInterviewEvaluation(), application.getSuggestedTags(), application.getInterviewDecision(),
+                splitStoredNames(application.getInterviewDecisionInterviewerNames()), application.getInterviewDecisionOpinion(),
+                application.getInterviewPassed()
         );
         List<RecruitmentModels.PortfolioImageView> images = portfolioImages
                 .findByApplicationIdOrderByDisplayOrderAsc(application.getId()).stream()
@@ -432,6 +480,11 @@ public class RecruitmentService {
 
     private List<String> cleanList(List<String> values) {
         return values.stream().map(String::trim).filter(value -> !value.isBlank()).distinct().toList();
+    }
+
+    private List<String> splitStoredNames(String value) {
+        if (value == null || value.isBlank()) return List.of();
+        return java.util.Arrays.stream(value.split("、")).map(String::trim).filter(item -> !item.isBlank()).toList();
     }
 
     private String normalize(String value) {

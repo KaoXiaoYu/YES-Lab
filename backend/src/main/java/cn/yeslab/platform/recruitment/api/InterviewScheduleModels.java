@@ -1,6 +1,7 @@
 package cn.yeslab.platform.recruitment.api;
 
 import cn.yeslab.platform.recruitment.model.InterviewBookingStatus;
+import cn.yeslab.platform.recruitment.model.InterviewDecision;
 import cn.yeslab.platform.recruitment.model.InterviewSessionStatus;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.Max;
@@ -33,6 +34,7 @@ public final class InterviewScheduleModels {
             String applicantName,
             int queueNumber,
             InterviewBookingStatus status,
+            InterviewDecision interviewDecision,
             Instant bookedAt
     ) { }
 
@@ -69,6 +71,7 @@ public final class InterviewScheduleModels {
             int queueNumber,
             Integer currentlyCalledNumber,
             InterviewBookingStatus status,
+            InterviewDecision interviewDecision,
             boolean canCancel
     ) { }
 
@@ -83,6 +86,13 @@ public final class InterviewScheduleModels {
             @Min(0) @Max(100) Integer score,
             @Size(max = 5000) String evaluation,
             @NotNull List<@NotBlank @Size(max = 80) String> suggestedTags,
-            @NotNull Boolean passed
-    ) { }
+            InterviewDecision decision,
+            Boolean passed
+    ) {
+        public InterviewDecision resolvedDecision() {
+            if (decision != null) return decision;
+            if (passed == null) return null;
+            return passed ? InterviewDecision.PASSED : InterviewDecision.REJECTED;
+        }
+    }
 }

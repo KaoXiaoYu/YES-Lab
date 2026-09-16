@@ -284,6 +284,13 @@ export function saveInterview(applicationId, payload) {
   })
 }
 
+export function resolveWaitlistInterview(applicationId, payload) {
+  return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/interview-decision`, {
+    method: 'PATCH',
+    body: payload,
+  })
+}
+
 export function convertRecruitmentToMember(applicationId, payload) {
   return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/convert`, {
     method: 'POST',

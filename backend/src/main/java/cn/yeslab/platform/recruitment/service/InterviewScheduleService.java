@@ -10,6 +10,7 @@ import cn.yeslab.platform.notification.service.NotificationService;
 import cn.yeslab.platform.recruitment.api.InterviewScheduleModels;
 import cn.yeslab.platform.recruitment.model.InterviewBookingEntity;
 import cn.yeslab.platform.recruitment.model.InterviewBookingStatus;
+import cn.yeslab.platform.recruitment.model.InterviewDecision;
 import cn.yeslab.platform.recruitment.model.InterviewSessionEntity;
 import cn.yeslab.platform.recruitment.model.InterviewSessionStatus;
 import cn.yeslab.platform.recruitment.model.RecruitmentApplicationEntity;
@@ -151,7 +152,11 @@ public class InterviewScheduleService {
         }
         InterviewBookingEntity ownBooking = bookings.findByApplicationId(application.getId()).orElse(null);
         if (ownBooking != null) {
-            return new InterviewScheduleModels.ApplicantScheduleView(true, "你已经预约面试；取消后才能重新选择。",
+            String message = ownBooking.getStatus() == InterviewBookingStatus.COMPLETED
+                    && application.getInterviewDecision() == InterviewDecision.WAITLIST
+                    ? "面试已完成，你目前处于候补/观察状态，请耐心等待后续通知。"
+                    : "你已经预约面试；取消后才能重新选择。";
+            return new InterviewScheduleModels.ApplicantScheduleView(true, message,
                     toApplicantBooking(ownBooking), List.of());
         }
 
@@ -280,17 +285,22 @@ public class InterviewScheduleService {
         if (booking.getStatus() != InterviewBookingStatus.IN_PROGRESS && booking.getStatus() != InterviewBookingStatus.CALLED) {
             throw new ApiException(HttpStatus.CONFLICT, "该报名者当前不在面试中");
         }
+        InterviewDecision decision = request.resolvedDecision();
+        if (decision == null) throw new ApiException(HttpStatus.BAD_REQUEST, "请选择面试结论");
         String evaluation = normalize(request.evaluation());
-        if (Boolean.TRUE.equals(request.passed()) && evaluation == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "通过面试时必须填写简评");
+        if (decision != InterviewDecision.REJECTED && evaluation == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "通过或候补观察时必须填写简评");
         }
         recruitmentService.recordScheduledInterview(operator, booking.getApplication().getId(), request.score(),
-                evaluation, request.suggestedTags(), request.passed());
+                evaluation, request.suggestedTags(), decision);
         booking.complete();
         bookings.save(booking);
         AccountEntity applicant = booking.getApplication().getApplicant();
-        if (request.passed()) {
+        if (decision == InterviewDecision.PASSED) {
             notificationService.send(applicant, "INTERVIEW_PASSED", "你已通过面试",
+                    evaluation, "/application");
+        } else if (decision == InterviewDecision.WAITLIST) {
+            notificationService.send(applicant, "INTERVIEW_WAITLIST", "面试结果：候补 / 观察",
                     evaluation, "/application");
         } else {
             notificationService.send(applicant, "INTERVIEW_RESULT", "面试结果已更新",
@@ -331,7 +341,8 @@ public class InterviewScheduleService {
         List<InterviewBookingEntity> sessionBookings = bookings.findBySessionIdOrderByQueueNumberAsc(session.getId());
         List<InterviewScheduleModels.QueueEntryView> queue = sessionBookings.stream()
                 .map(booking -> new InterviewScheduleModels.QueueEntryView(booking.getId(), booking.getApplication().getId(),
-                        booking.getApplication().getName(), booking.getQueueNumber(), booking.getStatus(), booking.getBookedAt()))
+                        booking.getApplication().getName(), booking.getQueueNumber(), booking.getStatus(),
+                        booking.getApplication().getInterviewDecision(), booking.getBookedAt()))
                 .toList();
         LocalDate today = LocalDate.now(LAB_TIME_ZONE);
         int firstYearCount = (int) sessionBookings.stream()
@@ -377,6 +388,7 @@ public class InterviewScheduleService {
         return new InterviewScheduleModels.ApplicantBookingView(booking.getId(), booking.getSession().getId(),
                 booking.getSession().getStartAt(), booking.getSession().getEndAt(), booking.getSession().getLocation(),
                 booking.getQueueNumber(), called == null ? null : called.getQueueNumber(), booking.getStatus(),
+                booking.getApplication().getInterviewDecision(),
                 Instant.now().isBefore(booking.getSession().getStartAt())
                         && booking.getStatus() != InterviewBookingStatus.IN_PROGRESS
                         && booking.getStatus() != InterviewBookingStatus.COMPLETED);

@@ -40,7 +40,7 @@ const showForm = ref(false)
 const resultTarget = ref(null)
 const resultDialog = ref(null)
 const form = reactive({ startAt: '', endAt: '', location: '', capacity: 1, interviewerUsernames: [] })
-const resultForm = reactive({ score: '', evaluation: '', suggestedTags: '', passed: null })
+const resultForm = reactive({ score: '', evaluation: '', suggestedTags: '', decision: '' })
 let pollTimer
 
 const minStart = computed(() => toLocalInput(new Date(Date.now() + 60000).toISOString()))
@@ -53,6 +53,7 @@ const statusLabels = {
   ENDED_EARLY: '提前结束',
 }
 const bookingLabels = { WAITING: '等待中', CALLED: '已叫号', IN_PROGRESS: '面试中', COMPLETED: '已完成' }
+const decisionLabels = { PASSED: '通过', REJECTED: '未通过', WAITLIST: '候补 / 观察' }
 
 onMounted(async () => {
   await refresh()
@@ -141,7 +142,7 @@ async function noShow(session, booking) {
 
 async function openResult(session, booking) {
   resultTarget.value = { session, booking }
-  Object.assign(resultForm, { score: '', evaluation: '', suggestedTags: '', passed: null })
+  Object.assign(resultForm, { score: '', evaluation: '', suggestedTags: '', decision: '' })
   await nextTick()
   resultDialog.value?.focus()
 }
@@ -153,7 +154,7 @@ async function submitResult() {
       score: resultForm.score === '' ? null : Number(resultForm.score),
       evaluation: resultForm.evaluation.trim() || null,
       suggestedTags: splitTags(resultForm.suggestedTags),
-      passed: resultForm.passed,
+      decision: resultForm.decision,
     })
     upsert(updated)
     resultTarget.value = null
@@ -343,7 +344,12 @@ function toLocalInput(value) {
             <b>{{ booking.queueNumber }}</b>
             <div>
               <strong>{{ booking.applicantName }}</strong
-              ><span>{{ bookingLabels[booking.status] }}</span>
+              ><span
+                >{{ bookingLabels[booking.status]
+                }}<template v-if="booking.interviewDecision">
+                  · {{ decisionLabels[booking.interviewDecision] }}</template
+                ></span
+              >
             </div>
             <div v-if="session.currentUserInterviewer" class="queue-actions">
               <button v-if="booking.status === 'CALLED'" type="button" @click="startInterview(session, booking)">
@@ -385,17 +391,27 @@ function toLocalInput(value) {
           </button>
         </header>
         <label>评分（0—100，可选）<input v-model="resultForm.score" type="number" min="0" max="100" /></label
-        ><label>简评（通过时必填）<textarea v-model.trim="resultForm.evaluation" rows="4" maxlength="5000" /></label
+        ><label
+          >简评（通过或候补/观察时必填）<textarea
+            v-model.trim="resultForm.evaluation"
+            rows="4"
+            maxlength="5000"
+          /></label
         ><label>建议标签<input v-model="resultForm.suggestedTags" placeholder="用逗号或顿号分隔" /></label>
         <fieldset>
           <legend>面试结论</legend>
-          <label><input v-model="resultForm.passed" type="radio" :value="true" required />通过</label
-          ><label><input v-model="resultForm.passed" type="radio" :value="false" required />未通过</label>
+          <label><input v-model="resultForm.decision" type="radio" value="PASSED" required />通过</label
+          ><label><input v-model="resultForm.decision" type="radio" value="WAITLIST" required />候补 / 观察</label
+          ><label><input v-model="resultForm.decision" type="radio" value="REJECTED" required />未通过</label>
         </fieldset>
         <button
           class="portal-primary"
           type="submit"
-          :disabled="working || resultForm.passed === null || (resultForm.passed && !resultForm.evaluation)"
+          :disabled="
+            working ||
+            !resultForm.decision ||
+            (['PASSED', 'WAITLIST'].includes(resultForm.decision) && !resultForm.evaluation)
+          "
         >
           提交结果
         </button>
