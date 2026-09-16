@@ -39,6 +39,7 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 - 公开首页 3D 模型：`GET /api/v1/public/homepage/models/{id}`
 - 当前账号：`GET /api/v1/auth/me`
 - 本人积分：`GET /api/v1/member/points`
+- 成员积分榜：`GET /api/v1/points/leaderboard?period=TOTAL|DAY|WEEK|MONTH|YEAR`
 - 积分口径：`GET /api/v1/points/rules`
 
 本地配置默认启用 H2 文件数据库，数据写入 `backend/data/`。生产环境必须启用 `prod` profile，并提供 MySQL、JWT、CORS 和持久化上传目录配置。

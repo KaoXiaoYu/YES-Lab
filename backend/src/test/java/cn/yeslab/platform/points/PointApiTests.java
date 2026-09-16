@@ -14,6 +14,7 @@ import org.springframework.web.context.WebApplicationContext;
 import java.time.LocalDate;
 
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -67,9 +68,13 @@ class PointApiTests {
         mvc.perform(get("/api/v1/member/points").header("Authorization", bearer(memberToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.totalPoints").value(30))
+                .andExpect(jsonPath("$.data.totalRank").value(1))
+                .andExpect(jsonPath("$.data.participantCount").value(greaterThanOrEqualTo(2)))
                 .andExpect(jsonPath("$.data.categoryTotals.PROJECT").value(30))
                 .andExpect(jsonPath("$.data.entries[0].grantId").value(grantId))
-                .andExpect(jsonPath("$.data.entries[0].points").value(30));
+                .andExpect(jsonPath("$.data.entries[0].points").value(30))
+                .andExpect(jsonPath("$.data.dailyPoints[0].date").value(LocalDate.now().minusDays(1).toString()))
+                .andExpect(jsonPath("$.data.dailyPoints[0].points").value(30));
 
         mvc.perform(post("/api/v1/admin/points/grants")
                         .header("Authorization", bearer(teacherToken))
@@ -150,6 +155,41 @@ class PointApiTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[?(@.subcategory == 'LAB_ACTIVITY')].monthlyCap", hasItem(100)))
                 .andExpect(jsonPath("$.data[?(@.subcategory == 'MEDIA_CONTENT')].monthlyCap", hasItem(nullValue())));
+    }
+
+    @Test
+    void memberLeaderboardIncludesAllOfficialStudentsAcrossPeriods() throws Exception {
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        String memberToken = login("member", "YesLab-Member-2026!");
+        String memberId = profileId(memberToken);
+        String today = LocalDate.now().toString();
+
+        mvc.perform(post("/api/v1/admin/points/grants")
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(singleGrant(
+                                "MEDIA_CONTENT",
+                                25,
+                                "LEADERBOARD:TEST:" + System.nanoTime(),
+                                memberId,
+                                today
+                        )))
+                .andExpect(status().isOk());
+
+        for (String period : new String[]{"TOTAL", "DAY", "WEEK", "MONTH", "YEAR"}) {
+            mvc.perform(get("/api/v1/points/leaderboard")
+                            .param("period", period)
+                            .header("Authorization", bearer(memberToken)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.period").value(period))
+                    .andExpect(jsonPath("$.data.entries.length()").value(greaterThanOrEqualTo(2)))
+                    .andExpect(jsonPath("$.data.entries[0].memberName").value("范桌轩大王"))
+                    .andExpect(jsonPath("$.data.entries[0].points").value(25))
+                    .andExpect(jsonPath("$.data.entries[0].rank").value(1))
+                    .andExpect(jsonPath("$.data.entries[0].currentMember").value(true))
+                    .andExpect(jsonPath("$.data.entries[1].points").value(0))
+                    .andExpect(jsonPath("$.data.entries[*].role", org.hamcrest.Matchers.not(hasItem("TEACHER"))));
+        }
     }
 
     private String projectGrant(String source, String memberId, String coreId) {

@@ -13,6 +13,7 @@ import {
   MessageSquareText,
   Newspaper,
   ShieldCheck,
+  Trophy,
   UserRound,
   UsersRound,
 } from '@lucide/vue'
@@ -55,6 +56,9 @@ async function signOut() {
         <RouterLink to="/"><Home :size="17" aria-hidden="true" />公开首页</RouterLink>
         <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/profile"
           ><UserRound :size="17" aria-hidden="true" />个人主页</RouterLink
+        >
+        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/points"
+          ><Trophy :size="17" aria-hidden="true" />积分榜</RouterLink
         >
         <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/projects"
           ><FolderKanban :size="17" aria-hidden="true" />项目团队</RouterLink

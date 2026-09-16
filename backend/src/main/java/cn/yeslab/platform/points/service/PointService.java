@@ -23,10 +23,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.net.URI;
+import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +39,9 @@ import java.util.UUID;
 
 @Service
 public class PointService {
+
+    private static final ZoneId LAB_TIME_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final int HEATMAP_DAYS = 365;
 
     private final PointGrantRepository grants;
     private final PointEntryRepository entries;
@@ -217,7 +224,97 @@ public class PointService {
         List<PointModels.EntryView> recent = entries
                 .findTop200ByMember_IdOrderByGrant_OccurredOnDescCreatedAtDesc(profile.getId())
                 .stream().map(this::toEntryView).toList();
-        return new PointModels.MemberSummary(profile.getTotalPoints(), categoryTotals, subcategoryTotals, recent);
+        LocalDate today = LocalDate.now(LAB_TIME_ZONE);
+        List<PointModels.DailyPointView> dailyPoints = entries
+                .sumDailyForMember(profile.getId(), today.minusDays(HEATMAP_DAYS - 1L), today.plusDays(1))
+                .stream()
+                .map(total -> new PointModels.DailyPointView(total.getDate(), Math.toIntExact(total.getPoints())))
+                .toList();
+        List<MemberProfileEntity> participants = rankingParticipants();
+        Integer totalRank = profile.getAccount().getRole() == Role.TEACHER
+                || profile.getStatus() != MemberStatus.OFFICIAL
+                ? null
+                : 1 + (int) participants.stream()
+                        .filter(item -> item.getTotalPoints() > profile.getTotalPoints())
+                        .count();
+        return new PointModels.MemberSummary(
+                profile.getTotalPoints(),
+                totalRank,
+                participants.size(),
+                categoryTotals,
+                subcategoryTotals,
+                recent,
+                dailyPoints
+        );
+    }
+
+    @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")
+    @Transactional(readOnly = true)
+    public PointModels.LeaderboardView leaderboard(
+            Authentication authentication,
+            PointModels.LeaderboardPeriod period
+    ) {
+        AccountEntity account = authService.requireAccount(authentication);
+        UUID currentProfileId = profiles.findByAccountId(account.getId()).map(MemberProfileEntity::getId).orElse(null);
+        LocalDate today = LocalDate.now(LAB_TIME_ZONE);
+        DateRange range = dateRange(period, today);
+        Map<UUID, Integer> periodPoints = new HashMap<>();
+        if (period != PointModels.LeaderboardPeriod.TOTAL) {
+            for (PointEntryRepository.MemberPointTotal total
+                    : entries.sumByMemberForPeriod(range.startInclusive(), range.endExclusive())) {
+                periodPoints.put(total.getMemberId(), Math.toIntExact(total.getPoints()));
+            }
+        }
+
+        List<RankedMember> ranked = rankingParticipants().stream()
+                .map(profile -> new RankedMember(
+                        profile,
+                        period == PointModels.LeaderboardPeriod.TOTAL
+                                ? profile.getTotalPoints()
+                                : periodPoints.getOrDefault(profile.getId(), 0)
+                ))
+                .sorted(Comparator.comparingInt(RankedMember::points).reversed()
+                        .thenComparing(Comparator.comparingInt(
+                                (RankedMember item) -> item.profile().getTotalPoints()).reversed())
+                        .thenComparing(item -> item.profile().getName(), String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(item -> item.profile().getId()))
+                .toList();
+
+        List<PointModels.LeaderboardEntry> result = new ArrayList<>();
+        int previousPoints = Integer.MIN_VALUE;
+        int currentRank = 0;
+        for (int index = 0; index < ranked.size(); index++) {
+            RankedMember item = ranked.get(index);
+            if (item.points() != previousPoints) currentRank = index + 1;
+            previousPoints = item.points();
+            MemberProfileEntity profile = item.profile();
+            result.add(new PointModels.LeaderboardEntry(
+                    currentRank,
+                    profile.getId(),
+                    profile.getName(),
+                    profile.getMemberCode(),
+                    profile.getAvatarUrl(),
+                    profile.getAccount().getRole(),
+                    item.points(),
+                    profile.getTotalPoints(),
+                    profile.getId().equals(currentProfileId)
+            ));
+        }
+
+        return new PointModels.LeaderboardView(
+                period,
+                period == PointModels.LeaderboardPeriod.TOTAL ? null : range.startInclusive(),
+                period == PointModels.LeaderboardPeriod.TOTAL ? null : range.endExclusive().minusDays(1),
+                Instant.now(),
+                result
+        );
+    }
+
+    private List<MemberProfileEntity> rankingParticipants() {
+        return profiles.findAll().stream()
+                .filter(profile -> profile.getStatus() == MemberStatus.OFFICIAL)
+                .filter(profile -> profile.getAccount().getRole() != Role.TEACHER)
+                .toList();
     }
 
     @PreAuthorize("isAuthenticated()")
@@ -375,11 +472,30 @@ public class PointService {
         return value.length() <= max ? value : value.substring(0, max);
     }
 
+    private static DateRange dateRange(PointModels.LeaderboardPeriod period, LocalDate today) {
+        return switch (period) {
+            case TOTAL -> new DateRange(LocalDate.of(1970, 1, 1), today.plusDays(1));
+            case DAY -> new DateRange(today, today.plusDays(1));
+            case WEEK -> {
+                LocalDate monday = today.with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+                yield new DateRange(monday, monday.plusWeeks(1));
+            }
+            case MONTH -> new DateRange(today.withDayOfMonth(1), today.withDayOfMonth(1).plusMonths(1));
+            case YEAR -> new DateRange(today.withDayOfYear(1), today.withDayOfYear(1).plusYears(1));
+        };
+    }
+
     private record LockedAllocation(
             MemberProfileEntity member,
             int requestedPoints,
             int creditedPoints,
             String contribution
     ) {
+    }
+
+    private record RankedMember(MemberProfileEntity profile, int points) {
+    }
+
+    private record DateRange(LocalDate startInclusive, LocalDate endExclusive) {
     }
 }

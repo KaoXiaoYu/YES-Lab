@@ -6,6 +6,7 @@ import cn.yeslab.platform.points.service.PointService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -23,6 +24,14 @@ public class PointController {
     @GetMapping("/member/points")
     public ApiResponse<PointModels.MemberSummary> ownPoints(Authentication authentication) {
         return ApiResponse.ok(service.ownSummary(authentication));
+    }
+
+    @GetMapping("/points/leaderboard")
+    public ApiResponse<PointModels.LeaderboardView> leaderboard(
+            Authentication authentication,
+            @RequestParam(defaultValue = "TOTAL") PointModels.LeaderboardPeriod period
+    ) {
+        return ApiResponse.ok(service.leaderboard(authentication, period));
     }
 
     @GetMapping("/points/rules")

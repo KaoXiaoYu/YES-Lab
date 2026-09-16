@@ -25,6 +25,12 @@ const routes = [
     meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
   },
   {
+    path: '/points',
+    name: 'points-leaderboard',
+    component: () => import('../views/PointsLeaderboardView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
+  },
+  {
     path: '/projects',
     name: 'projects',
     component: () => import('../views/ProjectsView.vue'),

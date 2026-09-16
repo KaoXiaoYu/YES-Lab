@@ -3,12 +3,14 @@ import { Eye, EyeOff, KeyRound } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import MemberProfileDisplay from '../components/MemberProfileDisplay.vue'
+import PointsHeatmap from '../components/PointsHeatmap.vue'
 import PortalShell from '../components/PortalShell.vue'
-import { changeOwnPassword, getOwnProfile, logout } from '../services/authApi'
+import { changeOwnPassword, getOwnPoints, getOwnProfile, logout } from '../services/authApi'
 import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const router = useRouter()
 const profile = ref(null)
+const pointsSummary = ref(null)
 const loading = ref(true)
 const errorMessage = ref('')
 const passwordError = ref('')
@@ -27,7 +29,10 @@ const canChangePassword = computed(() =>
 
 onMounted(async () => {
   try {
-    profile.value = await getOwnProfile()
+    const [loadedProfile, loadedPoints] = await Promise.all([getOwnProfile(), getOwnPoints()])
+    loadedProfile.currentRank = loadedPoints.totalRank
+    profile.value = loadedProfile
+    pointsSummary.value = loadedPoints
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -85,6 +90,7 @@ async function submitPasswordChange() {
     <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <template v-else-if="profile">
       <MemberProfileDisplay :profile="profile" private-view editable />
+      <PointsHeatmap :daily-points="pointsSummary?.dailyPoints || []" :total-points="pointsSummary?.totalPoints || 0" />
       <section class="password-settings-card profile-password-card" aria-labelledby="profile-password-title">
         <header>
           <div>

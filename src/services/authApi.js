@@ -99,6 +99,10 @@ export function getOwnPoints() {
   return apiRequest('/api/v1/member/points')
 }
 
+export function getPointLeaderboard(period = 'TOTAL') {
+  return apiRequest(`/api/v1/points/leaderboard?period=${encodeURIComponent(period)}`)
+}
+
 export function listPointGrants() {
   return apiRequest('/api/v1/admin/points/grants')
 }

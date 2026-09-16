@@ -67,7 +67,7 @@ const isTeacher = computed(() => props.profile.role === 'TEACHER')
           </article>
           <article>
             <span>RANK</span><strong>{{ profile.currentRank || '—' }}</strong
-            ><small>学期排行榜暂未启用</small>
+            ><small>积分总榜实时排名</small>
           </article>
         </template>
         <article>

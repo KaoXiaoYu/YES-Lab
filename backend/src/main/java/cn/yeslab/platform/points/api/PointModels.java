@@ -1,5 +1,6 @@
 package cn.yeslab.platform.points.api;
 
+import cn.yeslab.platform.identity.model.Role;
 import cn.yeslab.platform.points.model.PointCategory;
 import cn.yeslab.platform.points.model.PointGrantType;
 import cn.yeslab.platform.points.model.PointSubcategory;
@@ -113,9 +114,48 @@ public final class PointModels {
 
     public record MemberSummary(
             int totalPoints,
+            Integer totalRank,
+            int participantCount,
             Map<PointCategory, Integer> categoryTotals,
             Map<PointSubcategory, Integer> subcategoryTotals,
-            List<EntryView> entries
+            List<EntryView> entries,
+            List<DailyPointView> dailyPoints
+    ) {
+    }
+
+    public enum LeaderboardPeriod {
+        TOTAL,
+        DAY,
+        WEEK,
+        MONTH,
+        YEAR
+    }
+
+    public record DailyPointView(
+            LocalDate date,
+            int points
+    ) {
+    }
+
+    public record LeaderboardEntry(
+            int rank,
+            UUID memberProfileId,
+            String memberName,
+            String memberCode,
+            String avatarUrl,
+            Role role,
+            int points,
+            int totalPoints,
+            boolean currentMember
+    ) {
+    }
+
+    public record LeaderboardView(
+            LeaderboardPeriod period,
+            LocalDate startsOn,
+            LocalDate endsOn,
+            Instant generatedAt,
+            List<LeaderboardEntry> entries
     ) {
     }
 }
