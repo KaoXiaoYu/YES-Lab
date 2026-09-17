@@ -34,7 +34,7 @@ const successMessage = ref('')
 const query = ref('')
 const stageFilter = ref('ALL')
 const convertForm = reactive({ memberCode: '', skillTags: '' })
-const decisionForm = reactive({ interviewerNames: '', opinion: '' })
+const decisionForm = reactive({ interviewerNames: '', score: '', evaluation: '', suggestedTags: '', opinion: '' })
 const passwordWorking = ref(false)
 
 function displayStage(application) {
@@ -83,6 +83,9 @@ function selectApplication(application) {
   convertForm.skillTags =
     application?.interview?.suggestedTags?.join('、') || application?.intendedTags?.join('、') || ''
   decisionForm.interviewerNames = application?.interview?.decisionInterviewerNames?.join('、') || ''
+  decisionForm.score = application?.interview?.score ?? ''
+  decisionForm.evaluation = application?.interview?.evaluation || ''
+  decisionForm.suggestedTags = application?.interview?.suggestedTags?.join('、') || ''
   decisionForm.opinion = application?.interview?.decisionOpinion || ''
 }
 
@@ -160,9 +163,14 @@ async function submitFinalInterviewDecision(decision) {
   const passed = decision === 'PASSED'
   const fromWaitlist = selected.value.interview?.decision === 'WAITLIST'
   const interviewerNames = splitTags(decisionForm.interviewerNames)
+  const evaluation = decisionForm.evaluation.trim()
   const opinion = decisionForm.opinion.trim()
-  if (passed && !interviewerNames.length) {
-    errorMessage.value = '讨论后录取必须填写至少一名面试官姓名。'
+  if (!interviewerNames.length) {
+    errorMessage.value = '补录面试结果必须填写至少一名面试官姓名。'
+    return
+  }
+  if (!evaluation) {
+    errorMessage.value = '补录面试结果必须填写详细面试评价。'
     return
   }
   if (passed && !opinion) {
@@ -184,8 +192,11 @@ async function submitFinalInterviewDecision(decision) {
   try {
     await resolveInterviewDecision(selected.value.id, {
       decision,
-      interviewerNames: passed ? interviewerNames : [],
-      opinion: passed ? opinion : null,
+      interviewerNames,
+      score: decisionForm.score === '' ? null : Number(decisionForm.score),
+      evaluation,
+      suggestedTags: splitTags(decisionForm.suggestedTags),
+      opinion: opinion || null,
     })
     await refresh()
     showSubmissionFeedback({
@@ -409,9 +420,9 @@ function splitTags(value) {
               }}
             </p>
           </div>
-          <div class="waitlist-decision-form">
+          <div class="waitlist-decision-form interview-follow-up-form">
             <label for="final-interviewer-names"
-              >参与讨论的面试官姓名 <span aria-hidden="true">*</span>
+              >参与面试的面试官姓名 <span aria-hidden="true">*</span>
               <input
                 id="final-interviewer-names"
                 v-model.trim="decisionForm.interviewerNames"
@@ -419,19 +430,52 @@ function splitTags(value) {
                 placeholder="用逗号或顿号分隔"
                 aria-describedby="final-interviewer-names-hint"
               />
-              <small id="final-interviewer-names-hint">讨论后录取时必填，可填写多名面试官。</small>
+              <small id="final-interviewer-names-hint">必填，可填写多名面试官。</small>
             </label>
-            <label for="final-interview-opinion"
-              >面试官讨论意见 <span aria-hidden="true">*</span>
+            <label for="final-interview-score"
+              >面试评分（0—100，可选）
+              <input
+                id="final-interview-score"
+                v-model.number="decisionForm.score"
+                type="number"
+                min="0"
+                max="100"
+                inputmode="numeric"
+                placeholder="例如：85"
+              />
+            </label>
+            <label class="full" for="final-interview-evaluation"
+              >详细面试评价 <span aria-hidden="true">*</span>
+              <textarea
+                id="final-interview-evaluation"
+                v-model.trim="decisionForm.evaluation"
+                rows="5"
+                maxlength="5000"
+                placeholder="记录基础能力、项目经历、沟通表现、发展潜力及需要关注的问题"
+                aria-describedby="final-interview-evaluation-hint"
+              />
+              <small id="final-interview-evaluation-hint">必填，将作为本次面试的正式评价留档。</small>
+            </label>
+            <label class="full" for="final-suggested-tags"
+              >建议能力标签（可选）
+              <input
+                id="final-suggested-tags"
+                v-model="decisionForm.suggestedTags"
+                maxlength="1600"
+                placeholder="例如：工程实现、无人机系统；用逗号或顿号分隔"
+              />
+            </label>
+            <label class="full" for="final-interview-opinion"
+              >最终结论说明（通过时必填）
               <textarea
                 id="final-interview-opinion"
                 v-model.trim="decisionForm.opinion"
                 rows="4"
                 maxlength="5000"
-                placeholder="填写讨论后的录取依据与综合意见"
+                placeholder="通过时填写录取依据与综合意见；未通过时可填写结论说明"
                 aria-describedby="final-interview-opinion-hint"
               />
-              <small id="final-interview-opinion-hint">讨论后录取时必填，并会作为录取通知摘要。</small>
+              <small id="final-interview-opinion-hint">面试通过时必填，并会作为结果通知摘要；未通过时可选。</small>
             </label>
           </div>
           <div class="screening-decision-options">
@@ -441,7 +485,15 @@ function splitTags(value) {
                 <strong>最终未通过</strong>
                 <p>结束本轮招新流程，并向报名者发送最终结果。</p>
               </div>
-              <button type="button" :disabled="working" @click="submitFinalInterviewDecision('REJECTED')">
+              <button
+                type="button"
+                :disabled="
+                  working ||
+                  !splitTags(decisionForm.interviewerNames).length ||
+                  !decisionForm.evaluation.trim()
+                "
+                @click="submitFinalInterviewDecision('REJECTED')"
+              >
                 选择未通过
               </button>
             </article>
@@ -453,7 +505,12 @@ function splitTags(value) {
               </div>
               <button
                 type="button"
-                :disabled="working || !splitTags(decisionForm.interviewerNames).length || !decisionForm.opinion.trim()"
+                :disabled="
+                  working ||
+                  !splitTags(decisionForm.interviewerNames).length ||
+                  !decisionForm.evaluation.trim() ||
+                  !decisionForm.opinion.trim()
+                "
                 @click="submitFinalInterviewDecision('PASSED')"
               >
                 <CircleCheck :size="17" aria-hidden="true" />确认讨论后录取

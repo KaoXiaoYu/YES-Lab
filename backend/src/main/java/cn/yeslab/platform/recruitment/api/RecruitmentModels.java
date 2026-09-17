@@ -77,6 +77,9 @@ public final class RecruitmentModels {
     public record InterviewDecisionResolutionRequest(
             @NotNull InterviewDecision decision,
             @Size(max = 20) List<@NotBlank @Size(max = 80) String> interviewerNames,
+            @Min(value = 0, message = "评分不能小于 0") @Max(value = 100, message = "评分不能大于 100") Integer score,
+            @Size(max = 5000) String evaluation,
+            @Size(max = 20) List<@NotBlank @Size(max = 80) String> suggestedTags,
             @Size(max = 5000) String opinion
     ) { }
 

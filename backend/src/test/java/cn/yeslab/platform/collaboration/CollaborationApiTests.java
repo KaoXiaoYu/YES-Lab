@@ -64,14 +64,36 @@ class CollaborationApiTests {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
         String firstEmail = "interview-one-" + suffix + "@example.com";
         String secondEmail = "interview-two-" + suffix + "@example.com";
+        String missedEmail = "interview-missed-" + suffix + "@example.com";
         String firstToken = register(firstEmail);
         String secondToken = register(secondEmail);
+        register(missedEmail);
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
         int academicStartYear = today.getMonthValue() >= 9 ? today.getYear() : today.getYear() - 1;
         createInterviewApplication(firstEmail, "候选人甲", String.valueOf(academicStartYear));
         createInterviewApplication(secondEmail, "候选人乙", (academicStartYear - 1) + "级");
+        createInterviewApplication(missedEmail, "遗漏候选人", String.valueOf(academicStartYear));
 
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        UUID missedApplicationId = applications
+                .findByApplicantId(accounts.findByUsernameIgnoreCase(missedEmail).orElseThrow().getId())
+                .orElseThrow().getId();
+        mvc.perform(get("/api/v1/admin/recruitment/applications").header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + missedEmail
+                        + "')].interview.finalDecisionAllowed", hasItem(true)));
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-decision", missedApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"decision\":\"PASSED\",\"interviewerNames\":[\"汤洪\",\"范卓轩\"],"
+                                + "\"score\":91,\"evaluation\":\"项目表达清楚，工程实践能力突出\","
+                                + "\"suggestedTags\":[\"工程实现\",\"无人机系统\"],"
+                                + "\"opinion\":\"线下面试已完成，同意录取\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stage").value("SKILL_TEST"))
+                .andExpect(jsonPath("$.data.interview.score").value(91))
+                .andExpect(jsonPath("$.data.interview.evaluation").value("项目表达清楚，工程实践能力突出"))
+                .andExpect(jsonPath("$.data.interview.suggestedTags", hasItems("工程实现", "无人机系统")))
+                .andExpect(jsonPath("$.data.interview.decisionInterviewerNames", hasItems("汤洪", "范卓轩")));
         Instant startAt = Instant.now().plusSeconds(2 * 3600);
         Instant endAt = startAt.plusSeconds(3600);
         String sessionRequest = ("""
@@ -226,7 +248,9 @@ class CollaborationApiTests {
 
         mvc.perform(get("/api/v1/admin/recruitment/applications").header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + firstEmail + "')]", hasSize(0)))
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + firstEmail + "')]", hasSize(1)))
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + firstEmail
+                        + "')].stage", hasItem("SKILL_TEST")))
                 .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + secondEmail + "')]", hasSize(1)))
                 .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + secondEmail
                         + "')].interview.finalDecisionAllowed", hasItem(true)));
@@ -243,10 +267,15 @@ class CollaborationApiTests {
         mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-decision", secondApplicationId)
                         .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"decision\":\"PASSED\",\"interviewerNames\":[\"汤洪\",\"范卓轩\"],"
+                                + "\"score\":89,\"evaluation\":\"算法基础扎实，沟通表达清晰\","
+                                + "\"suggestedTags\":[\"算法\",\"团队协作\"],"
                                 + "\"opinion\":\"场次结束后讨论，同意单独录取\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.stage").value("SKILL_TEST"))
                 .andExpect(jsonPath("$.data.interview.decision").value("PASSED"))
+                .andExpect(jsonPath("$.data.interview.score").value(89))
+                .andExpect(jsonPath("$.data.interview.evaluation").value("算法基础扎实，沟通表达清晰"))
+                .andExpect(jsonPath("$.data.interview.suggestedTags", hasItems("算法", "团队协作")))
                 .andExpect(jsonPath("$.data.interview.decisionOpinion").value("场次结束后讨论，同意单独录取"));
         mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(secondToken)))
                 .andExpect(status().isOk())

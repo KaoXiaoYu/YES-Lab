@@ -271,6 +271,13 @@ public class RecruitmentApplicationEntity {
         this.updatedAt = Instant.now();
     }
 
+    public void updateInterviewDetails(Integer score, String evaluation, List<String> tags) {
+        this.interviewScore = score;
+        this.interviewEvaluation = evaluation;
+        this.suggestedTags = new ArrayList<>(tags);
+        this.updatedAt = Instant.now();
+    }
+
     public void setLinkedQuizId(String linkedQuizId) {
         this.linkedQuizId = linkedQuizId;
         this.updatedAt = Instant.now();

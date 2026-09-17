@@ -872,6 +872,14 @@
   resize: vertical;
 }
 
+.portal-page--admin .interview-follow-up-form {
+  grid-template-columns: minmax(220px, 1.3fr) minmax(150px, 0.7fr);
+}
+
+.portal-page--admin .interview-follow-up-form .full {
+  grid-column: 1 / -1;
+}
+
 /* Points administration */
 .portal-page--admin .points-rule-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));

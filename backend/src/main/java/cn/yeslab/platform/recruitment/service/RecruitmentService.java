@@ -214,7 +214,7 @@ public class RecruitmentService {
     @Transactional(readOnly = true)
     public List<RecruitmentModels.ApplicationView> listApplications() {
         return applications.findAll().stream()
-                .filter(application -> application.getInterviewDecision() != InterviewDecision.PASSED)
+                .filter(application -> application.getStage() != RecruitmentStage.FORMAL_MEMBER)
                 .sorted((left, right) -> right.getUpdatedAt().compareTo(left.getUpdatedAt()))
                 .map(this::toView)
                 .toList();
@@ -349,17 +349,25 @@ public class RecruitmentService {
         }
         List<String> interviewerNames = request.interviewerNames() == null
                 ? List.of() : cleanList(request.interviewerNames());
+        String evaluation = normalize(request.evaluation());
+        if (evaluation == null) evaluation = application.getInterviewEvaluation();
+        List<String> suggestedTags = request.suggestedTags() == null
+                ? application.getSuggestedTags() : cleanList(request.suggestedTags());
         String opinion = normalize(request.opinion());
-        if (request.decision() == InterviewDecision.PASSED && interviewerNames.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "讨论后录取必须填写面试官姓名");
+        if (interviewerNames.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "补录面试结果必须填写面试官姓名");
+        }
+        if (evaluation == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "补录面试结果必须填写详细面试评价");
         }
         if (request.decision() == InterviewDecision.PASSED && opinion == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "讨论后录取必须填写面试官意见");
         }
 
         boolean passed = request.decision() == InterviewDecision.PASSED;
-        application.resolveInterviewDecision(request.decision(),
-                passed ? String.join("、", interviewerNames) : null, passed ? opinion : null);
+        Integer score = request.score() == null ? application.getInterviewScore() : request.score();
+        application.updateInterviewDetails(score, evaluation, suggestedTags);
+        application.resolveInterviewDecision(request.decision(), String.join("、", interviewerNames), opinion);
         boolean fromWaitlist = previousDecision == InterviewDecision.WAITLIST;
         changeStage(application, passed ? RecruitmentStage.SKILL_TEST : RecruitmentStage.REJECTED,
                 operator, passed
@@ -367,7 +375,7 @@ public class RecruitmentService {
                         : fromWaitlist ? "候补/观察转为面试未通过" : "面试场次结束后补录为面试未通过");
         notificationService.send(application.getApplicant(), passed ? "INTERVIEW_PASSED" : "INTERVIEW_RESULT",
                 passed ? "你已通过面试" : "面试结果已更新",
-                passed ? opinion : "本轮招新流程已结束。", "/application");
+                opinion == null ? evaluation : opinion, "/application");
         return toView(applications.save(application));
     }
 
