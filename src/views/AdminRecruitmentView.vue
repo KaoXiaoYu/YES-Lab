@@ -488,9 +488,7 @@ function splitTags(value) {
               <button
                 type="button"
                 :disabled="
-                  working ||
-                  !splitTags(decisionForm.interviewerNames).length ||
-                  !decisionForm.evaluation.trim()
+                  working || !splitTags(decisionForm.interviewerNames).length || !decisionForm.evaluation.trim()
                 "
                 @click="submitFinalInterviewDecision('REJECTED')"
               >

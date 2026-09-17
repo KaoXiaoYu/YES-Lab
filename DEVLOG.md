@@ -1453,3 +1453,16 @@
 - `npm run check` 通过：ESLint 与 Prettier 无错误，Vite 生产构建成功；仅保留既有 Three.js 主包超过 500kB 的分块大小提示。
 - 使用临时内存 H2 和真实前后端完成浏览器验收：在 664px 视口验证信箱点击外部关闭，在 1280px 视口验证后台管理点击外部关闭；两个浮层不会同时保持打开，Esc 关闭后焦点均返回触发按钮，浏览器控制台无错误或警告。
 - `git diff --check` 通过；本轮未修改后端接口或数据库，未连接生产环境，也未执行部署。
+
+## 2026-09-17：GitHub Actions #36 格式失败修复
+
+### 完成内容
+
+- 读取 Actions 运行 `35189690751`（第 36 次）第三次尝试的日志，确认 `npm run check` 在 Prettier 检查阶段因 `src/views/AdminRecruitmentView.vue` 格式不一致而退出；Node.js 20 deprecated 信息只是运行时警告。
+- 使用项目既有 Prettier 配置格式化该 Vue 文件，仅调整代码排版，不改变招新业务逻辑。
+
+### 验证结果
+
+- `npm run check` 通过：ESLint、Prettier 和 Vite 生产构建均成功。
+- 构建仅保留既有 Three.js 主包超过 500kB 的分块大小提示；该提示不影响退出码，也不是 Actions #36 的失败原因。
+- `git diff --check` 通过；本轮未修改后端、数据库或生产环境。
