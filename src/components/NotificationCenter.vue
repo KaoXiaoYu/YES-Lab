@@ -1,16 +1,18 @@
 <script setup>
 import { Bell, CheckCheck, Inbox, X } from '@lucide/vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   getNotifications,
   getNotificationVisibility,
   markAllNotificationsRead,
   markNotificationRead,
 } from '../services/authApi'
+import { useDismissibleLayer } from '../composables/useDismissibleLayer'
 import MelinaMascot from './MelinaMascot.vue'
 
 const router = useRouter()
+const route = useRoute()
 const inbox = ref({ unreadCount: 0, messages: [] })
 const open = ref(false)
 const toast = ref(null)
@@ -22,6 +24,13 @@ let pollTimer
 let toastTimer
 
 const unread = computed(() => inbox.value.messages.filter((message) => !message.read))
+
+watch(
+  () => route.fullPath,
+  () => {
+    open.value = false
+  },
+)
 
 onMounted(async () => {
   try {
@@ -116,16 +125,18 @@ function handleVisibility() {
 function handleNotificationUpdate() {
   refresh(false)
 }
+
+useDismissibleLayer(notificationRoot, {
+  isOpen: () => open.value,
+  close: () => {
+    open.value = false
+  },
+  focusTarget: () => notificationRoot.value?.querySelector('.notification-trigger'),
+})
 </script>
 
 <template>
-  <div
-    v-if="visible"
-    ref="notificationRoot"
-    class="notification-center"
-    :style="anchorStyle"
-    @keydown.esc="open = false"
-  >
+  <div v-if="visible" ref="notificationRoot" class="notification-center" :style="anchorStyle">
     <button
       type="button"
       class="notification-trigger"

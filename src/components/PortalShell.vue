@@ -21,6 +21,7 @@ import {
 } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDismissibleLayer } from '../composables/useDismissibleLayer'
 import { authState, logout } from '../services/authApi'
 
 defineProps({
@@ -42,11 +43,23 @@ const accountName = computed(() => authState.account?.displayName || authState.a
 const adminSectionActive = computed(() => route.path.startsWith('/admin/'))
 const isAdminPage = computed(() => route.path.startsWith('/admin/'))
 const adminSidebarOpen = ref(false)
+const adminMenu = ref(null)
+
+function closeAdminMenu() {
+  if (adminMenu.value) adminMenu.value.open = false
+}
+
+useDismissibleLayer(adminMenu, {
+  isOpen: () => Boolean(adminMenu.value?.open),
+  close: closeAdminMenu,
+  focusTarget: () => adminMenu.value?.querySelector('summary'),
+})
 
 watch(
   () => route.fullPath,
   () => {
     adminSidebarOpen.value = false
+    closeAdminMenu()
   },
 )
 
@@ -98,8 +111,9 @@ async function signOut() {
         >
         <details
           v-if="authState.account?.systemAdmin"
+          ref="adminMenu"
           class="portal-admin-menu"
-          @click="(event) => event.target.closest('a') && event.currentTarget.removeAttribute('open')"
+          @click="(event) => event.target.closest('a') && closeAdminMenu()"
         >
           <summary :class="{ active: adminSectionActive }">
             <LayoutDashboard :size="17" aria-hidden="true" />后台管理

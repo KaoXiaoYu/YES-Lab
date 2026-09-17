@@ -12,6 +12,8 @@ const mount = ref(null)
 const activeIndex = ref(0)
 const ready = ref(false)
 const failed = ref(false)
+const switching = ref(false)
+const requestedIndex = ref(0)
 const paused = ref(false)
 const interactionHeld = ref(false)
 
@@ -33,7 +35,7 @@ function changeSlide(delta) {
 }
 
 function retryModel() {
-  selectModel(activeIndex.value)
+  selectModel(requestedIndex.value)
 }
 
 function releaseFocusPause(event) {
@@ -150,9 +152,9 @@ onMounted(async () => {
     intersectionObserver.observe(host)
 
     const loader = new GLTFLoader()
-    let currentRoot = null
-    let currentAnimationRoot = null
-    let currentMixer = null
+    let currentAsset = null
+    let transition = null
+    let preloadEntry = null
     let loadRevision = 0
     let lastFrame = performance.now()
     let animationElapsed = 0
@@ -180,15 +182,13 @@ onMounted(async () => {
       scene.remove(root)
     }
 
-    const clearCurrentModel = () => {
-      if (currentMixer && currentAnimationRoot) {
-        currentMixer.stopAllAction()
-        currentMixer.uncacheRoot(currentAnimationRoot)
+    const disposeAsset = (asset) => {
+      if (!asset) return
+      if (asset.mixer) {
+        asset.mixer.stopAllAction()
+        asset.mixer.uncacheRoot(asset.animationRoot)
       }
-      currentMixer = null
-      currentAnimationRoot = null
-      disposeRoot(currentRoot)
-      currentRoot = null
+      disposeRoot(asset.root)
     }
 
     const fitModel = (model) => {
@@ -207,6 +207,102 @@ onMounted(async () => {
       model.updateMatrixWorld(true)
     }
 
+    const prepareAsset = async (item) => {
+      const asset = await loader.loadAsync(item.modelUrl)
+      const materialStates = new Map()
+      asset.scene.traverse((object) => {
+        if (!object.isMesh) return
+        object.castShadow = true
+        object.receiveShadow = true
+        const objectMaterials = Array.isArray(object.material) ? object.material : [object.material]
+        objectMaterials.filter(Boolean).forEach((material) => {
+          material.envMapIntensity = 0.85
+          if (!materialStates.has(material)) {
+            materialStates.set(material, {
+              opacity: material.opacity,
+              transparent: material.transparent,
+              depthWrite: material.depthWrite,
+            })
+          }
+        })
+      })
+      fitModel(asset.scene)
+      const wrapper = new T.Group()
+      wrapper.add(asset.scene)
+      wrapper.position.y = 0.04
+      return {
+        root: wrapper,
+        animationRoot: asset.scene,
+        animations: asset.animations,
+        mixer: null,
+        materialStates,
+      }
+    }
+
+    const setAssetOpacity = (asset, opacity, restore = false) => {
+      asset.materialStates.forEach((state, material) => {
+        material.opacity = state.opacity * opacity
+        material.transparent = restore ? state.transparent : true
+        material.depthWrite = restore ? state.depthWrite : false
+        material.needsUpdate = true
+      })
+    }
+
+    const startAssetAnimation = (asset) => {
+      if (!asset.animations.length || asset.mixer) return
+      asset.mixer = new T.AnimationMixer(asset.animationRoot)
+      asset.mixer.clipAction(asset.animations[0]).play()
+    }
+
+    const finishTransition = (shouldPreload = true) => {
+      if (!transition) return
+      const { from, to } = transition
+      setAssetOpacity(to, 1, true)
+      to.root.position.x = 0
+      disposeAsset(from)
+      transition = null
+      switching.value = false
+      if (shouldPreload) preloadNext(activeIndex.value)
+    }
+
+    const discardPreload = () => {
+      if (!preloadEntry) return
+      const entry = preloadEntry
+      preloadEntry = null
+      entry.cancelled = true
+      entry.promise.then((asset) => disposeAsset(asset)).catch(() => {})
+    }
+
+    const preloadNext = (index) => {
+      const items = enabledModels.value
+      if (disposed || items.length < 2) return
+      const nextIndex = (index + 1) % items.length
+      const item = items[nextIndex]
+      if (preloadEntry?.index === nextIndex && preloadEntry.url === item.modelUrl) return
+      discardPreload()
+      const entry = { index: nextIndex, url: item.modelUrl, cancelled: false, promise: null }
+      entry.promise = prepareAsset(item)
+        .then((asset) => {
+          if (disposed || entry.cancelled) {
+            disposeAsset(asset)
+            return null
+          }
+          return asset
+        })
+        .catch((error) => {
+          if (!entry.cancelled && !disposed) console.warn('3D model preload failed', error)
+          return null
+        })
+      preloadEntry = entry
+    }
+
+    const clearCurrentModel = () => {
+      finishTransition(false)
+      disposeAsset(currentAsset)
+      currentAsset = null
+      discardPreload()
+    }
+
     selectModel = async (index) => {
       const items = enabledModels.value
       if (!items.length) {
@@ -216,46 +312,54 @@ onMounted(async () => {
       }
       const normalizedIndex = Math.min(Math.max(index, 0), items.length - 1)
       const item = items[normalizedIndex]
-      activeIndex.value = normalizedIndex
-      ready.value = false
+      if (ready.value && normalizedIndex === activeIndex.value && !failed.value) return
+      requestedIndex.value = normalizedIndex
+      switching.value = true
       failed.value = false
       carouselElapsed = 0
       const revision = ++loadRevision
       try {
-        const asset = await loader.loadAsync(item.modelUrl)
+        let asset
+        if (preloadEntry?.index === normalizedIndex && preloadEntry.url === item.modelUrl) {
+          const entry = preloadEntry
+          preloadEntry = null
+          asset = await entry.promise
+          if (!asset) asset = await prepareAsset(item)
+        } else {
+          discardPreload()
+          asset = await prepareAsset(item)
+        }
         if (disposed || revision !== loadRevision) {
-          disposeRoot(asset.scene)
+          disposeAsset(asset)
           return
         }
-        asset.scene.traverse((object) => {
-          if (!object.isMesh) return
-          object.castShadow = true
-          object.receiveShadow = true
-          const objectMaterials = Array.isArray(object.material) ? object.material : [object.material]
-          objectMaterials.filter(Boolean).forEach((material) => {
-            material.envMapIntensity = 0.85
-          })
-        })
-        fitModel(asset.scene)
-        const wrapper = new T.Group()
-        wrapper.add(asset.scene)
-        clearCurrentModel()
-        scene.add(wrapper)
-        currentRoot = wrapper
-        if (asset.animations.length) {
-          currentMixer = new T.AnimationMixer(asset.scene)
-          currentAnimationRoot = asset.scene
-          currentMixer.clipAction(asset.animations[0]).play()
+        finishTransition(false)
+        switching.value = true
+        scene.add(asset.root)
+        startAssetAnimation(asset)
+        if (!currentAsset || motion.matches) {
+          disposeAsset(currentAsset)
+          setAssetOpacity(asset, 1, true)
+          currentAsset = asset
+          switching.value = false
+        } else {
+          setAssetOpacity(asset, 0)
+          asset.root.position.x = 0.08
+          transition = { from: currentAsset, to: asset, elapsed: 0, duration: 0.45 }
+          currentAsset = asset
         }
+        activeIndex.value = normalizedIndex
         renderer.domElement.setAttribute('aria-label', `可拖动旋转的 ${item.title} 三维模型`)
         host.dataset.modelUrl = item.modelUrl
         host.dataset.animationClips = String(asset.animations.length)
         animationElapsed = 0
         ready.value = true
+        if (!transition) preloadNext(normalizedIndex)
       } catch (error) {
         if (revision !== loadRevision || disposed) return
         console.error('3D model loading failed', error)
         failed.value = true
+        switching.value = false
       }
     }
 
@@ -268,14 +372,28 @@ onMounted(async () => {
       const delta = Math.min((now - lastFrame) / 1000, 0.05)
       lastFrame = now
       if (!visible || document.hidden) return
+      if (transition) {
+        if (motion.matches) {
+          finishTransition()
+        } else {
+          transition.elapsed += delta
+          const progress = Math.min(transition.elapsed / transition.duration, 1)
+          const eased = 1 - Math.pow(1 - progress, 3)
+          setAssetOpacity(transition.from, 1 - eased)
+          setAssetOpacity(transition.to, eased)
+          transition.from.root.position.x = -0.08 * eased
+          transition.to.root.position.x = 0.08 * (1 - eased)
+          if (progress >= 1) finishTransition()
+        }
+      }
       if (!paused.value) {
         animationElapsed += delta
-        currentMixer?.update(delta)
-        if (currentRoot) {
-          currentRoot.rotation.y += delta * 0.12
-          currentRoot.position.y = 0.04 + Math.sin(animationElapsed * 1.4) * 0.012
+        currentAsset?.mixer?.update(delta)
+        if (currentAsset) {
+          currentAsset.root.rotation.y += delta * 0.12
+          currentAsset.root.position.y = 0.04 + Math.sin(animationElapsed * 1.4) * 0.012
         }
-        if (!interactionHeld.value && ready.value && enabledModels.value.length > 1) {
+        if (!interactionHeld.value && ready.value && !switching.value && enabledModels.value.length > 1) {
           carouselElapsed += delta
           if (carouselElapsed >= 8) selectModel((activeIndex.value + 1) % enabledModels.value.length)
         }
@@ -338,14 +456,21 @@ onBeforeUnmount(() => {
       <span><i /> {{ fullName || 'AIR × GROUND' }}</span>
       <span>{{ displayName || '空地协同' }}</span>
     </header>
-    <div class="product-scene-stage">
+    <div class="product-scene-stage" :aria-busy="switching">
       <div ref="mount" class="product-scene-canvas" :class="{ 'is-ready': ready }" />
       <div v-if="!ready" class="product-scene-status" role="status" aria-live="polite">
         <span v-if="!failed" class="model-loading-dot" />
         <div>
           <p>{{ failed ? '当前 3D 模型加载失败' : '正在加载三维模型…' }}</p>
-          <button v-if="failed" type="button" @click="retryModel"><RotateCw :size="15" />重新加载</button>
+          <button v-if="failed" type="button" @click="retryModel">
+            <RotateCw :size="15" aria-hidden="true" />重新加载
+          </button>
         </div>
+      </div>
+      <div v-else-if="switching || failed" class="product-scene-switch-status" role="status" aria-live="polite">
+        <span v-if="switching" class="model-loading-dot" />
+        <span>{{ failed ? '下一个模型加载失败' : '正在准备下一个模型' }}</span>
+        <button v-if="failed" type="button" @click="retryModel"><RotateCw :size="14" aria-hidden="true" />重试</button>
       </div>
       <div v-if="activeModel" class="product-scene-caption" aria-live="off">
         <span v-if="hasMultipleModels">MODEL {{ activeIndex + 1 }} / {{ enabledModels.length }}</span>
@@ -356,7 +481,12 @@ onBeforeUnmount(() => {
     <div class="product-scene-footer">
       <span><Move :size="14" aria-hidden="true" />拖动查看</span>
       <div class="product-scene-controls" aria-label="3D 模型轮播控制">
-        <button type="button" :disabled="!hasMultipleModels" aria-label="上一个 3D 模型" @click="changeSlide(-1)">
+        <button
+          type="button"
+          :disabled="!hasMultipleModels || switching"
+          aria-label="上一个 3D 模型"
+          @click="changeSlide(-1)"
+        >
           <ChevronLeft :size="17" aria-hidden="true" />
         </button>
         <div v-if="hasMultipleModels" class="product-scene-dots" aria-label="选择 3D 模型">
@@ -365,6 +495,7 @@ onBeforeUnmount(() => {
             :key="item.modelUrl"
             type="button"
             :class="{ active: index === activeIndex }"
+            :disabled="switching"
             :aria-label="`显示 ${item.title}`"
             :aria-current="index === activeIndex ? 'true' : undefined"
             @click="selectModel(index)"
@@ -372,7 +503,12 @@ onBeforeUnmount(() => {
             <span />
           </button>
         </div>
-        <button type="button" :disabled="!hasMultipleModels" aria-label="下一个 3D 模型" @click="changeSlide(1)">
+        <button
+          type="button"
+          :disabled="!hasMultipleModels || switching"
+          aria-label="下一个 3D 模型"
+          @click="changeSlide(1)"
+        >
           <ChevronRight :size="17" aria-hidden="true" />
         </button>
         <button
@@ -470,6 +606,36 @@ onBeforeUnmount(() => {
   background: var(--color-card);
   cursor: pointer;
 }
+.product-scene-switch-status {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-border-faint);
+  border-radius: 999px;
+  color: var(--color-muted-foreground);
+  background: color-mix(in srgb, var(--color-card) 88%, transparent);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(8px);
+  font-size: 11px;
+}
+.product-scene-switch-status button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--color-primary);
+  background: var(--color-surface-muted);
+  cursor: pointer;
+}
 .model-loading-dot {
   width: 8px;
   height: 8px;
@@ -549,7 +715,8 @@ onBeforeUnmount(() => {
   background: var(--color-surface-muted);
 }
 .product-scene-controls button:focus-visible,
-.product-scene-status button:focus-visible {
+.product-scene-status button:focus-visible,
+.product-scene-switch-status button:focus-visible {
   outline: 2px solid var(--color-secondary);
   outline-offset: 2px;
 }
