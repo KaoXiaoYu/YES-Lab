@@ -150,6 +150,10 @@ public class InterviewScheduleService {
         if (application == null || application.getStage() != RecruitmentStage.INTERVIEW) {
             return new InterviewScheduleModels.ApplicantScheduleView(false, "简历通过后可以预约面试。", null, List.of());
         }
+        if (application.isInterviewResultPending()) {
+            return new InterviewScheduleModels.ApplicantScheduleView(false,
+                    "面试已完成，管理员正在补录面试结果，请耐心等待通知。", null, List.of());
+        }
         InterviewBookingEntity ownBooking = bookings.findByApplicationId(application.getId()).orElse(null);
         if (ownBooking != null) {
             String message = ownBooking.getStatus() == InterviewBookingStatus.COMPLETED
@@ -182,6 +186,9 @@ public class InterviewScheduleService {
                 .orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "请先提交报名表"));
         if (application.getStage() != RecruitmentStage.INTERVIEW) {
             throw new ApiException(HttpStatus.CONFLICT, "只有简历通过且处于面试阶段时可以预约");
+        }
+        if (application.isInterviewResultPending()) {
+            throw new ApiException(HttpStatus.CONFLICT, "面试结果正在补录，不能重复预约面试");
         }
         if (bookings.findByApplicationId(application.getId()).isPresent()) {
             throw new ApiException(HttpStatus.CONFLICT, "你已经预约面试，请先取消原预约");

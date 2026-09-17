@@ -291,6 +291,13 @@ export function resolveInterviewDecision(applicationId, payload) {
   })
 }
 
+export function setInterviewResultPending(applicationId, pending) {
+  return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/interview-result-pending`, {
+    method: 'PATCH',
+    body: { pending },
+  })
+}
+
 export function convertRecruitmentToMember(applicationId, payload) {
   return apiRequest(`/api/v1/admin/recruitment/applications/${applicationId}/convert`, {
     method: 'POST',

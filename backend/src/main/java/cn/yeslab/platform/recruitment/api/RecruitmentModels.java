@@ -83,6 +83,8 @@ public final class RecruitmentModels {
             @Size(max = 5000) String opinion
     ) { }
 
+    public record InterviewResultPendingRequest(@NotNull Boolean pending) { }
+
     public record ConvertMemberRequest(
             @NotBlank(message = "请输入学号或内部编号") @Size(max = 64) String memberCode,
             @NotEmpty(message = "正式成员至少需要一个能力标签") List<@NotBlank @Size(max = 80) String> skillTags
@@ -107,6 +109,8 @@ public final class RecruitmentModels {
             InterviewDecision decision,
             List<String> decisionInterviewerNames,
             String decisionOpinion,
+            boolean resultPending,
+            boolean resultPendingTransitionAllowed,
             boolean finalDecisionAllowed,
             Boolean passed
     ) {

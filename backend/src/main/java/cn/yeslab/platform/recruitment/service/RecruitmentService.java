@@ -329,6 +329,30 @@ public class RecruitmentService {
 
     @PreAuthorize("hasAuthority('RECRUITMENT_MANAGE')")
     @Transactional
+    public RecruitmentModels.ApplicationView setInterviewResultPending(
+            Authentication authentication,
+            UUID applicationId,
+            boolean pending
+    ) {
+        AccountEntity operator = authService.requireAccount(authentication);
+        RecruitmentApplicationEntity application = requireApplication(applicationId);
+        if (application.getStage() != RecruitmentStage.INTERVIEW || application.getInterviewDecision() != null) {
+            throw new ApiException(HttpStatus.CONFLICT, "只有尚未提交结论的面试阶段记录可以切换待补录状态");
+        }
+        if (pending && hasActiveInterviewBooking(application)) {
+            throw new ApiException(HttpStatus.CONFLICT, "该报名者仍有活动中的面试预约，请先在对应场次完成或释放预约");
+        }
+        if (application.isInterviewResultPending() == pending) return toView(application);
+
+        application.setInterviewResultPending(pending);
+        histories.save(new RecruitmentStatusHistoryEntity(application.getId(), RecruitmentStage.INTERVIEW,
+                RecruitmentStage.INTERVIEW, snapshot(operator),
+                pending ? "手动设为待补录面试结果" : "恢复为面试阶段"));
+        return toView(applications.save(application));
+    }
+
+    @PreAuthorize("hasAuthority('RECRUITMENT_MANAGE')")
+    @Transactional
     public RecruitmentModels.ApplicationView resolveInterviewDecision(
             Authentication authentication,
             UUID applicationId,
@@ -480,6 +504,7 @@ public class RecruitmentService {
                 application.getInterviewerAccountId(), application.getInterviewerName(), application.getInterviewScore(),
                 application.getInterviewEvaluation(), application.getSuggestedTags(), application.getInterviewDecision(),
                 splitStoredNames(application.getInterviewDecisionInterviewerNames()), application.getInterviewDecisionOpinion(),
+                application.isInterviewResultPending(), resultPendingTransitionAllowed(application),
                 finalDecisionAllowed(application),
                 application.getInterviewPassed()
         );
@@ -518,11 +543,22 @@ public class RecruitmentService {
         InterviewDecision decision = application.getInterviewDecision();
         if (decision == InterviewDecision.WAITLIST) return true;
         if (decision != null) return false;
+        return application.isInterviewResultPending() && !hasActiveInterviewBooking(application);
+    }
+
+    private boolean resultPendingTransitionAllowed(RecruitmentApplicationEntity application) {
+        return application.getStage() == RecruitmentStage.INTERVIEW
+                && application.getInterviewDecision() == null
+                && !application.isInterviewResultPending()
+                && !hasActiveInterviewBooking(application);
+    }
+
+    private boolean hasActiveInterviewBooking(RecruitmentApplicationEntity application) {
         return interviewBookings.findByApplicationId(application.getId())
-                .map(booking -> booking.getStatus() != InterviewBookingStatus.WAITING
-                        && booking.getStatus() != InterviewBookingStatus.CALLED
-                        && booking.getStatus() != InterviewBookingStatus.IN_PROGRESS)
-                .orElse(true);
+                .map(booking -> booking.getStatus() == InterviewBookingStatus.WAITING
+                        || booking.getStatus() == InterviewBookingStatus.CALLED
+                        || booking.getStatus() == InterviewBookingStatus.IN_PROGRESS)
+                .orElse(false);
     }
 
     private String normalize(String value) {

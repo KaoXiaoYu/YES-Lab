@@ -64,6 +64,15 @@ public class AdminRecruitmentController {
         return ApiResponse.ok(service.resolveInterviewDecision(authentication, applicationId, request));
     }
 
+    @PatchMapping("/applications/{applicationId}/interview-result-pending")
+    public ApiResponse<RecruitmentModels.ApplicationView> setInterviewResultPending(
+            Authentication authentication,
+            @PathVariable UUID applicationId,
+            @Valid @RequestBody RecruitmentModels.InterviewResultPendingRequest request
+    ) {
+        return ApiResponse.ok(service.setInterviewResultPending(authentication, applicationId, request.pending()));
+    }
+
     @PutMapping("/applications/{applicationId}/password")
     public ApiResponse<Void> resetPassword(@PathVariable UUID applicationId) {
         service.resetApplicantPassword(applicationId);

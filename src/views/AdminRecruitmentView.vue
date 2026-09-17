@@ -11,6 +11,7 @@ import {
   listRecruitmentApplications,
   resetRecruitmentPassword,
   resolveInterviewDecision,
+  setInterviewResultPending,
 } from '../services/authApi'
 import { showSubmissionFeedback } from '../services/submissionFeedback'
 
@@ -39,7 +40,7 @@ const passwordWorking = ref(false)
 
 function displayStage(application) {
   if (application?.interview?.decision === 'WAITLIST') return '候补 / 观察'
-  if (application?.stage === 'INTERVIEW' && application?.interview?.finalDecisionAllowed) return '待补录面试结果'
+  if (application?.stage === 'INTERVIEW' && application?.interview?.resultPending) return '待补录面试结果'
   return stageLabels[application?.stage]
 }
 
@@ -108,6 +109,19 @@ async function rejectApplication() {
   await runAction(
     () => changeRecruitmentStage(selected.value.id, { stage: 'REJECTED', note: '本轮招新未通过', linkedQuizId: null }),
     '报名流程已结束。',
+  )
+}
+
+async function updateInterviewResultPending(pending) {
+  if (!selected.value) return
+  const applicantName = selected.value.name
+  const message = pending
+    ? `确认将 ${applicantName} 设为“待补录面试结果”吗？切换后对方将不能再预约面试。`
+    : `确认将 ${applicantName} 恢复为“面试”吗？恢复后对方可以重新预约面试。`
+  if (!window.confirm(message)) return
+  await runAction(
+    () => setInterviewResultPending(selected.value.id, pending),
+    pending ? '已设为待补录面试结果。' : '已恢复为面试阶段。',
   )
 }
 
@@ -340,6 +354,26 @@ function splitTags(value) {
               进入{{ stageLabels[nextStages[selected.stage]] }}<ArrowRight :size="17" aria-hidden="true" /></button
             ><button
               v-if="
+                selected.stage === 'INTERVIEW' && !selected.interview?.decision && !selected.interview?.resultPending
+              "
+              type="button"
+              :disabled="working || !selected.interview?.resultPendingTransitionAllowed"
+              :aria-describedby="
+                selected.interview?.resultPendingTransitionAllowed ? undefined : 'interview-result-transition-hint'
+              "
+              @click="updateInterviewResultPending(true)"
+            >
+              设为待补录面试结果<ArrowRight :size="17" aria-hidden="true" /></button
+            ><button
+              v-if="selected.stage === 'INTERVIEW' && selected.interview?.resultPending"
+              type="button"
+              :disabled="working"
+              @click="updateInterviewResultPending(false)"
+            >
+              恢复为面试
+            </button>
+            ><button
+              v-if="
                 selected.stage !== 'SCREENING' &&
                 !['FORMAL_MEMBER', 'REJECTED'].includes(selected.stage) &&
                 selected.interview?.decision !== 'WAITLIST'
@@ -353,6 +387,18 @@ function splitTags(value) {
             </button>
           </div>
         </header>
+        <p
+          v-if="
+            selected.stage === 'INTERVIEW' &&
+            !selected.interview?.decision &&
+            !selected.interview?.resultPending &&
+            !selected.interview?.resultPendingTransitionAllowed
+          "
+          id="interview-result-transition-hint"
+          class="interview-transition-note"
+        >
+          当前仍有等待、已叫号或面试中的活动预约，请先在上方对应面试场次完成或释放预约。
+        </p>
         <div v-if="successMessage" class="save-message" role="status">{{ successMessage }}</div>
         <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
 

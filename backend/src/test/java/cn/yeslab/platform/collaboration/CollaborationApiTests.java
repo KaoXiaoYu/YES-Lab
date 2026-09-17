@@ -67,7 +67,7 @@ class CollaborationApiTests {
         String missedEmail = "interview-missed-" + suffix + "@example.com";
         String firstToken = register(firstEmail);
         String secondToken = register(secondEmail);
-        register(missedEmail);
+        String missedToken = register(missedEmail);
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
         int academicStartYear = today.getMonthValue() >= 9 ? today.getYear() : today.getYear() - 1;
         createInterviewApplication(firstEmail, "候选人甲", String.valueOf(academicStartYear));
@@ -81,7 +81,31 @@ class CollaborationApiTests {
         mvc.perform(get("/api/v1/admin/recruitment/applications").header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + missedEmail
-                        + "')].interview.finalDecisionAllowed", hasItem(true)));
+                        + "')].interview.resultPending", hasItem(false)))
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + missedEmail
+                        + "')].interview.resultPendingTransitionAllowed", hasItem(true)))
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + missedEmail
+                        + "')].interview.finalDecisionAllowed", hasItem(false)));
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-result-pending", missedApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pending\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.interview.resultPending").value(true))
+                .andExpect(jsonPath("$.data.interview.finalDecisionAllowed").value(true));
+        mvc.perform(get("/api/v1/recruitment/interviews").header("Authorization", bearer(missedToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.eligible").value(false))
+                .andExpect(jsonPath("$.data.message", containsString("补录面试结果")));
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-result-pending", missedApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pending\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.interview.resultPending").value(false))
+                .andExpect(jsonPath("$.data.interview.finalDecisionAllowed").value(false));
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-result-pending", missedApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pending\":true}"))
+                .andExpect(status().isOk());
         mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-decision", missedApplicationId)
                         .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"decision\":\"PASSED\",\"interviewerNames\":[\"汤洪\",\"范卓轩\"],"
@@ -231,6 +255,11 @@ class CollaborationApiTests {
                                 + "\"opinion\":\"同意录取\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message", containsString("有效面试场次")));
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-result-pending", secondApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pending\":true}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message", containsString("活动中的面试预约")));
 
         mvc.perform(post("/api/v1/admin/recruitment/interview-sessions/{id}/end-early", sessionId)
                         .header("Authorization", bearer(teacherToken)))
@@ -253,7 +282,16 @@ class CollaborationApiTests {
                         + "')].stage", hasItem("SKILL_TEST")))
                 .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + secondEmail + "')]", hasSize(1)))
                 .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + secondEmail
-                        + "')].interview.finalDecisionAllowed", hasItem(true)));
+                        + "')].interview.resultPendingTransitionAllowed", hasItem(true)))
+                .andExpect(jsonPath("$.data[?(@.applicantUsername == '" + secondEmail
+                        + "')].interview.finalDecisionAllowed", hasItem(false)));
+
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-result-pending", secondApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pending\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.interview.resultPending").value(true))
+                .andExpect(jsonPath("$.data.interview.finalDecisionAllowed").value(true));
 
         mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/stage", secondApplicationId)
                         .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)

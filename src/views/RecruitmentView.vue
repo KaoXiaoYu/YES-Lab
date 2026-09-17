@@ -346,6 +346,13 @@ async function deleteExistingImage(imageId) {
           <span>面试开始前 1 小时停止预约</span>
         </header>
         <div v-if="interviewLoading" class="empty-note">正在读取面试场次…</div>
+        <div v-else-if="interviewSchedule?.eligible === false" class="interview-observation-state">
+          <span><Eye :size="24" aria-hidden="true" /></span>
+          <div>
+            <strong>面试结果待补录</strong>
+            <p>{{ interviewSchedule.message }}</p>
+          </div>
+        </div>
         <template v-else-if="interviewSchedule?.booking">
           <div v-if="interviewSchedule.booking.interviewDecision === 'WAITLIST'" class="interview-observation-state">
             <span><Eye :size="24" aria-hidden="true" /></span>

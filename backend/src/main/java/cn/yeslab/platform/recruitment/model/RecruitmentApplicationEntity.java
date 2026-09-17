@@ -126,6 +126,9 @@ public class RecruitmentApplicationEntity {
     @Column(columnDefinition = "LONGTEXT")
     private String interviewDecisionOpinion;
 
+    @Column(nullable = false)
+    private boolean interviewResultPending;
+
     @Column(length = 100)
     private String linkedQuizId;
 
@@ -197,6 +200,7 @@ public class RecruitmentApplicationEntity {
     }
     public String getInterviewDecisionInterviewerNames() { return interviewDecisionInterviewerNames; }
     public String getInterviewDecisionOpinion() { return interviewDecisionOpinion; }
+    public boolean isInterviewResultPending() { return interviewResultPending; }
     public String getLinkedQuizId() { return linkedQuizId; }
     public UUID getConvertedMemberId() { return convertedMemberId; }
     public Instant getCreatedAt() { return createdAt; }
@@ -236,6 +240,7 @@ public class RecruitmentApplicationEntity {
 
     public void changeStage(RecruitmentStage stage) {
         this.stage = stage;
+        if (stage != RecruitmentStage.INTERVIEW) this.interviewResultPending = false;
         this.updatedAt = Instant.now();
     }
 
@@ -261,6 +266,12 @@ public class RecruitmentApplicationEntity {
         this.interviewDecision = decision;
         this.interviewPassed = decision == null || decision == InterviewDecision.WAITLIST
                 ? null : decision == InterviewDecision.PASSED;
+        if (decision != null) this.interviewResultPending = false;
+        this.updatedAt = Instant.now();
+    }
+
+    public void setInterviewResultPending(boolean pending) {
+        this.interviewResultPending = pending;
         this.updatedAt = Instant.now();
     }
 
