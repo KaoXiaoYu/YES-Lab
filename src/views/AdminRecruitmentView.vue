@@ -116,8 +116,8 @@ async function updateInterviewResultPending(pending) {
   if (!selected.value) return
   const applicantName = selected.value.name
   const message = pending
-    ? `确认将 ${applicantName} 设为“待补录面试结果”吗？切换后对方将不能再预约面试。`
-    : `确认将 ${applicantName} 恢复为“面试”吗？恢复后对方可以重新预约面试。`
+    ? `确认将 ${applicantName} 设为“待补录面试结果”吗？如有未结束的预约，系统会同步将其结束；切换后对方不能重复预约。`
+    : `确认将 ${applicantName} 恢复为“面试”吗？系统会释放未录入结论的已结束预约，恢复后对方可以重新预约。`
   if (!window.confirm(message)) return
   await runAction(
     () => setInterviewResultPending(selected.value.id, pending),
@@ -357,10 +357,7 @@ function splitTags(value) {
                 selected.stage === 'INTERVIEW' && !selected.interview?.decision && !selected.interview?.resultPending
               "
               type="button"
-              :disabled="working || !selected.interview?.resultPendingTransitionAllowed"
-              :aria-describedby="
-                selected.interview?.resultPendingTransitionAllowed ? undefined : 'interview-result-transition-hint'
-              "
+              :disabled="working"
               @click="updateInterviewResultPending(true)"
             >
               设为待补录面试结果<ArrowRight :size="17" aria-hidden="true" /></button
@@ -387,18 +384,6 @@ function splitTags(value) {
             </button>
           </div>
         </header>
-        <p
-          v-if="
-            selected.stage === 'INTERVIEW' &&
-            !selected.interview?.decision &&
-            !selected.interview?.resultPending &&
-            !selected.interview?.resultPendingTransitionAllowed
-          "
-          id="interview-result-transition-hint"
-          class="interview-transition-note"
-        >
-          当前仍有等待、已叫号或面试中的活动预约，请先在上方对应面试场次完成或释放预约。
-        </p>
         <div v-if="successMessage" class="save-message" role="status">{{ successMessage }}</div>
         <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
 
@@ -453,7 +438,7 @@ function splitTags(value) {
             <span>{{
               selected.interview.decision === 'WAITLIST'
                 ? '面试已完成；确认最终结果后会立即通知报名者。'
-                : '适用于场次已结束或预约已释放的报名者；补录后会立即通知对方。'
+                : '适用于遗漏录入的报名者；补录后会立即通知对方。'
             }}</span>
           </header>
           <div class="waitlist-summary">
@@ -462,7 +447,7 @@ function splitTags(value) {
               {{
                 selected.interview.decision === 'WAITLIST'
                   ? selected.interview.evaluation || '暂未填写观察简评。'
-                  : '该报名者目前没有活动中的面试预约，可以在这里单独补录最终结论。'
+                  : '该报名者已进入待补录状态，可以在这里补充完整面试信息和最终结论。'
               }}
             </p>
           </div>

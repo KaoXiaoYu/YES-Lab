@@ -2,6 +2,7 @@ package cn.yeslab.platform.collaboration;
 
 import cn.yeslab.platform.identity.repository.AccountRepository;
 import cn.yeslab.platform.identity.repository.MemberProfileRepository;
+import cn.yeslab.platform.recruitment.model.InterviewBookingStatus;
 import cn.yeslab.platform.recruitment.model.RecruitmentApplicationEntity;
 import cn.yeslab.platform.recruitment.model.RecruitmentStage;
 import cn.yeslab.platform.recruitment.repository.InterviewBookingRepository;
@@ -258,18 +259,28 @@ class CollaborationApiTests {
         mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-result-pending", secondApplicationId)
                         .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pending\":true}"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message", containsString("活动中的面试预约")));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.interview.resultPending").value(true))
+                .andExpect(jsonPath("$.data.interview.finalDecisionAllowed").value(true));
+        assertEquals(InterviewBookingStatus.COMPLETED,
+                bookings.findByApplicationId(secondApplicationId).orElseThrow().getStatus());
+        mvc.perform(get("/api/v1/recruitment/interviews").header("Authorization", bearer(secondToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.eligible").value(false))
+                .andExpect(jsonPath("$.data.message", containsString("补录面试结果")));
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-result-pending", secondApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pending\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.interview.resultPending").value(false))
+                .andExpect(jsonPath("$.data.interview.finalDecisionAllowed").value(false));
+        assertFalse(bookings.findByApplicationId(secondApplicationId).isPresent());
 
         mvc.perform(post("/api/v1/admin/recruitment/interview-sessions/{id}/end-early", sessionId)
                         .header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("ENDED_EARLY"))
                 .andExpect(jsonPath("$.data.queue", hasSize(1)));
-        mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(secondToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.messages[0].senderName").value("梅琳娜"))
-                .andExpect(jsonPath("$.data.messages[0].type").value("INTERVIEW_RELEASED"));
         mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(firstToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.messages[0].type").value("INTERVIEW_PASSED"))

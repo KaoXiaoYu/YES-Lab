@@ -803,17 +803,6 @@
   background: var(--admin-card);
 }
 
-.portal-page--admin .interview-transition-note {
-  margin: 14px 0 0;
-  padding: 10px 12px;
-  border: 1px solid var(--admin-border);
-  border-radius: 8px;
-  color: var(--admin-muted);
-  background: var(--admin-card-muted);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
 .portal-page--admin .detail-grid article {
   min-height: 94px;
   padding: 16px;

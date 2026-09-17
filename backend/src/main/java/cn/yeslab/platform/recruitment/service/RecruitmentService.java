@@ -10,6 +10,7 @@ import cn.yeslab.platform.identity.repository.MemberProfileRepository;
 import cn.yeslab.platform.identity.service.AuthService;
 import cn.yeslab.platform.notification.service.NotificationService;
 import cn.yeslab.platform.recruitment.api.RecruitmentModels;
+import cn.yeslab.platform.recruitment.model.InterviewBookingEntity;
 import cn.yeslab.platform.recruitment.model.InterviewBookingStatus;
 import cn.yeslab.platform.recruitment.model.InterviewDecision;
 import cn.yeslab.platform.recruitment.model.RecruitmentApplicationEntity;
@@ -339,15 +340,24 @@ public class RecruitmentService {
         if (application.getStage() != RecruitmentStage.INTERVIEW || application.getInterviewDecision() != null) {
             throw new ApiException(HttpStatus.CONFLICT, "只有尚未提交结论的面试阶段记录可以切换待补录状态");
         }
-        if (pending && hasActiveInterviewBooking(application)) {
-            throw new ApiException(HttpStatus.CONFLICT, "该报名者仍有活动中的面试预约，请先在对应场次完成或释放预约");
-        }
         if (application.isInterviewResultPending() == pending) return toView(application);
 
+        InterviewBookingEntity booking = interviewBookings.findByApplicationId(application.getId()).orElse(null);
+        boolean completedActiveBooking = false;
+        if (pending && booking != null && isActiveInterviewBooking(booking)) {
+            booking.complete();
+            interviewBookings.save(booking);
+            completedActiveBooking = true;
+        } else if (!pending && booking != null && booking.getStatus() == InterviewBookingStatus.COMPLETED) {
+            interviewBookings.delete(booking);
+            interviewBookings.flush();
+        }
         application.setInterviewResultPending(pending);
         histories.save(new RecruitmentStatusHistoryEntity(application.getId(), RecruitmentStage.INTERVIEW,
                 RecruitmentStage.INTERVIEW, snapshot(operator),
-                pending ? "手动设为待补录面试结果" : "恢复为面试阶段"));
+                pending
+                        ? "手动设为待补录面试结果" + (completedActiveBooking ? "，并同步结束活动预约" : "")
+                        : "恢复为面试阶段"));
         return toView(applications.save(application));
     }
 
@@ -549,16 +559,19 @@ public class RecruitmentService {
     private boolean resultPendingTransitionAllowed(RecruitmentApplicationEntity application) {
         return application.getStage() == RecruitmentStage.INTERVIEW
                 && application.getInterviewDecision() == null
-                && !application.isInterviewResultPending()
-                && !hasActiveInterviewBooking(application);
+                && !application.isInterviewResultPending();
     }
 
     private boolean hasActiveInterviewBooking(RecruitmentApplicationEntity application) {
         return interviewBookings.findByApplicationId(application.getId())
-                .map(booking -> booking.getStatus() == InterviewBookingStatus.WAITING
-                        || booking.getStatus() == InterviewBookingStatus.CALLED
-                        || booking.getStatus() == InterviewBookingStatus.IN_PROGRESS)
+                .map(this::isActiveInterviewBooking)
                 .orElse(false);
+    }
+
+    private boolean isActiveInterviewBooking(InterviewBookingEntity booking) {
+        return booking.getStatus() == InterviewBookingStatus.WAITING
+                || booking.getStatus() == InterviewBookingStatus.CALLED
+                || booking.getStatus() == InterviewBookingStatus.IN_PROGRESS;
     }
 
     private String normalize(String value) {
