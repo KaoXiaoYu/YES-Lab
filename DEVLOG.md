@@ -859,3 +859,30 @@
 
 - 报名表「兴趣方向 / 邮箱」的字段级错误提示是否要修，仍等用户确认。
 - `V11`/`V12` 预生产 MySQL 演练与部署后批量补发新手任务仍未执行。
+
+## 2026-09-20：生产 Flyway 校验和失败的原因与修复（并补冒烟/演练结论）
+
+### 事故
+
+部署新镜像时后端启动失败：`Migration checksum mismatch for migration version 11`（应用侧 `-437152533`，本地 `-1295224274`），`flywayInitializer` 校验不通过，API 未通过健康检查、Web 未切换。
+
+### 原因
+
+**我把 `V11` 当成「未上线」的脚本反复直接修改**（共享大任务、子任务正文、子任务提交内容三轮）。实际上 `V11` 已由提交 `4cd1383 任务系统上线` 应用到生产库，代码里再改动它就必然校验和不符。Flyway 在校验阶段即失败，未写库，业务数据无损。
+
+### 修复
+
+- `git checkout 4cd1383 -- backend/src/main/resources/db/migration/V11__task_module.sql`：把 `V11` **还原为生产已应用的版本**（`git diff 4cd1383` 为空）。
+- 改动全部移入新脚本 `V13__subtask_submission.sql`：加 `task_subtask_progress.content_html`；防御性补齐 `tasks.duration_days` / `task_assignments.due_date` / `task_subtasks.content_html`；`DROP TABLE IF EXISTS` 两张模板表与 `template_synced_at`；把 `content_html IS NULL` 的旧勾选行重置为未提交；用 `tasks.end_date` 回填对象的 `due_date`。加列前查 `information_schema`，可重复执行。
+- `AGENTS.md` 新增硬约定：**绝不修改已应用的迁移**；判断是否已应用以 `flyway_schema_history` 为准。
+
+### 验证
+
+- **V13 在本机真实 MySQL（9.5，临时实例 + 独立 datadir + 端口 3399）演练**：按 `V1…V12` 建库 → 伪造旧模型数据 → 执行 V13——列已加上、旧勾选行被重置为未提交、`due_date` 回填成功、**第二次执行同样成功（幂等）**；临时实例用完即删。演练脚本自身有两处瑕疵（历史 `V6/V7` 一带的 `discussion_posts` 报错属老迁移与简陋执行器所致；伪造数据有一条列名写错），V13 本身无任何报错。
+- 后端 `./mvnw -q compile` 通过；`V11` 还原后不影响代码（表结构语义未变）。
+- **尚未执行**：这套修复的镜像尚未在预生产库跑过 Flyway，也未重新部署；新界面的截图未补（用户改用手工测试代替）。
+
+### 待办
+
+- 提交 `V11` 还原 + `V13` → 重新构建镜像 → **先在预生产库**跑一遍 Flyway → 再部署生产。
+- 点击验收脚本 `.codex-run/ui-review/clickthrough-task-module.mjs` 的 `clickText` 已改为「单次求值定位 + 精确匹配必须命中精确元素」，但**未复跑验证**。
