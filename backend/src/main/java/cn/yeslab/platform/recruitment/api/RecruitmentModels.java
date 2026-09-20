@@ -87,7 +87,8 @@ public final class RecruitmentModels {
 
     public record ConvertMemberRequest(
             @NotBlank(message = "请输入学号或内部编号") @Size(max = 64) String memberCode,
-            @NotEmpty(message = "正式成员至少需要一个能力标签") List<@NotBlank @Size(max = 80) String> skillTags
+            @NotEmpty(message = "正式成员至少需要一个能力标签") List<@NotBlank @Size(max = 80) String> skillTags,
+            @Size(max = 500, message = "豁免理由不能超过 500 个字符") String exemptionReason
     ) {
     }
 

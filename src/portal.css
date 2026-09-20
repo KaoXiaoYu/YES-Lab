@@ -41,6 +41,7 @@
 }
 .portal-topbar nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -244,6 +245,18 @@
   border-color: var(--color-danger-border);
   background: var(--color-danger-soft);
 }
+.portal-state.success {
+  color: var(--color-success);
+  border-color: var(--color-success-border);
+  background: var(--color-success-surface);
+}
+/* 行内提示（操作成功/失败）不应继承整页状态块的高与内边距 */
+.portal-state.success,
+.portal-state.inline {
+  min-height: 0;
+  padding: 12px 14px;
+  font-size: 12px;
+}
 .form-alert,
 .save-message {
   margin-bottom: 20px;
@@ -298,6 +311,25 @@
 }
 .portal-primary:disabled,
 .auth-submit:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+/* 次要按钮：此前只实现了 .portal-primary，导致 .portal-secondary 到处渲染成浏览器默认按钮 */
+.portal-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 11px 18px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  color: var(--color-primary);
+  background: var(--color-card);
+  font-size: 12px;
+  font-weight: 700;
+}
+.portal-secondary:disabled {
   cursor: wait;
   opacity: 0.5;
 }
@@ -468,7 +500,7 @@
   min-height: 52px;
   margin-bottom: 14px;
   padding: 0 14px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
   color: var(--color-text-secondary);
   background: var(--color-card);
@@ -479,6 +511,15 @@
 }
 .input-shell.invalid {
   border-color: #ef4444;
+}
+/*
+ * 输入控件自身的边界属于“识别组件所必需的可视信息”，统一走 --color-border-strong
+ * （与背景达 3:1，满足 WCAG 1.4.11）；装饰性分隔线继续用淡色变量。
+ */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+select,
+textarea {
+  border-color: var(--color-border-strong);
 }
 .input-shell input {
   width: 100%;
@@ -857,7 +898,7 @@
   width: 100%;
   min-height: 48px;
   padding: 10px 12px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
   color: var(--color-foreground);
   background: var(--color-card);
@@ -914,7 +955,7 @@
   width: 100%;
   min-height: 48px;
   padding: 10px 42px 10px 40px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
   color: var(--color-foreground);
   background: var(--color-card);
@@ -1305,6 +1346,9 @@
   font-family: 'Noto Sans SC', sans-serif;
   font-size: 14px;
   line-height: 1.8;
+}
+.profile-editor-content:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-ring);
 }
 .profile-editor-content h2,
 .profile-editor-content h3 {
@@ -5665,6 +5709,10 @@ body.submission-feedback-open {
   .detail-actions button:not(.danger):hover {
     background: #152d4b;
   }
+  .portal-secondary:hover {
+    border-color: var(--color-primary);
+    background: var(--color-surface-soft);
+  }
   .submission-feedback-confirm:hover {
     background: #152d4b;
   }
@@ -5709,6 +5757,20 @@ body.submission-feedback-open {
   }
   .portal-admin-menu {
     display: block;
+  }
+  /* 管理员导航项较多：先收紧间距并隐藏重复的品牌副标，避免导航内容溢出压到账号区 */
+  .portal-brand span {
+    display: none;
+  }
+  .portal-topbar {
+    gap: 20px;
+  }
+  .portal-topbar nav {
+    gap: 5px;
+  }
+  .portal-topbar nav a,
+  .portal-admin-menu summary {
+    padding-inline: 11px;
   }
 }
 
@@ -5871,18 +5933,13 @@ body.submission-feedback-open {
   }
   .portal-topbar nav {
     order: 3;
+    flex-wrap: wrap;
     justify-content: flex-start;
     width: 100%;
-    overflow-x: auto;
     padding-top: 8px;
     border-top: 1px solid var(--color-border-faint);
   }
-  .portal-admin-direct {
-    display: inline-flex !important;
-  }
-  .portal-admin-menu {
-    display: none;
-  }
+  /* 移动端沿用「后台管理」下拉，避免 13 个入口挤成横向滚动条 */
   .portal-topbar nav a {
     flex: 0 0 auto;
   }
@@ -9013,6 +9070,20 @@ body.submission-feedback-open {
     border-color 180ms ease,
     box-shadow 180ms ease;
 }
+/* 触屏放大格子：18px 格 + 6px 间距 = 中心间距 24px，满足 WCAG 2.5.8 的间距例外 */
+@media (pointer: coarse) {
+  .points-heatmap-grid {
+    grid-template-rows: repeat(7, 18px);
+    grid-auto-columns: 18px;
+    gap: 6px;
+  }
+  .points-heatmap-grid button,
+  .points-heatmap-future {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+  }
+}
 .points-heatmap-grid button[data-level='1'],
 .points-heatmap-legend i[data-level='1'] {
   background: var(--heat-1);
@@ -9488,5 +9559,693 @@ body.submission-feedback-open {
     width: fit-content;
     padding-inline: 8px;
     border: 0;
+  }
+}
+
+/* ---------- 任务模块 ---------- */
+
+.task-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.task-toolbar > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.task-toolbar label,
+.task-review-form label,
+.task-rule-grid label,
+.task-rule-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.task-toolbar select,
+.task-toolbar input,
+.task-review-form input,
+.task-review-form select,
+.task-rule-grid input {
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--portal-line, #d8dee9);
+  border-radius: 0.6rem;
+  background: var(--portal-surface, #fff);
+  color: inherit;
+}
+
+.task-toolbar-actions,
+.task-form-actions,
+.task-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.task-form-actions {
+  margin-top: 1rem;
+}
+
+.task-card-actions button,
+.task-card-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 36px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--portal-line, #d8dee9);
+  border-radius: 0.6rem;
+  background: transparent;
+  color: inherit;
+  font-size: 0.85rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.task-card-actions button.danger {
+  border-color: #d9534f;
+  color: #c0392b;
+}
+
+.task-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+.task-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.25rem;
+  border: 1px solid var(--portal-line, #d8dee9);
+  border-radius: 1rem;
+  background: var(--portal-surface, #fff);
+  text-decoration: none;
+  color: inherit;
+}
+
+.task-card header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.task-card header span[data-status='APPROVED'],
+.task-row header b[data-status='APPROVED'],
+.task-panel-status[data-status='APPROVED'] {
+  color: #1e7d55;
+}
+
+.task-card header span[data-status='REJECTED'],
+.task-row header b[data-status='REJECTED'],
+.task-panel-status[data-status='REJECTED'] {
+  color: #c0392b;
+}
+
+.task-card h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.task-card-dates,
+.task-card-progress,
+.task-card-skip,
+.task-card-reject,
+.task-row-note,
+.overdue {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.overdue,
+.task-skip {
+  color: #c0392b;
+}
+
+.task-card footer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: auto;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.task-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.task-panel,
+.task-summary,
+.task-subtask-progress,
+.task-rows {
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--portal-line, #d8dee9);
+  border-radius: 1rem;
+  background: var(--portal-surface, #fff);
+}
+
+.task-panel > header,
+.task-summary > header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.task-panel-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: center;
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: rgba(127, 127, 127, 0.08);
+  font-size: 0.88rem;
+}
+
+.task-panel-content {
+  line-height: 1.7;
+}
+
+.task-panel-subtasks {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-panel-subtasks button {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 0.85rem;
+  border: 1px solid var(--portal-line, #d8dee9);
+  border-radius: 0.6rem;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.task-panel-subtasks button[aria-pressed='true'] {
+  border-color: #1e7d55;
+  color: #1e7d55;
+}
+
+.task-panel-submit {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.task-panel-submit textarea,
+.task-rule-grid textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--portal-line, #d8dee9);
+  border-radius: 0.6rem;
+  background: var(--portal-surface, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.task-panel-submit small,
+.task-rule-fieldset small {
+  display: block;
+  margin-top: 0.3rem;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.task-panel-approved,
+.task-panel-reject {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.task-panel-approved {
+  background: rgba(30, 125, 85, 0.12);
+  color: #1e7d55;
+}
+
+.task-panel-reject {
+  background: rgba(192, 57, 43, 0.1);
+  color: #c0392b;
+}
+
+.task-rule-fieldset {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--portal-line, #d8dee9);
+  border-radius: 0.75rem;
+}
+
+.task-rule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 0.75rem 0;
+}
+
+.task-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 32px;
+  font-weight: 500;
+}
+
+.task-sync-toggle {
+  display: block;
+  margin-top: 1rem;
+}
+
+.task-locked-note {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.9rem;
+  border-left: 3px solid #b8860b;
+  background: rgba(184, 134, 11, 0.1);
+  font-size: 0.88rem;
+}
+
+.task-preview {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px dashed var(--portal-line, #d8dee9);
+  border-radius: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.task-preview ul {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0.6rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.task-summary > header {
+  align-items: flex-start;
+}
+
+.task-summary dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.85rem;
+  margin: 1rem 0 0;
+}
+
+.task-summary dt {
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+
+.task-summary dd {
+  margin: 0.2rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.task-subtask-progress ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-subtask-progress li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(127, 127, 127, 0.07);
+  font-size: 0.9rem;
+}
+
+.task-rows {
+  display: grid;
+  gap: 1rem;
+}
+
+.task-row {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1.1rem;
+  border: 1px solid var(--portal-line, #d8dee9);
+  border-radius: 0.85rem;
+}
+
+.task-row header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.task-row header div {
+  display: flex;
+  flex-direction: column;
+}
+
+.task-row header span {
+  font-size: 0.82rem;
+  opacity: 0.75;
+}
+
+.task-review-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.75rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed var(--portal-line, #d8dee9);
+}
+
+.task-review-form .full,
+.task-review-form .task-form-actions {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .task-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-summary dl {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ---------- 大任务子任务编辑器（新手任务与普通任务共用） ---------- */
+
+/* 次要按钮作为 RouterLink 使用时也要有按钮形态 */
+a.portal-secondary {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.task-subtask-editor {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--portal-line, #d8dee9);
+  border-radius: 0.75rem;
+}
+
+.task-subtask-editor legend {
+  padding: 0 0.4rem;
+  font-weight: 600;
+}
+
+.task-subtask-hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.task-subtask-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-subtask-list li {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--portal-line, #d8dee9);
+  border-radius: 0.6rem;
+}
+
+.task-subtask-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  min-height: 48px;
+}
+
+.task-subtask-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+  opacity: 0.8;
+}
+
+.task-subtask-content {
+  padding: 0 0.35rem 0.35rem 2.1rem;
+}
+
+.task-subtask-index {
+  flex: 0 0 auto;
+  min-width: 1.6rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: center;
+  opacity: 0.7;
+}
+
+.task-subtask-field {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.task-subtask-field input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border-strong, #74849a);
+  border-radius: 0.5rem;
+  background: var(--portal-surface, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+.task-subtask-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.25rem;
+}
+
+.task-subtask-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--portal-line, #d8dee9);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.task-subtask-actions button.danger {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+
+.task-subtask-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.task-subtask-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.task-subtask-footer small {
+  font-size: 0.82rem;
+  opacity: 0.8;
+}
+
+/* ---------- 报名者侧的新手任务进度 ---------- */
+
+.task-progress {
+  display: grid;
+  gap: 0.35rem;
+  flex: 1 1 12rem;
+}
+
+.task-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(127, 127, 127, 0.22);
+}
+
+.task-progress-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #1e7d55;
+  transition: width 200ms ease;
+}
+
+.task-progress-label {
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-panel-submit .task-locked-note {
+  margin: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-progress-track > span {
+    transition: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .task-subtask-actions button:not(:disabled):hover {
+    border-color: var(--color-accent, #a16207);
+    color: var(--color-accent, #a16207);
+  }
+
+  .task-subtask-actions button.danger:not(:disabled):hover {
+    border-color: #c0392b;
+    color: #c0392b;
+  }
+}
+
+/* 子任务编辑器里的「添加子任务」在触屏 / 窄屏下放大到 44px 触控目标
+   （桌面后台沿用既有 40px 次要按钮尺寸，保持与同表单其他按钮一致） */
+@media (pointer: coarse), (max-width: 760px) {
+  .task-subtask-footer .portal-secondary,
+  .portal-page--admin .task-subtask-footer .portal-secondary {
+    min-height: 44px;
+  }
+}
+
+/* 富文本字段的可见标签：与 .admin-form-grid label 同一套字号与间距，
+   DiscussionRichTextEditor 的 label 属性只用于 aria，不会渲染可见文字。 */
+.task-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-editor-label {
+  color: var(--color-text-strong);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* 操作行里的主按钮不能再吃到 .admin-form-card .portal-primary 的 20px 上边距，
+   否则主次按钮在同一行会错开 20px（真机截图实测）。 */
+.task-form-actions .portal-primary,
+.admin-form-card .task-form-actions .portal-primary {
+  margin-top: 0;
+}
+
+/* 子任务里的富文本编辑器嵌在列表行内：窄屏必须能收缩、工具栏要能换行，
+   否则工具栏的 nowrap 会把整页撑到 800px（真机截图实测）。 */
+.task-subtask-editor,
+.task-subtask-content {
+  min-width: 0;
+}
+
+.task-subtask-content .discussion-editor-shell,
+.task-subtask-content .discussion-editor-toolbar,
+.task-subtask-content .discussion-editor-content {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.task-subtask-content .editor-toolbar,
+.task-subtask-content .discussion-editor-toolbar {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
+/* ---------- 子任务入口列表与子任务页 ---------- */
+
+.task-subtask-entries-title {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1rem;
+}
+
+.task-subtask-entries {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-subtask-entries a,
+.task-subtask-entry-static {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 0.85rem;
+  border: 1px solid var(--portal-line, #d8dee9);
+  border-radius: 0.6rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.task-subtask-entries a {
+  cursor: pointer;
+}
+
+.task-subtask-entry-title {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.task-subtask-entry-meta {
+  font-size: 0.82rem;
+  opacity: 0.8;
+}
+
+.task-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .task-subtask-entries a:hover {
+    border-color: var(--color-accent, #a16207);
+    color: var(--color-accent, #a16207);
   }
 }

@@ -43,6 +43,7 @@ public enum Role {
                 Permission.QUIZ_MANAGE,
                 Permission.POINTS_MANAGE,
                 Permission.PROJECT_MANAGE,
+                Permission.TASK_MANAGE,
                 Permission.ACHIEVEMENT_MANAGE,
                 Permission.CONTENT_MANAGE,
                 Permission.PROFILE_SELF_EDIT,

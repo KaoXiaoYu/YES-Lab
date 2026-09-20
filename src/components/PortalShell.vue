@@ -3,11 +3,13 @@ import ThemeToggle from './ThemeToggle.vue'
 import NotificationCenter from './NotificationCenter.vue'
 import {
   BadgePlus,
+  ClipboardCheck,
   ClipboardList,
   FolderKanban,
   Home,
   LayoutDashboard,
   LayoutTemplate,
+  ListChecks,
   LogOut,
   Menu,
   Medal,
@@ -87,6 +89,9 @@ async function signOut() {
         <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/projects"
           ><FolderKanban :size="17" aria-hidden="true" />项目团队</RouterLink
         >
+        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/tasks"
+          ><ListChecks :size="17" aria-hidden="true" />我的任务</RouterLink
+        >
         <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/competitions"
           ><Medal :size="17" aria-hidden="true" />竞赛成果</RouterLink
         >
@@ -102,6 +107,9 @@ async function signOut() {
         >
         <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/recruitment"
           ><ShieldCheck :size="17" aria-hidden="true" />招新管理</RouterLink
+        >
+        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/tasks"
+          ><ClipboardCheck :size="17" aria-hidden="true" />任务管理</RouterLink
         >
         <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/achievements"
           ><Newspaper :size="17" aria-hidden="true" />成果管理</RouterLink
@@ -122,6 +130,7 @@ async function signOut() {
             <RouterLink to="/admin/members"><UsersRound :size="17" aria-hidden="true" />成员管理</RouterLink>
             <RouterLink to="/admin/points"><BadgePlus :size="17" aria-hidden="true" />积分管理</RouterLink>
             <RouterLink to="/admin/recruitment"><ShieldCheck :size="17" aria-hidden="true" />招新管理</RouterLink>
+            <RouterLink to="/admin/tasks"><ClipboardCheck :size="17" aria-hidden="true" />任务管理</RouterLink>
             <RouterLink to="/admin/achievements"><Newspaper :size="17" aria-hidden="true" />成果管理</RouterLink>
             <RouterLink to="/admin/homepage"><LayoutTemplate :size="17" aria-hidden="true" />主页编辑</RouterLink>
           </div>
@@ -181,6 +190,7 @@ async function signOut() {
           <RouterLink to="/admin/members"><UsersRound :size="18" aria-hidden="true" />成员管理</RouterLink>
           <RouterLink to="/admin/points"><BadgePlus :size="18" aria-hidden="true" />积分管理</RouterLink>
           <RouterLink to="/admin/recruitment"><ShieldCheck :size="18" aria-hidden="true" />招新管理</RouterLink>
+          <RouterLink to="/admin/tasks"><ClipboardCheck :size="18" aria-hidden="true" />任务管理</RouterLink>
           <RouterLink to="/admin/achievements"><Newspaper :size="18" aria-hidden="true" />成果管理</RouterLink>
           <RouterLink to="/admin/homepage"><LayoutTemplate :size="18" aria-hidden="true" />主页编辑</RouterLink>
         </nav>
@@ -189,6 +199,7 @@ async function signOut() {
         <nav class="admin-shell-nav admin-shell-nav--secondary grid" aria-label="成员系统快捷入口">
           <RouterLink to="/profile"><UserRound :size="18" aria-hidden="true" />个人主页</RouterLink>
           <RouterLink to="/projects"><FolderKanban :size="18" aria-hidden="true" />项目团队</RouterLink>
+          <RouterLink to="/tasks"><ListChecks :size="18" aria-hidden="true" />我的任务</RouterLink>
           <RouterLink to="/competitions"><Medal :size="18" aria-hidden="true" />竞赛成果</RouterLink>
           <RouterLink to="/discussions"><MessageSquareText :size="18" aria-hidden="true" />讨论板</RouterLink>
         </nav>

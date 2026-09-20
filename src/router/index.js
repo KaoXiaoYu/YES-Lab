@@ -49,6 +49,42 @@ const routes = [
     meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
   },
   {
+    path: '/tasks',
+    name: 'tasks',
+    component: () => import('../views/TasksView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
+  },
+  {
+    path: '/tasks/:assignmentId/subtasks/:subtaskId',
+    name: 'task-subtask',
+    component: () => import('../views/TaskSubtaskView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
+  },
+  {
+    path: '/tasks/:assignmentId',
+    name: 'task-detail',
+    component: () => import('../views/TaskDetailView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
+  },
+  {
+    path: '/admin/tasks',
+    name: 'admin-tasks',
+    component: () => import('../views/AdminTasksView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
+  },
+  {
+    path: '/admin/tasks/onboarding',
+    name: 'admin-onboarding-task',
+    component: () => import('../views/AdminOnboardingTaskView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
+  },
+  {
+    path: '/admin/tasks/:taskId/progress',
+    name: 'admin-task-progress',
+    component: () => import('../views/AdminTaskProgressView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
+  },
+  {
     path: '/competitions',
     name: 'competitions',
     component: () => import('../views/CompetitionsView.vue'),
@@ -71,6 +107,12 @@ const routes = [
     path: '/application',
     name: 'application',
     component: () => import('../views/RecruitmentView.vue'),
+    meta: { roles: ['VISITOR'] },
+  },
+  {
+    path: '/application/subtasks/:subtaskId',
+    name: 'application-subtask',
+    component: () => import('../views/OnboardingSubtaskView.vue'),
     meta: { roles: ['VISITOR'] },
   },
   {

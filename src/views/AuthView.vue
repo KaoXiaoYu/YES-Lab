@@ -107,7 +107,7 @@ function validateUsername() {
       <ol aria-label="新成员成长流程">
         <li><span>01</span>报名与初筛</li>
         <li><span>02</span>面试与技能测试</li>
-        <li><span>03</span>试用期与正式成员</li>
+        <li><span>03</span>技能测试与正式成员</li>
       </ol>
     </section>
 

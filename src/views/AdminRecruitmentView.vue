@@ -15,6 +15,7 @@ import {
 } from '../services/authApi'
 import { showSubmissionFeedback } from '../services/submissionFeedback'
 
+// PROBATION 已停用：仅保留标签以便历史记录仍能显示阶段文字，且不再出现在可推进目标中。
 const stageLabels = {
   SIGNUP: '报名',
   SCREENING: '初筛',
@@ -24,7 +25,7 @@ const stageLabels = {
   FORMAL_MEMBER: '正式成员',
   REJECTED: '未通过',
 }
-const nextStages = { SIGNUP: 'SCREENING', SKILL_TEST: 'PROBATION' }
+const nextStages = { SIGNUP: 'SCREENING' }
 const applications = ref([])
 const interviewers = ref([])
 const selected = ref(null)
@@ -34,7 +35,7 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const query = ref('')
 const stageFilter = ref('ALL')
-const convertForm = reactive({ memberCode: '', skillTags: '' })
+const convertForm = reactive({ memberCode: '', skillTags: '', exemptionReason: '' })
 const decisionForm = reactive({ interviewerNames: '', score: '', evaluation: '', suggestedTags: '', opinion: '' })
 const passwordWorking = ref(false)
 
@@ -81,6 +82,7 @@ function selectApplication(application) {
   successMessage.value = ''
   errorMessage.value = ''
   convertForm.memberCode = ''
+  convertForm.exemptionReason = ''
   convertForm.skillTags =
     application?.interview?.suggestedTags?.join('、') || application?.intendedTags?.join('、') || ''
   decisionForm.interviewerNames = application?.interview?.decisionInterviewerNames?.join('、') || ''
@@ -101,6 +103,21 @@ async function advance() {
         linkedQuizId: null,
       }),
     `已进入${stageLabels[target]}阶段。`,
+  )
+}
+
+/** 试用期已停用，历史停留在该阶段的记录统一打回技能测试阶段。 */
+async function sendBackToSkillTest() {
+  if (!selected.value) return
+  if (!window.confirm(`确认将 ${selected.value.name} 从试用期打回技能测试阶段吗？`)) return
+  await runAction(
+    () =>
+      changeRecruitmentStage(selected.value.id, {
+        stage: 'SKILL_TEST',
+        note: '试用期阶段已取消，打回技能测试阶段',
+        linkedQuizId: null,
+      }),
+    '已打回技能测试阶段。',
   )
 }
 
@@ -235,6 +252,7 @@ async function convertMember() {
       convertRecruitmentToMember(selected.value.id, {
         memberCode: convertForm.memberCode.trim(),
         skillTags: splitTags(convertForm.skillTags),
+        exemptionReason: convertForm.exemptionReason.trim() || null,
       }),
     '',
   )
@@ -640,16 +658,47 @@ function splitTags(value) {
 
         <section v-if="selected.stage === 'PROBATION'" class="admin-form-card conversion-card">
           <header>
+            <ArrowRight :size="22" aria-hidden="true" />
+            <div>
+              <p>PROBATION RETIRED</p>
+              <h3>试用期已取消</h3>
+            </div>
+          </header>
+          <p>
+            招新流程不再经过试用期，技能测试阶段通过新手任务后直接转为正式成员。该记录仍停留在旧的试用期阶段，请打回技能测试阶段后继续。
+          </p>
+          <button class="portal-primary" type="button" :disabled="working" @click="sendBackToSkillTest">
+            <ArrowRight :size="18" aria-hidden="true" />打回技能测试阶段
+          </button>
+        </section>
+
+        <section v-if="selected.stage === 'SKILL_TEST'" class="admin-form-card conversion-card">
+          <header>
             <UserPlus :size="22" aria-hidden="true" />
             <div>
               <p>MEMBER CONVERSION</p>
-              <h3>一键转为正式成员</h3>
+              <h3>转为正式成员</h3>
             </div>
           </header>
-          <p>转换后保留当前报名与面试历史，并为账号创建规范成员资料。</p>
+          <p>
+            完成并通过新手任务后即可转正；转换会保留当前报名与面试历史，并为账号创建规范成员资料。若新手任务尚未通过，转正会被拒绝，可按需填写豁免理由。
+          </p>
+          <p class="task-locked-note" role="status">
+            新手任务的完成情况与审核（通过即自动转正）在
+            <RouterLink to="/admin/tasks/onboarding">任务管理 · 新手任务</RouterLink>
+            中处理；此处用于在没有新手任务或需要豁免时手动转正。
+          </p>
           <div class="admin-form-grid">
             <label>学号 / 内部编号<input v-model.trim="convertForm.memberCode" required /></label
-            ><label>能力标签（至少一项）<input v-model="convertForm.skillTags" required /></label>
+            ><label>能力标签（至少一项）<input v-model="convertForm.skillTags" required /></label
+            ><label class="full"
+              >豁免理由（可选）
+              <input
+                v-model.trim="convertForm.exemptionReason"
+                maxlength="500"
+                placeholder="仅在确认免修时填写，将写入状态变更记录"
+              /><small>填写后将跳过新手任务门槛，并在状态历史中留痕。</small></label
+            >
           </div>
           <button
             class="portal-primary"

@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
@@ -34,6 +35,20 @@ import java.util.UUID;
 
 @Service
 public class MemberProfileService {
+
+    /** 已停用的成员状态：枚举保留仅为历史数据读取，不允许再被写入。 */
+    private static final Set<MemberStatus> RETIRED_STATUSES = EnumSet.of(
+            MemberStatus.CANDIDATE, MemberStatus.PAUSED, MemberStatus.EXITED
+    );
+
+    static void validateSelectableStatus(MemberStatus status) {
+        if (status == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "请选择成员状态");
+        }
+        if (RETIRED_STATUSES.contains(status)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "成员状态只支持「试用」或「正式」");
+        }
+    }
 
     private static final PolicyFactory PROFILE_HTML_POLICY = new HtmlPolicyBuilder()
             .allowElements("p", "h2", "h3", "blockquote", "ul", "ol", "li", "strong", "em", "s", "code", "pre", "br", "hr", "a")
@@ -147,6 +162,7 @@ public class MemberProfileService {
         if (request.role() == Role.VISITOR) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "具有成员档案的账号不能设置为游客");
         }
+        validateSelectableStatus(request.status());
 
         String memberCode = request.memberCode().trim();
         profiles.findByMemberCodeIgnoreCase(memberCode)
@@ -182,6 +198,7 @@ public class MemberProfileService {
     public MemberProfileModels.ProfileView createCoreStudent(
             MemberManagementModels.CreateCoreStudentRequest request
     ) {
+        validateSelectableStatus(request.status());
         String username = AuthService.normalizeUsername(request.username());
         if (accounts.existsByUsernameIgnoreCase(username)) {
             throw new ApiException(HttpStatus.CONFLICT, "该登录账号已被使用");

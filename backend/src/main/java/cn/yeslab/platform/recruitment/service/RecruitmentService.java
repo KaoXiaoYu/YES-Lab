@@ -78,6 +78,8 @@ public class RecruitmentService {
     private final AuthService authService;
     private final NotificationService notificationService;
     private final RecruitmentPortfolioStorageService portfolioStorage;
+    private final OnboardingTaskGate onboardingTaskGate;
+    private final OnboardingTaskIssuer onboardingTaskIssuer;
     private final ObjectMapper objectMapper;
 
     public RecruitmentService(
@@ -90,6 +92,8 @@ public class RecruitmentService {
             AuthService authService,
             NotificationService notificationService,
             RecruitmentPortfolioStorageService portfolioStorage,
+            OnboardingTaskGate onboardingTaskGate,
+            OnboardingTaskIssuer onboardingTaskIssuer,
             ObjectMapper objectMapper
     ) {
         this.applications = applications;
@@ -101,6 +105,8 @@ public class RecruitmentService {
         this.authService = authService;
         this.notificationService = notificationService;
         this.portfolioStorage = portfolioStorage;
+        this.onboardingTaskGate = onboardingTaskGate;
+        this.onboardingTaskIssuer = onboardingTaskIssuer;
         this.objectMapper = objectMapper;
     }
 
@@ -422,10 +428,40 @@ public class RecruitmentService {
     ) {
         AccountEntity operator = authService.requireAccount(authentication);
         RecruitmentApplicationEntity application = requireApplication(applicationId);
-        if (application.getStage() != RecruitmentStage.PROBATION) {
-            throw new ApiException(HttpStatus.CONFLICT, "只有试用期人员可以转为正式成员");
+        return convertApplicantToMember(
+                application,
+                request.memberCode(),
+                request.skillTags(),
+                operator,
+                normalize(request.exemptionReason()),
+                "转为正式成员账号"
+        );
+    }
+
+    /**
+     * 转正核心：由管理员直接转正与新手任务审核通过两条路径共用，保证建档案与状态流转只有一份实现。
+     *
+     * <p>守卫规则：存在新手任务时必须已通过，否则拒绝并要求走「打回技能测试阶段」或填写豁免理由；
+     * 不存在新手任务时（功能上线前的历史记录）放行，并在状态历史中写明原因。</p>
+     */
+    @Transactional
+    public RecruitmentModels.ApplicationView convertApplicantToMember(
+            RecruitmentApplicationEntity application,
+            String memberCode,
+            List<String> skillTags,
+            AccountEntity operator,
+            String exemptionReason,
+            String historyNote
+    ) {
+        if (application.getStage() != RecruitmentStage.SKILL_TEST) {
+            throw new ApiException(HttpStatus.CONFLICT, "只有技能测试阶段的人员可以转为正式成员");
         }
-        if (profiles.existsByMemberCodeIgnoreCase(request.memberCode().trim())) {
+        OnboardingTaskGate.State gate = onboardingTaskGate.state(application.getId());
+        if (gate == OnboardingTaskGate.State.IN_PROGRESS && exemptionReason == null) {
+            throw new ApiException(HttpStatus.CONFLICT, "请先完成并通过新手任务；如确认免修，请填写豁免理由后再转正");
+        }
+        String cleanedMemberCode = memberCode.trim();
+        if (profiles.existsByMemberCodeIgnoreCase(cleanedMemberCode)) {
             throw new ApiException(HttpStatus.CONFLICT, "学号或内部编号已存在");
         }
         if (profiles.findByAccountId(application.getApplicant().getId()).isPresent()) {
@@ -438,17 +474,30 @@ public class RecruitmentService {
         MemberProfileEntity profile = profiles.save(new MemberProfileEntity(
                 account,
                 application.getName(),
-                request.memberCode().trim(),
+                cleanedMemberCode,
                 application.getMajor(),
                 application.getClassName(),
                 application.getGrade(),
                 application.getContact(),
                 MemberStatus.OFFICIAL,
-                cleanList(request.skillTags())
+                cleanList(skillTags)
         ));
         application.markConverted(profile.getId());
-        changeStage(application, RecruitmentStage.FORMAL_MEMBER, operator, "一键转换为正式成员账号");
+        changeStage(application, RecruitmentStage.FORMAL_MEMBER, operator,
+                conversionNote(historyNote, gate, exemptionReason));
+        onboardingTaskGate.recordConversion(application.getId(), profile.getId(), operator, exemptionReason);
         return toView(applications.save(application));
+    }
+
+    private static String conversionNote(String historyNote, OnboardingTaskGate.State gate, String exemptionReason) {
+        String note = historyNote;
+        if (exemptionReason != null) {
+            return note + "（豁免并转正：" + exemptionReason + "）";
+        }
+        if (gate == OnboardingTaskGate.State.NOT_ISSUED) {
+            return note + "（该记录未关联新手任务，按历史记录放行）";
+        }
+        return note;
     }
 
     private void changeStage(
@@ -464,6 +513,10 @@ public class RecruitmentService {
         application.changeStage(target);
         String effectiveNote = screeningDecisionNote(current, target, note);
         histories.save(new RecruitmentStatusHistoryEntity(application.getId(), current, target, snapshot(operator), effectiveNote));
+        // 面试通过即进入技能测试阶段：在同一事务内按模板自动发放新手任务（幂等）。
+        if (target == RecruitmentStage.SKILL_TEST) {
+            onboardingTaskIssuer.issueIfAbsent(application, operator);
+        }
         notifyScreeningDecision(application, current, target);
     }
 
@@ -642,8 +695,9 @@ public class RecruitmentService {
         values.put(RecruitmentStage.SIGNUP, EnumSet.of(RecruitmentStage.SCREENING, RecruitmentStage.REJECTED));
         values.put(RecruitmentStage.SCREENING, EnumSet.of(RecruitmentStage.INTERVIEW, RecruitmentStage.REJECTED));
         values.put(RecruitmentStage.INTERVIEW, EnumSet.of(RecruitmentStage.SKILL_TEST, RecruitmentStage.REJECTED));
-        values.put(RecruitmentStage.SKILL_TEST, EnumSet.of(RecruitmentStage.PROBATION, RecruitmentStage.REJECTED));
-        values.put(RecruitmentStage.PROBATION, EnumSet.of(RecruitmentStage.FORMAL_MEMBER, RecruitmentStage.REJECTED));
+        values.put(RecruitmentStage.SKILL_TEST, EnumSet.of(RecruitmentStage.FORMAL_MEMBER, RecruitmentStage.REJECTED));
+        // 试用期已停用：不可进入，仅保留「打回技能测试阶段」作为历史记录的回退通道。
+        values.put(RecruitmentStage.PROBATION, EnumSet.of(RecruitmentStage.SKILL_TEST, RecruitmentStage.REJECTED));
         return values;
     }
 

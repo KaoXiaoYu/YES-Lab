@@ -2,8 +2,8 @@
 :root {
   color-scheme: light;
   --color-header: rgba(248, 250, 252, 0.96);
-  --color-text-secondary: #64748b;
-  --color-text-subtle: #94a3b8;
+  --color-text-secondary: #475569;
+  --color-text-subtle: #5b6b80;
   --color-accent-surface: #fffbeb;
   --color-accent-fill: #a16207;
   --color-border-faint: #e2e8f0;
@@ -22,6 +22,8 @@
   --color-success-surface: #f0fdf4;
   --color-info-surface: #eff6ff;
   --color-border-soft: #dbe2ea;
+  /* 交互控件边界：与 #f8fafc / #ffffff / #e8edf3 均达 3:1（WCAG 1.4.11） */
+  --color-border-strong: #74849a;
   --color-surface-subtle: #f1f5f9;
   --color-warning: #92400e;
   --color-accent-border: #fde68a;
@@ -41,6 +43,8 @@
   --color-foreground: #e5edf7;
   --color-surface-soft: #111e31;
   --color-border: #435772;
+  /* 暗色交互控件边界：与 #0b1423 / #15243a 均达 3:1 */
+  --color-border-strong: #5b708f;
   --color-accent: #f1c779;
   --color-primary: #b9d5fb;
   --color-surface-muted: #24354b;
@@ -228,7 +232,8 @@ input:autofill {
   .sponsor-upload > img {
     align-self: center;
   }
-  .theme-toggle span {
+  /* 只隐藏“暗色/亮色”文字，图标容器同样是 span，不能一起隐藏 */
+  .theme-toggle > span:last-child {
     display: none;
   }
 }
@@ -294,7 +299,7 @@ input:autofill {
   .top-nav {
     gap: 12px;
   }
-  .header-actions .theme-toggle span {
+  .header-actions .theme-toggle > span:last-child {
     display: none;
   }
 }

@@ -60,6 +60,14 @@ a,
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
+/* 触屏没有 hover：按下时给出可见反馈，避免“点了没反应” */
+button:not(:disabled):active,
+a:active,
+summary:active,
+[role='button']:active {
+  transform: scale(0.98);
+  transition: transform 130ms var(--ease-standard);
+}
 button:focus-visible,
 a:focus-visible,
 [tabindex]:focus-visible {
@@ -1501,7 +1509,7 @@ h2 em {
   border-bottom: 1px solid var(--color-border);
   transition:
     background 180ms var(--ease-standard),
-    padding 180ms var(--ease-standard);
+    box-shadow 180ms var(--ease-standard);
 }
 .update-list article > span {
   color: var(--color-text-subtle);
@@ -2286,9 +2294,9 @@ footer p {
     color: var(--color-secondary);
   }
   .update-list article:hover {
-    padding-right: 14px;
-    padding-left: 14px;
     background: var(--color-background);
+    /* 用内阴影做强调，替代原来的 padding 位移，避免 hover 时整行内容跳动 */
+    box-shadow: inset 3px 0 0 var(--color-accent);
   }
   .modal-close:hover {
     color: #fff;

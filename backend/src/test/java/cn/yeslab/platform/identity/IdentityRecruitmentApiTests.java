@@ -1,6 +1,9 @@
 package cn.yeslab.platform.identity;
 
 import com.jayway.jsonpath.JsonPath;
+import cn.yeslab.platform.recruitment.model.RecruitmentApplicationEntity;
+import cn.yeslab.platform.recruitment.model.RecruitmentStage;
+import cn.yeslab.platform.recruitment.repository.RecruitmentApplicationRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import java.util.List;
@@ -12,6 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import jakarta.servlet.http.Cookie;
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -33,6 +37,9 @@ class IdentityRecruitmentApiTests {
 
     @Autowired
     private WebApplicationContext context;
+
+    @Autowired
+    private RecruitmentApplicationRepository applications;
 
     private MockMvc mvc;
 
@@ -122,17 +129,48 @@ class IdentityRecruitmentApiTests {
                 .andExpect(jsonPath("$.data.interview.decision").value("PASSED"));
 
         changeStage(applicationId, teacherToken, "SKILL_TEST");
-        changeStage(applicationId, teacherToken, "PROBATION");
-        mvc.perform(post("/api/v1/admin/recruitment/applications/{id}/convert", applicationId)
+        // 技能测试阶段会自动发放新手任务；完成并审核通过后直接转为正式成员（不再经过试用期）。
+        String onboardingResponse = mvc.perform(get("/api/v1/recruitment/me/onboarding-task")
+                        .header("Authorization", bearer(visitorToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("PENDING"))
+                .andReturn().getResponse().getContentAsString();
+        String assignmentId = JsonPath.read(onboardingResponse, "$.data.assignmentId");
+        String onboardingTaskId = JsonPath.read(onboardingResponse, "$.data.taskId");
+
+        // 转正门槛：必须先完成大任务下的全部子任务，提交才会被接受。
+        for (String subtaskId : JsonPath.<List<String>>read(onboardingResponse, "$.data.subtasks[*].id")) {
+            mvc.perform(patch("/api/v1/recruitment/me/onboarding-task/subtasks/{id}", subtaskId)
+                            .header("Authorization", bearer(visitorToken))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"completed\":true}"))
+                    .andExpect(status().isOk());
+        }
+
+        mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
+                        .header("Authorization", bearer(visitorToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"completionNote\":\"新手任务已按要求完成\"}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(put("/api/v1/admin/tasks/{taskId}/assignments/{assignmentId}/review",
+                        onboardingTaskId, assignmentId)
                         .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"memberCode":"S-FLOW-001","skillTags":["无人机系统","工程实现"]}
+                                {"decision":"APPROVED","comment":"新手任务完成，同意转正",
+                                 "memberCode":"S-FLOW-001","skillTags":["无人机系统","工程实现"]}
                                 """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("APPROVED"))
+                .andExpect(jsonPath("$.data.convertedProfileId").isNotEmpty());
+
+        // 状态历史为 5 条：报名、初筛、面试、技能测试、转正。
+        mvc.perform(get("/api/v1/recruitment/me").header("Authorization", bearer(visitorToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.stage").value("FORMAL_MEMBER"))
                 .andExpect(jsonPath("$.data.convertedMemberId").isNotEmpty())
-                .andExpect(jsonPath("$.data.history.length()").value(6));
+                .andExpect(jsonPath("$.data.history.length()").value(5));
 
         mvc.perform(put("/api/v1/admin/recruitment/applications/{id}/password", applicationId)
                         .header("Authorization", bearer(teacherToken)))
@@ -318,6 +356,97 @@ class IdentityRecruitmentApiTests {
                                 """))
                 .andExpect(status().isUnauthorized());
         login("password-change@example.com", "NewPass1");
+    }
+
+    @Test
+    void probationStageIsRetiredAndLegacyRecordsCanBeSentBackToSkillTest() throws Exception {
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        ApplicantFixture applicant = registerApplicantWithApplication(
+                "probation-retired@example.com", "Probation1", "试用期停用同学");
+
+        changeStage(applicant.applicationId(), teacherToken, "SCREENING");
+        // 记录面试通过（同时把阶段推进到面试），否则不能进入技能测试阶段。
+        mvc.perform(put("/api/v1/admin/recruitment/applications/{id}/interview", applicant.applicationId())
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"interviewerUsername":"core","score":86,"evaluation":"基础扎实",
+                                 "suggestedTags":["无人机系统"],"passed":true}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stage").value("INTERVIEW"));
+        changeStage(applicant.applicationId(), teacherToken, "SKILL_TEST");
+
+        // 技能测试阶段不能再进入试用期。
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/stage", applicant.applicationId())
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"stage\":\"PROBATION\",\"note\":\"试图进入试用期\",\"linkedQuizId\":null}"))
+                .andExpect(status().isConflict());
+
+        // 模拟功能上线前遗留的试用期记录，容器内直接改写阶段。
+        RecruitmentApplicationEntity legacy = applications.findById(UUID.fromString(applicant.applicationId()))
+                .orElseThrow();
+        legacy.changeStage(RecruitmentStage.PROBATION);
+        applications.save(legacy);
+
+        // 试用期已不能直接转正。
+        mvc.perform(post("/api/v1/admin/recruitment/applications/{id}/convert", applicant.applicationId())
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"memberCode":"S-RETIRED-001","skillTags":["无人机系统"]}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("只有技能测试阶段的人员可以转为正式成员"));
+
+        // 但可以打回技能测试阶段。
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/stage", applicant.applicationId())
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"stage\":\"SKILL_TEST\",\"note\":\"试用期阶段已取消，打回技能测试阶段\",\"linkedQuizId\":null}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stage").value("SKILL_TEST"))
+                .andExpect(jsonPath("$.data.history[*].toStage", hasItem("SKILL_TEST")));
+    }
+
+    @Test
+    void retiredMemberStatusesAreRejectedWhileTrialAndOfficialStaySelectable() throws Exception {
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        String membersResponse = mvc.perform(get("/api/v1/admin/members")
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        java.util.List<String> memberIds = JsonPath.read(membersResponse, "$.data[?(@.username == 'member')].id");
+        String memberId = memberIds.getFirst();
+
+        for (String retired : List.of("CANDIDATE", "PAUSED", "EXITED")) {
+            mvc.perform(put("/api/v1/admin/members/{id}", memberId)
+                            .header("Authorization", bearer(teacherToken))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"name":"范桌轩大王","memberCode":"S-001","role":"MEMBER",
+                                     "major":"具身智能工程","className":"人工智能 2401","grade":"2024",
+                                     "internalContact":"member@yes-lab.internal","status":"%s",
+                                     "skillTags":["具身智能","机器人控制"]}
+                                    """.formatted(retired)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.message").value("成员状态只支持「试用」或「正式」"));
+        }
+
+        for (String selectable : List.of("TRIAL", "OFFICIAL")) {
+            mvc.perform(put("/api/v1/admin/members/{id}", memberId)
+                            .header("Authorization", bearer(teacherToken))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"name":"范桌轩大王","memberCode":"S-001","role":"MEMBER",
+                                     "major":"具身智能工程","className":"人工智能 2401","grade":"2024",
+                                     "internalContact":"member@yes-lab.internal","status":"%s",
+                                     "skillTags":["具身智能","机器人控制"]}
+                                    """.formatted(selectable)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value(selectable));
+        }
     }
 
     @Test

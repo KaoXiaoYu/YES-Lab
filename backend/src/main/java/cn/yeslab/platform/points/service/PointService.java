@@ -133,6 +133,62 @@ public class PointService {
 
     @PreAuthorize("hasAuthority('POINTS_MANAGE')")
     @Transactional
+    public TaskGrantResult grantForTask(
+            Authentication authentication,
+            UUID taskId,
+            UUID memberProfileId,
+            int points,
+            String taskTitle,
+            LocalDate occurredOn,
+            String evidenceUrl,
+            String description,
+            String contribution
+    ) {
+        AccountEntity operator = authService.requireAccount(authentication);
+        String sourceReference = "TASK:" + taskId + ":" + memberProfileId;
+        // 幂等：来源编号唯一，重复审核直接复用原批次，不重复计分也不报错。
+        PointGrantEntity existing = grants.findBySourceReferenceIgnoreCase(sourceReference).orElse(null);
+        if (existing != null) {
+            int credited = existing.getEntries().stream().mapToInt(PointEntryEntity::getPoints).sum();
+            return new TaskGrantResult(true, existing.getId(), credited, null);
+        }
+        if (points <= 0) {
+            return new TaskGrantResult(false, null, null, null);
+        }
+        MemberProfileEntity member = profiles.findById(memberProfileId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "积分接收成员不存在"));
+        String ineligible = taskRecipientIneligibleReason(operator, member);
+        if (ineligible != null) {
+            return new TaskGrantResult(false, null, null, ineligible);
+        }
+        PointModels.GrantRequest request = new PointModels.GrantRequest(
+                limit("任务：" + taskTitle, 160),
+                PointSubcategory.PROJECT_TASK,
+                occurredOn,
+                points,
+                sourceReference,
+                validateEvidenceUrl(evidenceUrl),
+                normalize(description),
+                List.of(new PointModels.AllocationRequest(
+                        memberProfileId, points, limit(contribution, 500)))
+        );
+        PointModels.GrantView granted = grant(authentication, request);
+        return new TaskGrantResult(true, granted.id(), granted.awardedPoints(), null);
+    }
+
+    /**
+     * 任务积分的接收方是否不可计分。返回 null 表示可以计分，否则返回不可计分的原因。
+     * 与 {@link #validateRecipient} 保持一致，但按「跳过并记录原因」而不是抛错的方式返回。
+     */
+    private String taskRecipientIneligibleReason(AccountEntity operator, MemberProfileEntity member) {
+        if (member.getAccount().getRole() == Role.TEACHER) return "指导教师不参与成员积分统计";
+        if (member.getStatus() != MemberStatus.OFFICIAL) return "只能给正式成员发放积分";
+        if (member.getAccount().getId().equals(operator.getId())) return "积分管理员不能给自己发放积分";
+        return null;
+    }
+
+    @PreAuthorize("hasAuthority('POINTS_MANAGE')")
+    @Transactional
     public PointModels.GrantView reverse(
             Authentication authentication,
             UUID grantId,
@@ -491,6 +547,10 @@ public class PointService {
             int creditedPoints,
             String contribution
     ) {
+    }
+
+    /** 任务积分发放结果；{@code granted=false} 且原因非空表示按规则跳过计分。 */
+    public record TaskGrantResult(boolean granted, UUID grantId, Integer creditedPoints, String skippedReason) {
     }
 
     private record RankedMember(MemberProfileEntity profile, int points) {

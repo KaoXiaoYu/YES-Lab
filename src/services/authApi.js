@@ -528,3 +528,132 @@ export function uploadHomepageModel(model) {
   form.append('model', model)
   return formRequest('/api/v1/admin/homepage/models', { method: 'POST', body: form })
 }
+
+// ---------- 任务模块 ----------
+
+export function getMyOnboardingTask() {
+  return apiRequest('/api/v1/recruitment/me/onboarding-task')
+}
+
+export function getOnboardingSubtask(subtaskId) {
+  return apiRequest(`/api/v1/recruitment/me/onboarding-task/subtasks/${subtaskId}`)
+}
+
+export function toggleOnboardingSubtask(subtaskId, completed) {
+  return apiRequest(`/api/v1/recruitment/me/onboarding-task/subtasks/${subtaskId}`, {
+    method: 'PATCH',
+    body: { completed },
+  })
+}
+
+export function submitOnboardingTask(completionNote) {
+  return apiRequest('/api/v1/recruitment/me/onboarding-task/submission', {
+    method: 'POST',
+    body: { completionNote },
+  })
+}
+
+export function getOnboardingTask() {
+  return apiRequest('/api/v1/admin/tasks/onboarding')
+}
+
+export function saveOnboardingTask(payload) {
+  return apiRequest('/api/v1/admin/tasks/onboarding', { method: 'PUT', body: payload })
+}
+
+export function getOnboardingOverview() {
+  return apiRequest('/api/v1/admin/tasks/onboarding-overview')
+}
+
+export function backfillOnboardingTasks() {
+  return apiRequest('/api/v1/admin/tasks/onboarding-tasks/backfill', { method: 'POST' })
+}
+
+export function reviewTaskAssignment(taskId, assignmentId, payload) {
+  return apiRequest(`/api/v1/admin/tasks/${taskId}/assignments/${assignmentId}/review`, {
+    method: 'PUT',
+    body: payload,
+  })
+}
+
+export function listTasks(status, keyword) {
+  const params = new URLSearchParams()
+  if (status) params.set('status', status)
+  if (keyword) params.set('keyword', keyword)
+  const query = params.toString()
+  return apiRequest(`/api/v1/admin/tasks${query ? `?${query}` : ''}`)
+}
+
+export function createTask(payload) {
+  return apiRequest('/api/v1/admin/tasks', { method: 'POST', body: payload })
+}
+
+export function getTask(taskId) {
+  return apiRequest(`/api/v1/admin/tasks/${taskId}`)
+}
+
+export function updateTask(taskId, payload) {
+  return apiRequest(`/api/v1/admin/tasks/${taskId}`, { method: 'PUT', body: payload })
+}
+
+export function previewTaskAudience(payload) {
+  return apiRequest('/api/v1/admin/tasks/audience-preview', { method: 'POST', body: payload })
+}
+
+export function publishTask(taskId) {
+  return apiRequest(`/api/v1/admin/tasks/${taskId}/publish`, { method: 'POST' })
+}
+
+export function closeTask(taskId) {
+  return apiRequest(`/api/v1/admin/tasks/${taskId}/close`, { method: 'POST' })
+}
+
+export function deleteTask(taskId) {
+  return apiRequest(`/api/v1/admin/tasks/${taskId}`, { method: 'DELETE' })
+}
+
+export function supplementTaskAssignments(taskId, payload) {
+  return apiRequest(`/api/v1/admin/tasks/${taskId}/assignments`, { method: 'POST', body: payload })
+}
+
+export function removeTaskAssignment(taskId, assignmentId) {
+  return apiRequest(`/api/v1/admin/tasks/${taskId}/assignments/${assignmentId}`, { method: 'DELETE' })
+}
+
+export function getTaskProgress(taskId) {
+  return apiRequest(`/api/v1/admin/tasks/${taskId}/progress`)
+}
+
+export function getMyTasks() {
+  return apiRequest('/api/v1/tasks')
+}
+
+export function getMyTask(assignmentId) {
+  return apiRequest(`/api/v1/tasks/${assignmentId}`)
+}
+
+export function getMySubtask(assignmentId, subtaskId) {
+  return apiRequest(`/api/v1/tasks/${assignmentId}/subtasks/${subtaskId}`)
+}
+
+export function getAdminSubtask(taskId, subtaskId) {
+  return apiRequest(`/api/v1/admin/tasks/${taskId}/subtasks/${subtaskId}`)
+}
+
+export function toggleMyTaskSubtask(assignmentId, subtaskId, completed) {
+  return apiRequest(`/api/v1/tasks/${assignmentId}/subtasks/${subtaskId}`, {
+    method: 'PATCH',
+    body: { completed },
+  })
+}
+
+export function submitMyTask(assignmentId, completionNote) {
+  return apiRequest(`/api/v1/tasks/${assignmentId}/submission`, {
+    method: 'POST',
+    body: { completionNote },
+  })
+}
+
+export function listTaskMemberOptions() {
+  return apiRequest('/api/v1/admin/tasks/member-options')
+}

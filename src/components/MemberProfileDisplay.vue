@@ -9,6 +9,7 @@ const props = defineProps({
 })
 
 const roleLabels = { TEACHER: '指导教师', CORE_STUDENT: '核心成员', MEMBER: '正式成员' }
+// 全量标签用于只读展示：候选 / 暂停 / 退出 已停用，但历史成员仍需按其真实状态显示文字。
 const statusLabels = { CANDIDATE: '候选', TRIAL: '试用', OFFICIAL: '正式', PAUSED: '暂停', EXITED: '退出' }
 const isTeacher = computed(() => props.profile.role === 'TEACHER')
 </script>

@@ -643,9 +643,6 @@ onBeforeUnmount(() => {
 
     <section id="top" class="hero" tabindex="-1">
       <div class="hero-brand-field" aria-hidden="true">
-        <img class="hero-brand-mark mark-one" src="/yes-lab-logo.png" alt="" />
-        <img class="hero-brand-mark mark-two" src="/yes-lab-logo.png" alt="" />
-        <img class="hero-brand-mark mark-three" src="/yes-lab-logo.png" alt="" />
         <span class="hero-brand-orbit orbit-one"></span><span class="hero-brand-orbit orbit-two"></span>
       </div>
       <div class="hero-main" data-reveal>
@@ -756,7 +753,15 @@ onBeforeUnmount(() => {
         <span>{{ String(filteredProjects.length).padStart(2, '0') }} PROJECTS</span>
       </div>
 
-      <TransitionGroup name="project-list" tag="div" class="project-grid">
+      <TransitionGroup
+        name="project-list"
+        tag="div"
+        class="project-grid"
+        :class="{
+          'project-grid--solo': filteredProjects.length === 1,
+          'project-grid--pair': filteredProjects.length === 2,
+        }"
+      >
         <article
           v-for="project in filteredProjects"
           :key="project.number"

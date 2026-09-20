@@ -15,6 +15,7 @@ import {
 } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import AuthenticatedImage from '../components/AuthenticatedImage.vue'
+import OnboardingTaskPanel from '../components/OnboardingTaskPanel.vue'
 import PortalShell from '../components/PortalShell.vue'
 import {
   authState,
@@ -22,6 +23,7 @@ import {
   cancelInterviewBooking,
   deleteRecruitmentPortfolioImage,
   getInterviewSchedule,
+  getMyOnboardingTask,
   getOwnApplication,
   getRecruitmentQuestions,
   saveOwnApplication,
@@ -29,7 +31,8 @@ import {
 } from '../services/authApi'
 import { showSubmissionFeedback } from '../services/submissionFeedback'
 
-const stages = ['SIGNUP', 'SCREENING', 'INTERVIEW', 'SKILL_TEST', 'PROBATION', 'FORMAL_MEMBER']
+const stages = ['SIGNUP', 'SCREENING', 'INTERVIEW', 'SKILL_TEST', 'FORMAL_MEMBER']
+// PROBATION 已停用：仅保留标签以便历史报名记录仍能正确显示阶段文字。
 const stageLabels = {
   SIGNUP: '报名',
   SCREENING: '初筛',
@@ -48,6 +51,9 @@ const saving = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const interviewSchedule = ref(null)
+const onboardingTask = ref(null)
+const onboardingLoading = ref(false)
+const onboardingError = ref('')
 const interviewLoading = ref(false)
 let interviewPollTimer
 const form = reactive({
@@ -96,6 +102,18 @@ const groupedInterviewSessions = computed(() => {
   return [...groups.entries()].map(([date, sessions]) => ({ date, sessions }))
 })
 
+async function refreshOnboardingTask() {
+  onboardingLoading.value = true
+  onboardingError.value = ''
+  try {
+    onboardingTask.value = await getMyOnboardingTask()
+  } catch (error) {
+    onboardingError.value = error.message
+  } finally {
+    onboardingLoading.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     const [ownApplication, assignedQuestions] = await Promise.all([getOwnApplication(), getRecruitmentQuestions()])
@@ -111,6 +129,7 @@ onMounted(async () => {
       await refreshInterviewSchedule()
       interviewPollTimer = window.setInterval(refreshInterviewSchedule, 10000)
     }
+    if (ownApplication?.stage === 'SKILL_TEST') await refreshOnboardingTask()
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -414,6 +433,15 @@ async function deleteExistingImage(imageId) {
           </div>
         </template>
       </section>
+
+      <OnboardingTaskPanel
+        v-if="application?.stage === 'SKILL_TEST'"
+        :task="onboardingTask"
+        :loading="onboardingLoading"
+        :error-message="onboardingError"
+        editable
+        @refresh="refreshOnboardingTask"
+      />
 
       <div class="recruitment-layout">
         <section class="application-card">

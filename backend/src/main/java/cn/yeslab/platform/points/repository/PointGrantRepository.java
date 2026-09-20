@@ -12,4 +12,5 @@ public interface PointGrantRepository extends JpaRepository<PointGrantEntity, UU
     boolean existsByReversalOf_Id(UUID grantId);
     List<PointGrantEntity> findTop200ByOrderByCreatedAtDesc();
     Optional<PointGrantEntity> findById(UUID id);
+    Optional<PointGrantEntity> findBySourceReferenceIgnoreCase(String sourceReference);
 }

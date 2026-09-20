@@ -68,7 +68,9 @@ const createForm = reactive({
 })
 
 const roleLabels = { TEACHER: '指导教师', CORE_STUDENT: '核心成员', MEMBER: '普通成员' }
+// 全量标签用于只读展示；可选状态只保留「试用 / 正式」，候选 / 暂停 / 退出 已停用。
 const statusLabels = { CANDIDATE: '候选', TRIAL: '试用', OFFICIAL: '正式', PAUSED: '暂停', EXITED: '退出' }
+const selectableStatuses = { TRIAL: '试用', OFFICIAL: '正式' }
 const selected = computed(() => members.value.find((member) => member.id === selectedId.value) || null)
 const filteredMembers = computed(() => {
   const keyword = search.value.trim().toLowerCase()
@@ -443,7 +445,10 @@ function splitTags(value) {
               <label>年级<input v-model.trim="createForm.grade" maxlength="30" /></label>
               <label
                 >成员状态<select v-model="createForm.status">
-                  <option v-for="(label, value) in statusLabels" :key="value" :value="value">{{ label }}</option>
+                  <option v-if="!selectableStatuses[createForm.status]" :value="createForm.status" disabled>
+                    {{ statusLabels[createForm.status] }}（已停用，请改选）
+                  </option>
+                  <option v-for="(label, value) in selectableStatuses" :key="value" :value="value">{{ label }}</option>
                 </select></label
               >
               <label>内部联系方式<input v-model.trim="createForm.internalContact" maxlength="200" /></label>
@@ -534,7 +539,10 @@ function splitTags(value) {
               >
               <label
                 >成员状态<select v-model="form.status">
-                  <option v-for="(label, value) in statusLabels" :key="value" :value="value">{{ label }}</option>
+                  <option v-if="!selectableStatuses[form.status]" :value="form.status" disabled>
+                    {{ statusLabels[form.status] }}（已停用，请改选）
+                  </option>
+                  <option v-for="(label, value) in selectableStatuses" :key="value" :value="value">{{ label }}</option>
                 </select></label
               >
             </div>

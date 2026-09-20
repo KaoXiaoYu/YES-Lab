@@ -19,6 +19,7 @@ class RolePermissionTests {
                 Permission.QUIZ_MANAGE,
                 Permission.POINTS_MANAGE,
                 Permission.PROJECT_MANAGE,
+                Permission.TASK_MANAGE,
                 Permission.ACHIEVEMENT_MANAGE,
                 Permission.CONTENT_MANAGE
         );
@@ -29,8 +30,10 @@ class RolePermissionTests {
         assertThat(Role.MEMBER.permissions()).contains(Permission.PROFILE_SELF_EDIT, Permission.QUIZ_PARTICIPATE, Permission.QUESTION_WRITE);
         assertThat(Role.MEMBER.permissions()).contains(Permission.DISCUSSION_ACCESS, Permission.NOTIFICATION_VIEW);
         assertThat(Role.MEMBER.permissions()).doesNotContain(Permission.RECRUITMENT_MANAGE);
+        assertThat(Role.MEMBER.permissions()).doesNotContain(Permission.TASK_MANAGE);
         assertThat(Role.VISITOR.permissions()).containsExactlyInAnyOrder(
                 Permission.RECRUITMENT_SELF_EDIT, Permission.RECRUITMENT_SELF_VIEW, Permission.NOTIFICATION_VIEW);
         assertThat(Role.VISITOR.permissions()).doesNotContain(Permission.PROFILE_SELF_EDIT, Permission.DISCUSSION_ACCESS);
+        assertThat(Role.VISITOR.permissions()).doesNotContain(Permission.TASK_MANAGE);
     }
 }

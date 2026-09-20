@@ -161,31 +161,6 @@ body {
   pointer-events: none;
   overflow: hidden;
 }
-.hero-brand-mark {
-  position: absolute;
-  width: clamp(170px, 20vw, 340px);
-  height: auto;
-  opacity: 0.055;
-  filter: saturate(1.25);
-}
-.hero-brand-mark.mark-one {
-  top: 6%;
-  right: 7%;
-  transform: rotate(-9deg);
-}
-.hero-brand-mark.mark-two {
-  bottom: 10%;
-  left: 4%;
-  width: clamp(120px, 14vw, 230px);
-  transform: rotate(12deg);
-}
-.hero-brand-mark.mark-three {
-  top: 38%;
-  left: 45%;
-  width: clamp(90px, 10vw, 170px);
-  transform: rotate(-18deg);
-  opacity: 0.035;
-}
 .hero-brand-orbit {
   position: absolute;
   border: 1px solid color-mix(in srgb, var(--color-secondary) 24%, transparent);
@@ -680,6 +655,19 @@ body {
   border-color: var(--color-border-faint);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
+}
+/* 项目数少于 3 时主动收拢版面：单条居中放大，两条并排，避免三栏网格右侧留下大片空白 */
+@media (min-width: 1081px) {
+  .project-grid--solo .project-card {
+    grid-column: 3 / span 8;
+    min-height: 0;
+  }
+  .project-grid--solo .project-graphic {
+    aspect-ratio: 16 / 9;
+  }
+  .project-grid--pair .project-card {
+    grid-column: span 6;
+  }
 }
 .project-card-head small {
   padding: 5px 9px;
@@ -1385,15 +1373,6 @@ body {
     transform-origin: center;
     animation: signal-pulse 2s ease-out 1s infinite;
   }
-  .hero-brand-mark.mark-one {
-    animation: brand-drift-one 12s ease-in-out infinite;
-  }
-  .hero-brand-mark.mark-two {
-    animation: brand-drift-two 15s ease-in-out -4s infinite;
-  }
-  .hero-brand-mark.mark-three {
-    animation: brand-drift-one 18s ease-in-out -8s infinite reverse;
-  }
   .hero-brand-orbit {
     animation: orbit-drift 10s ease-in-out infinite;
   }
@@ -1706,9 +1685,6 @@ body {
   }
   .auth-panel {
     padding-inline: 12px;
-  }
-  .hero-brand-mark {
-    opacity: 0.04;
   }
   .hero-brand-orbit.orbit-one {
     width: 80vw;
