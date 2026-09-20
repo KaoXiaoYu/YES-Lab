@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
 import DiscussionRichTextEditor from '../components/DiscussionRichTextEditor.vue'
 import TaskSubtaskEditor from '../components/TaskSubtaskEditor.vue'
+import SubtaskSubmissionsPanel from '../components/SubtaskSubmissionsPanel.vue'
 import {
   backfillOnboardingTasks,
   getAdminSubtask,
@@ -19,6 +20,11 @@ const working = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const activeAssignmentId = ref('')
+const submissionsAssignmentId = ref('')
+
+function toggleSubmissions(assignmentId) {
+  submissionsAssignmentId.value = submissionsAssignmentId.value === assignmentId ? '' : assignmentId
+}
 
 const task = reactive({
   taskId: null,
@@ -45,7 +51,7 @@ function loadSubtaskContent(subtaskId) {
 
 function progressPercent(row) {
   if (!row.totalSubtasks) return 0
-  return Math.round((row.completedSubtasks / row.totalSubtasks) * 100)
+  return Math.round((row.submittedSubtasks / row.totalSubtasks) * 100)
 }
 
 async function load() {
@@ -189,11 +195,11 @@ async function submitReview(row) {
           <h3 id="onboarding-task-title">新手任务</h3>
         </header>
         <p>
-          这是一个大任务，所有进入技能测试阶段的报名者共享它：每人在其中看到并勾选属于自己的进度，子任务
+          这是一个大任务，所有进入技能测试阶段的报名者共享它：每人在其中看到并提交属于自己的进度，子任务
           <strong>全部完成</strong>后才能提交，管理员审核通过即转为正式成员。
         </p>
         <p class="task-locked-note" role="status">
-          保存后立即生效：新增子任务会把「已提交待确认」的报名者退回「待完成」并发送站内消息；删除子任务会同时清掉对应的勾选记录；修改时长会按每人各自的发放日期重算截止日期。
+          保存后立即生效：新增子任务会把「已提交待确认」的报名者退回「待完成」并发送站内消息；删除子任务会同时清掉对应的提交记录；修改时长会按每人各自的发放日期重算截止日期。
         </p>
 
         <div class="admin-form-grid">
@@ -212,7 +218,7 @@ async function submitReview(row) {
         <TaskSubtaskEditor
           v-model="task.subtasks"
           label="子任务（从属于这个大任务）"
-          hint="至少需要一项：成员必须勾完全部子任务才能提交与转正。展开箭头可为每项写富文本说明，成员点子任务进入独立页面阅读并勾选；改动保存后即时生效，改名不影响已勾选进度。"
+          hint="至少需要一项：成员必须提交全部子任务的内容才能提交与转正。展开箭头可为每项写富文本说明，成员点子任务进入独立页面阅读并提交内容；改动保存后即时生效，改名不影响已提交的进度。"
           :load-content="loadSubtaskContent"
         />
 
@@ -250,14 +256,14 @@ async function submitReview(row) {
               class="task-progress-track"
               role="progressbar"
               aria-valuemin="0"
-              :aria-valuenow="row.completedSubtasks"
+              :aria-valuenow="row.submittedSubtasks"
               :aria-valuemax="row.totalSubtasks"
               :aria-label="`${row.applicantName} 的子任务完成进度`"
             >
               <span :style="{ width: `${progressPercent(row)}%` }"></span>
             </div>
             <span class="task-progress-label">
-              子任务 {{ row.completedSubtasks }} / {{ row.totalSubtasks }}
+              已提交 {{ row.submittedSubtasks }} / {{ row.totalSubtasks }}
               <span v-if="row.startDate || row.endDate">
                 · {{ row.startDate || '未设置' }} — {{ row.endDate || '未设置' }}</span
               >
@@ -277,6 +283,14 @@ async function submitReview(row) {
             >
               <CheckCheck :size="15" aria-hidden="true" />审核
             </button>
+            <button
+              v-if="row.assignmentId"
+              type="button"
+              :aria-expanded="submissionsAssignmentId === row.assignmentId"
+              @click="toggleSubmissions(row.assignmentId)"
+            >
+              <ListChecks :size="15" aria-hidden="true" />查看提交内容
+            </button>
             <span v-if="row.convertedProfileId">已转为正式成员</span>
           </div>
 
@@ -294,7 +308,7 @@ async function submitReview(row) {
             <label class="full">审核意见<input v-model.trim="review.comment" maxlength="1000" /></label>
             <template v-if="review.decision === 'APPROVED'">
               <p class="task-locked-note" role="status">
-                通过后将直接转为正式成员（不再经过试用期），需要同时填写学号/内部编号与能力标签；该报名者必须已完成全部
+                通过后将直接转为正式成员（不再经过试用期），需要同时填写学号/内部编号与能力标签；该报名者必须已提交全部
                 {{ sharedTask.subtasks.length }} 项子任务，否则会被拒绝。
               </p>
               <label>学号 / 内部编号<input v-model.trim="review.memberCode" maxlength="64" required /></label>
@@ -324,6 +338,12 @@ async function submitReview(row) {
               </button>
             </div>
           </form>
+
+          <SubtaskSubmissionsPanel
+            v-if="submissionsAssignmentId === row.assignmentId"
+            :task-id="row.taskId"
+            :assignment-id="row.assignmentId"
+          />
         </article>
       </section>
     </template>

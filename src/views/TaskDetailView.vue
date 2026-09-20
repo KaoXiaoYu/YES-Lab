@@ -23,10 +23,10 @@ const taskStatusLabels = { PUBLISHED: '进行中', CLOSED: '已结束' }
 const readOnly = computed(
   () => !task.value || task.value.taskStatus !== 'PUBLISHED' || task.value.status === 'APPROVED',
 )
-const completedCount = computed(() => task.value?.subtasks?.filter((item) => item.completed).length ?? 0)
+const submittedCount = computed(() => task.value?.subtasks?.filter((item) => item.submitted).length ?? 0)
 const totalCount = computed(() => task.value?.subtasks?.length ?? 0)
 const progressPercent = computed(() =>
-  totalCount.value ? Math.round((completedCount.value / totalCount.value) * 100) : 0,
+  totalCount.value ? Math.round((submittedCount.value / totalCount.value) * 100) : 0,
 )
 
 async function load() {
@@ -60,7 +60,7 @@ async function submit() {
   <PortalShell
     eyebrow="COLLABORATION / TASK"
     title="任务详情"
-    description="查看任务说明与子任务入口，完成后填写完成说明提交，等待管理员人工确认。"
+    description="查看任务说明，逐个子任务提交完成内容后填写总完成说明，等待管理员人工确认。"
   >
     <RouterLink class="task-back" to="/tasks"><ArrowLeft :size="16" aria-hidden="true" />返回我的任务</RouterLink>
 
@@ -88,13 +88,13 @@ async function submit() {
               class="task-progress-track"
               role="progressbar"
               aria-valuemin="0"
-              :aria-valuenow="completedCount"
+              :aria-valuenow="submittedCount"
               :aria-valuemax="totalCount"
               aria-label="子任务完成进度"
             >
               <span :style="{ width: `${progressPercent}%` }"></span>
             </div>
-            <span class="task-progress-label">子任务 {{ completedCount }} / {{ totalCount }}</span>
+            <span class="task-progress-label">已提交 {{ submittedCount }} / {{ totalCount }}</span>
           </div>
           <span v-if="task.points > 0">
             通过后 +{{ task.awardedPoints ?? task.points }} 积分
@@ -106,16 +106,16 @@ async function submit() {
         <div class="task-panel-content" v-html="task.contentHtml"></div>
 
         <h3 v-if="totalCount" class="task-subtask-entries-title">
-          子任务（{{ completedCount }} / {{ totalCount }} 已完成）
+          子任务（已提交 {{ submittedCount }} / {{ totalCount }}）
         </h3>
         <ul v-if="totalCount" class="task-subtask-entries">
           <li v-for="subtask in task.subtasks" :key="subtask.id">
             <RouterLink :to="`/tasks/${task.assignmentId}/subtasks/${subtask.id}`">
-              <CheckCircle2 v-if="subtask.completed" :size="18" aria-hidden="true" />
+              <CheckCircle2 v-if="subtask.submitted" :size="18" aria-hidden="true" />
               <CircleDashed v-else :size="18" aria-hidden="true" />
               <span class="task-subtask-entry-title">{{ subtask.title }}</span>
               <span class="task-subtask-entry-meta">
-                {{ subtask.completed ? '已完成' : '未完成' }}
+                {{ subtask.submitted ? '已提交' : '未提交' }}
                 <template v-if="subtask.hasContent"> · 有说明</template>
               </span>
               <ChevronRight :size="16" aria-hidden="true" />

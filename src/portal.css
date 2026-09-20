@@ -9597,9 +9597,9 @@ body.submission-feedback-open {
 .task-rule-grid input {
   min-height: 44px;
   padding: 0 0.75rem;
-  border: 1px solid var(--portal-line, #d8dee9);
+  border: 1px solid var(--color-border);
   border-radius: 0.6rem;
-  background: var(--portal-surface, #fff);
+  background: var(--color-card);
   color: inherit;
 }
 
@@ -9623,7 +9623,7 @@ body.submission-feedback-open {
   gap: 0.35rem;
   min-height: 36px;
   padding: 0 0.75rem;
-  border: 1px solid var(--portal-line, #d8dee9);
+  border: 1px solid var(--color-border);
   border-radius: 0.6rem;
   background: transparent;
   color: inherit;
@@ -9633,8 +9633,8 @@ body.submission-feedback-open {
 }
 
 .task-card-actions button.danger {
-  border-color: #d9534f;
-  color: #c0392b;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .task-card-grid {
@@ -9648,9 +9648,9 @@ body.submission-feedback-open {
   flex-direction: column;
   gap: 0.6rem;
   padding: 1.25rem;
-  border: 1px solid var(--portal-line, #d8dee9);
+  border: 1px solid var(--color-border);
   border-radius: 1rem;
-  background: var(--portal-surface, #fff);
+  background: var(--color-card);
   text-decoration: none;
   color: inherit;
 }
@@ -9667,13 +9667,13 @@ body.submission-feedback-open {
 .task-card header span[data-status='APPROVED'],
 .task-row header b[data-status='APPROVED'],
 .task-panel-status[data-status='APPROVED'] {
-  color: #1e7d55;
+  color: var(--color-success);
 }
 
 .task-card header span[data-status='REJECTED'],
 .task-row header b[data-status='REJECTED'],
 .task-panel-status[data-status='REJECTED'] {
-  color: #c0392b;
+  color: var(--color-danger);
 }
 
 .task-card h2 {
@@ -9693,7 +9693,7 @@ body.submission-feedback-open {
 
 .overdue,
 .task-skip {
-  color: #c0392b;
+  color: var(--color-danger);
 }
 
 .task-card footer {
@@ -9720,9 +9720,9 @@ body.submission-feedback-open {
 .task-rows {
   margin-bottom: 1.5rem;
   padding: 1.5rem;
-  border: 1px solid var(--portal-line, #d8dee9);
+  border: 1px solid var(--color-border);
   border-radius: 1rem;
-  background: var(--portal-surface, #fff);
+  background: var(--color-card);
 }
 
 .task-panel > header,
@@ -9764,7 +9764,7 @@ body.submission-feedback-open {
   width: 100%;
   min-height: 48px;
   padding: 0 0.85rem;
-  border: 1px solid var(--portal-line, #d8dee9);
+  border: 1px solid var(--color-border);
   border-radius: 0.6rem;
   background: transparent;
   color: inherit;
@@ -9773,8 +9773,8 @@ body.submission-feedback-open {
 }
 
 .task-panel-subtasks button[aria-pressed='true'] {
-  border-color: #1e7d55;
-  color: #1e7d55;
+  border-color: var(--color-success);
+  color: var(--color-success);
 }
 
 .task-panel-submit {
@@ -9786,9 +9786,9 @@ body.submission-feedback-open {
 .task-rule-grid textarea {
   width: 100%;
   padding: 0.6rem 0.75rem;
-  border: 1px solid var(--portal-line, #d8dee9);
+  border: 1px solid var(--color-border);
   border-radius: 0.6rem;
-  background: var(--portal-surface, #fff);
+  background: var(--color-card);
   color: inherit;
   font: inherit;
 }
@@ -9810,19 +9810,19 @@ body.submission-feedback-open {
 }
 
 .task-panel-approved {
-  background: rgba(30, 125, 85, 0.12);
-  color: #1e7d55;
+  background: var(--color-success-surface);
+  color: var(--color-success);
 }
 
 .task-panel-reject {
-  background: rgba(192, 57, 43, 0.1);
-  color: #c0392b;
+  background: var(--color-danger-surface);
+  color: var(--color-danger);
 }
 
 .task-rule-fieldset {
   margin: 1rem 0;
   padding: 1rem;
-  border: 1px solid var(--portal-line, #d8dee9);
+  border: 1px solid var(--color-border);
   border-radius: 0.75rem;
 }
 
@@ -9849,15 +9849,15 @@ body.submission-feedback-open {
 .task-locked-note {
   margin: 0.75rem 0;
   padding: 0.6rem 0.9rem;
-  border-left: 3px solid #b8860b;
-  background: rgba(184, 134, 11, 0.1);
+  border-left: 3px solid var(--color-warning);
+  background: var(--color-accent-surface);
   font-size: 0.88rem;
 }
 
 .task-preview {
   margin-top: 1rem;
   padding: 1rem;
-  border: 1px dashed var(--portal-line, #d8dee9);
+  border: 1px dashed var(--color-border);
   border-radius: 0.75rem;
   font-size: 0.9rem;
 }
@@ -9918,7 +9918,7 @@ body.submission-feedback-open {
   display: grid;
   gap: 0.5rem;
   padding: 1.1rem;
-  border: 1px solid var(--portal-line, #d8dee9);
+  border: 1px solid var(--color-border);
   border-radius: 0.85rem;
 }
 
@@ -9944,7 +9944,7 @@ body.submission-feedback-open {
   gap: 0.85rem;
   margin-top: 0.75rem;
   padding-top: 0.85rem;
-  border-top: 1px dashed var(--portal-line, #d8dee9);
+  border-top: 1px dashed var(--color-border);
 }
 
 .task-review-form .full,
@@ -9973,7 +9973,7 @@ a.portal-secondary {
 .task-subtask-editor {
   margin: 1rem 0;
   padding: 1rem;
-  border: 1px solid var(--portal-line, #d8dee9);
+  border: 1px solid var(--color-border);
   border-radius: 0.75rem;
 }
 
@@ -10001,7 +10001,7 @@ a.portal-secondary {
   gap: 0.5rem;
   min-width: 0;
   padding: 0.4rem 0.5rem;
-  border: 1px solid var(--portal-line, #d8dee9);
+  border: 1px solid var(--color-border);
   border-radius: 0.6rem;
 }
 
@@ -10045,7 +10045,7 @@ a.portal-secondary {
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--color-border-strong, #74849a);
   border-radius: 0.5rem;
-  background: var(--portal-surface, #fff);
+  background: var(--color-card);
   color: inherit;
   font: inherit;
 }
@@ -10062,7 +10062,7 @@ a.portal-secondary {
   justify-content: center;
   width: 44px;
   height: 44px;
-  border: 1px solid var(--portal-line, #d8dee9);
+  border: 1px solid var(--color-border);
   border-radius: 0.5rem;
   background: transparent;
   color: inherit;
@@ -10070,8 +10070,8 @@ a.portal-secondary {
 }
 
 .task-subtask-actions button.danger {
-  border-color: #c0392b;
-  color: #c0392b;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .task-subtask-actions button:disabled {
@@ -10111,7 +10111,7 @@ a.portal-secondary {
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: #1e7d55;
+  background: var(--color-success);
   transition: width 200ms ease;
 }
 
@@ -10137,8 +10137,8 @@ a.portal-secondary {
   }
 
   .task-subtask-actions button.danger:not(:disabled):hover {
-    border-color: #c0392b;
-    color: #c0392b;
+    border-color: var(--color-danger);
+    color: var(--color-danger);
   }
 }
 
@@ -10215,7 +10215,7 @@ a.portal-secondary {
   align-items: center;
   min-height: 48px;
   padding: 0 0.85rem;
-  border: 1px solid var(--portal-line, #d8dee9);
+  border: 1px solid var(--color-border);
   border-radius: 0.6rem;
   color: inherit;
   text-decoration: none;
@@ -10248,4 +10248,56 @@ a.portal-secondary {
     border-color: var(--color-accent, #a16207);
     color: var(--color-accent, #a16207);
   }
+}
+
+/* ---------- 管理端：某人的子任务提交内容 ---------- */
+
+.task-submissions {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.6rem;
+}
+
+.task-submissions > ol {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-submissions li {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-surface-soft);
+}
+
+.task-submissions li[data-submitted='false'] {
+  opacity: 0.85;
+}
+
+.task-submissions li header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.task-submissions li header span {
+  color: var(--color-text-subtle);
+  font-size: 0.8rem;
+}
+
+.task-submissions-content {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.task-submissions li small {
+  color: var(--color-text-subtle);
 }

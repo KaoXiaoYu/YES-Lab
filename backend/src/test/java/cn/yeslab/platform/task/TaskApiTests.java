@@ -206,12 +206,12 @@ class TaskApiTests {
                 .andReturn().getResponse().getContentAsString();
         List<String> subtaskIds = JsonPath.read(detail, "$.data.subtasks[*].id");
 
-        mvc.perform(patch("/api/v1/tasks/{id}/subtasks/{subtaskId}", assignmentId, subtaskIds.getFirst())
+        mvc.perform(post("/api/v1/tasks/{id}/subtasks/{subtaskId}/submission", assignmentId, subtaskIds.getFirst())
                         .header("Authorization", bearer(memberToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"completed\":true}"))
+                        .content("{\"contentHtml\":\"<p>已导出原始数据。</p>\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.subtasks[0].completed").value(true));
+                .andExpect(jsonPath("$.data.subtasks[0].submitted").value(true));
 
         // 未提交时管理员不能确认通过。
         mvc.perform(put("/api/v1/admin/tasks/{taskId}/assignments/{assignmentId}/review", taskId, assignmentId)
@@ -406,10 +406,10 @@ class TaskApiTests {
                 .andExpect(jsonPath("$.data.status").value("CLOSED"));
 
         // 结束后成员不能修改
-        mvc.perform(patch("/api/v1/tasks/{id}/subtasks/{subtaskId}", assignmentId, java.util.UUID.randomUUID())
+        mvc.perform(post("/api/v1/tasks/{id}/subtasks/{subtaskId}/submission", assignmentId, java.util.UUID.randomUUID())
                         .header("Authorization", bearer(memberToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"completed\":true}"))
+                        .content("{\"contentHtml\":\"<p>任务结束后不能再提交。</p>\"}"))
                 .andExpect(status().isConflict());
 
         // 但管理员仍可完成审核
@@ -478,9 +478,9 @@ class TaskApiTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.title").value("第一步"))
                 .andExpect(jsonPath("$.data.contentHtml", org.hamcrest.Matchers.containsString("先安装依赖")))
-                .andExpect(jsonPath("$.data.completed").value(false))
+                .andExpect(jsonPath("$.data.submitted").value(false))
                 .andExpect(jsonPath("$.data.taskTitle").value("子任务正文任务"))
-                .andExpect(jsonPath("$.data.completedSubtasks").value(0))
+                .andExpect(jsonPath("$.data.submittedSubtasks").value(0))
                 .andExpect(jsonPath("$.data.totalSubtasks").value(2))
                 .andExpect(jsonPath("$.data.editable").value(true));
 
@@ -512,12 +512,12 @@ class TaskApiTests {
         String secondId = subtaskIds.get(1);
 
         // 成员勾选第一项。
-        mvc.perform(patch("/api/v1/tasks/{id}/subtasks/{subtaskId}", assignmentId, firstId)
+        mvc.perform(post("/api/v1/tasks/{id}/subtasks/{subtaskId}/submission", assignmentId, firstId)
                         .header("Authorization", bearer(memberToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"completed\":true}"))
+                        .content("{\"contentHtml\":\"<p>先提交一版。</p>\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.subtasks[0].completed").value(true));
+                .andExpect(jsonPath("$.data.subtasks[0].submitted").value(true));
 
         // 管理员改标题（同一个 id）并补上正文：勾选记录必须原样保留。
         mvc.perform(put("/api/v1/admin/tasks/{id}", taskId)
@@ -536,14 +536,14 @@ class TaskApiTests {
         mvc.perform(get("/api/v1/tasks/{id}", assignmentId)
                         .header("Authorization", bearer(memberToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.subtasks[0].completed").value(true))
+                .andExpect(jsonPath("$.data.subtasks[0].submitted").value(true))
                 .andExpect(jsonPath("$.data.subtasks[0].title").value("第一步（改名后）"))
-                .andExpect(jsonPath("$.data.subtasks[0].completed").value(true));
+                .andExpect(jsonPath("$.data.subtasks[0].submitted").value(true));
 
         mvc.perform(get("/api/v1/tasks/{assignmentId}/subtasks/{subtaskId}", assignmentId, firstId)
                         .header("Authorization", bearer(memberToken)))
                 .andExpect(jsonPath("$.data.title").value("第一步（改名后）"))
-                .andExpect(jsonPath("$.data.completed").value(true))
+                .andExpect(jsonPath("$.data.submitted").value(true))
                 .andExpect(jsonPath("$.data.contentHtml", org.hamcrest.Matchers.containsString("新的说明")));
 
         // 删除第二项（提交里不再出现它的 id）：勾选记录一并清理。
@@ -560,7 +560,7 @@ class TaskApiTests {
         mvc.perform(get("/api/v1/tasks/{id}", assignmentId)
                         .header("Authorization", bearer(memberToken)))
                 .andExpect(jsonPath("$.data.subtasks.length()").value(1))
-                .andExpect(jsonPath("$.data.subtasks[0].completed").value(true));
+                .andExpect(jsonPath("$.data.subtasks[0].submitted").value(true));
 
         // 提交里带上别的任务的子任务 id 会被拒绝。
         String otherTaskId = createAndPublish(teacherToken, "另一个任务", 0);

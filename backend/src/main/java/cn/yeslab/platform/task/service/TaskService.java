@@ -113,20 +113,17 @@ public class TaskService {
 
     @PreAuthorize("hasAuthority('RECRUITMENT_SELF_EDIT')")
     @Transactional
-    public TaskModels.OnboardingTaskView toggleOwnSubtask(
+    public TaskModels.OnboardingTaskView submitOwnSubtask(
             Authentication authentication,
             UUID subtaskId,
-            boolean completed
+            String contentHtml
     ) {
         AccountEntity account = authService.requireAccount(authentication);
         TaskAssignmentEntity assignment = requireOwnAssignment(account);
         requireEditable(assignment);
-        TaskSubtaskEntity subtask = assignment.getTask().getSubtasks().stream()
-                .filter(item -> item.getId().equals(subtaskId))
-                .findFirst()
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "子任务不存在"));
-        assignment.upsertProgress(subtask, completed);
-        // 待确认状态下改动勾选内容即视为重新编辑，退回「待完成」后需再次提交。
+        TaskSubtaskEntity subtask = requireSubtask(assignment.getTask(), subtaskId);
+        assignment.submitSubtaskProgress(subtask, TaskContentSanitizer.cleanSubmissionContent(contentHtml));
+        // 待确认状态下改动内容即视为重新编辑，退回「待完成」后需再次提交大任务。
         assignment.reopenForEdit();
         return toOnboardingView(assignments.save(assignment));
     }
@@ -303,11 +300,11 @@ public class TaskService {
         }
     }
 
-    /** 提交与审核通过的前置条件：大任务下的子任务全部勾选。 */
+    /** 提交与审核通过的前置条件：大任务下的子任务全部已提交内容。 */
     private void requireAllSubtasksCompleted(TaskAssignmentEntity assignment) {
-        if (assignment.hasCompletedAllSubtasks()) return;
+        if (assignment.hasSubmittedAllSubtasks()) return;
         throw new ApiException(HttpStatus.BAD_REQUEST,
-                "请先完成全部子任务（已完成 " + assignment.completedSubtaskCount() + " / "
+                "请先提交全部子任务的内容（已提交 " + assignment.submittedSubtaskCount() + " / "
                         + assignment.getTask().getSubtasks().size() + " 项）");
     }
 
@@ -341,9 +338,9 @@ public class TaskService {
                 assignment.getReviewComment(),
                 assignment.getExemptionReason(),
                 assignment.getConvertedProfileId(),
-                assignment.completedSubtaskCount(),
+                assignment.submittedSubtaskCount(),
                 task.getSubtasks().size(),
-                assignment.hasCompletedAllSubtasks(),
+                assignment.hasSubmittedAllSubtasks(),
                 subtaskViews(task, assignment)
         );
     }
@@ -362,7 +359,7 @@ public class TaskService {
                 application == null ? null : application.getApplicant().getUsername(),
                 application == null ? null : application.getStage(),
                 assignment.getStatus(),
-                assignment.completedSubtaskCount(),
+                assignment.submittedSubtaskCount(),
                 task.getSubtasks().size(),
                 assignment.getCompletionNote(),
                 assignment.getSubmittedAt(),
@@ -385,8 +382,8 @@ public class TaskService {
                     subtask.getId(),
                     subtask.getTitle(),
                     subtask.getDisplayOrder(),
-                    progress != null && progress.isCompleted(),
-                    progress == null ? null : progress.getCompletedAt(),
+                    progress != null && progress.isSubmitted(),
+                    progress == null ? null : progress.getSubmittedAt(),
                     subtask.hasContent()
             ));
         }
@@ -767,7 +764,7 @@ public class TaskService {
         List<TaskModels.SubtaskProgressView> subtaskProgress = new ArrayList<>();
         for (TaskSubtaskEntity subtask : task.getSubtasks()) {
             int completed = (int) rows.stream()
-                    .filter(row -> row.progressOf(subtask.getId()).map(item -> item.isCompleted()).orElse(false))
+                    .filter(row -> row.progressOf(subtask.getId()).map(item -> item.isSubmitted()).orElse(false))
                     .count();
             subtaskProgress.add(new TaskModels.SubtaskProgressView(subtask.getId(), subtask.getTitle(), completed, rows.size()));
         }
@@ -808,20 +805,17 @@ public class TaskService {
 
     @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")
     @Transactional
-    public TaskModels.MyTaskDetailView toggleMySubtask(
+    public TaskModels.MyTaskDetailView submitMySubtask(
             Authentication authentication,
             UUID assignmentId,
             UUID subtaskId,
-            boolean completed
+            String contentHtml
     ) {
         MemberProfileEntity profile = requireOwnProfile(authService.requireAccount(authentication));
         TaskAssignmentEntity assignment = requireOwnAssignment(assignmentId, profile);
         requireStandardEditable(assignment);
-        TaskSubtaskEntity subtask = assignment.getTask().getSubtasks().stream()
-                .filter(item -> item.getId().equals(subtaskId))
-                .findFirst()
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "子任务不存在"));
-        assignment.upsertProgress(subtask, completed);
+        TaskSubtaskEntity subtask = requireSubtask(assignment.getTask(), subtaskId);
+        assignment.submitSubtaskProgress(subtask, TaskContentSanitizer.cleanSubmissionContent(contentHtml));
         return toMyTaskDetail(assignments.save(assignment), LocalDate.now(LAB_TIME_ZONE));
     }
 
@@ -891,14 +885,35 @@ public class TaskService {
                 task.getTaskType(),
                 subtask.getTitle(),
                 subtask.getContentHtml(),
-                progress != null && progress.isCompleted(),
-                progress == null ? null : progress.getCompletedAt(),
-                assignment == null ? 0 : assignment.completedSubtaskCount(),
+                progress != null && progress.isSubmitted(),
+                progress == null ? null : progress.getSubmittedAt(),
+                progress == null ? null : progress.getContentHtml(),
+                assignment == null ? 0 : assignment.submittedSubtaskCount(),
                 task.getSubtasks().size(),
                 dueDate,
                 assignment != null && isOverdue(assignment, today),
                 editable
         );
+    }
+
+    /** 管理端逐条查看某个对象的子任务提交内容（审核时展开才请求，避免列表接口带一堆正文）。 */
+    @PreAuthorize("hasAuthority('TASK_MANAGE')")
+    @Transactional(readOnly = true)
+    public List<TaskModels.SubtaskSubmissionView> adminAssignmentSubtasks(UUID taskId, UUID assignmentId) {
+        TaskAssignmentEntity assignment = requireAssignment(taskId, assignmentId);
+        List<TaskModels.SubtaskSubmissionView> rows = new ArrayList<>();
+        for (TaskSubtaskEntity subtask : assignment.getTask().getSubtasks()) {
+            var progress = assignment.progressOf(subtask.getId()).orElse(null);
+            rows.add(new TaskModels.SubtaskSubmissionView(
+                    subtask.getId(),
+                    subtask.getTitle(),
+                    subtask.getContentHtml(),
+                    progress != null && progress.isSubmitted(),
+                    progress == null ? null : progress.getSubmittedAt(),
+                    progress == null ? null : progress.getContentHtml()
+            ));
+        }
+        return rows;
     }
 
     /** 成员侧是否还能改：普通任务需已发布且未通过；新手任务需仍在技能测试阶段且未通过。 */
@@ -1200,7 +1215,7 @@ public class TaskService {
                 profile.getAccount().getRole().name(),
                 assignment.getSource().name(),
                 assignment.getStatus(),
-                assignment.completedSubtaskCount(),
+                assignment.submittedSubtaskCount(),
                 task.getSubtasks().size(),
                 assignment.getCompletionNote(),
                 assignment.getSubmittedAt(),
@@ -1224,7 +1239,7 @@ public class TaskService {
                 task.getPoints(),
                 task.getStatus(),
                 assignment.getStatus(),
-                assignment.completedSubtaskCount(),
+                assignment.submittedSubtaskCount(),
                 task.getSubtasks().size(),
                 assignment.getAwardedPoints(),
                 assignment.getPointsSkippedReason(),

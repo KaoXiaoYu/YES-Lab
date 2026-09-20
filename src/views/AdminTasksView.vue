@@ -296,7 +296,7 @@ async function runAction(action, task, confirmText) {
           v-model="form.subtasks"
           class="full"
           label="子任务"
-          hint="子任务可以不设——不设时成员直接提交完成说明。展开箭头可为每项写富文本说明；成员点子任务进入独立页面阅读并勾选。已发布的任务也可增删子任务，删除会清掉对应勾选记录。"
+          hint="子任务可以不设——不设时成员直接提交完成说明。展开箭头可为每项写富文本说明；成员点子任务进入独立页面阅读并提交内容。已发布的任务也可增删子任务，删除会清掉对应的提交记录。"
           :load-content="loadSubtaskContent"
         />
       </div>

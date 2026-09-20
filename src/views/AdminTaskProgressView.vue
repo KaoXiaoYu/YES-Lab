@@ -1,8 +1,9 @@
 <script setup>
-import { ArrowLeft, CheckCheck, UserPlus, X } from '@lucide/vue'
+import { ArrowLeft, CheckCheck, ListChecks, UserPlus, X } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
+import SubtaskSubmissionsPanel from '../components/SubtaskSubmissionsPanel.vue'
 import {
   getTaskProgress,
   removeTaskAssignment,
@@ -17,6 +18,11 @@ const working = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const activeAssignmentId = ref('')
+const submissionsAssignmentId = ref('')
+
+function toggleSubmissions(assignmentId) {
+  submissionsAssignmentId.value = submissionsAssignmentId.value === assignmentId ? '' : assignmentId
+}
 const review = reactive({ decision: 'APPROVED', comment: '', evidenceUrl: '', memberCode: '', skillTagsText: '' })
 const supplementTags = ref('')
 
@@ -114,7 +120,7 @@ async function removeAssignment(row) {
   <PortalShell
     eyebrow="ADMIN / TASK PROGRESS"
     title="任务完成情况"
-    description="任务汇总、子任务完成率与逐人明细；审核通过后自动发放积分，驳回不发分。"
+    description="任务汇总、子任务提交率与逐人明细；审核通过后自动发放积分，驳回不发分。"
   >
     <RouterLink class="task-back" to="/admin/tasks"><ArrowLeft :size="16" aria-hidden="true" />返回任务管理</RouterLink>
 
@@ -180,11 +186,11 @@ async function removeAssignment(row) {
       </section>
 
       <section class="task-subtask-progress" aria-labelledby="subtask-progress-title">
-        <h3 id="subtask-progress-title">子任务完成率</h3>
+        <h3 id="subtask-progress-title">子任务提交率</h3>
         <ul>
           <li v-for="item in progress.subtaskProgress" :key="item.subtaskId">
             <span>{{ item.title }}</span>
-            <b>{{ item.completedCount }} / {{ item.totalCount }}</b>
+            <b>{{ item.submittedCount }} / {{ item.totalCount }}</b>
           </li>
         </ul>
         <p v-if="!progress.subtaskProgress.length" class="empty-note">该任务没有子任务。</p>
@@ -202,7 +208,7 @@ async function removeAssignment(row) {
             <b :data-status="row.status">{{ statusLabels[row.status] }}</b>
           </header>
           <p>
-            子任务 {{ row.completedSubtasks }} / {{ row.totalSubtasks }}
+            已提交 {{ row.submittedSubtasks }} / {{ row.totalSubtasks }}
             <span v-if="row.overdue" class="overdue">已逾期</span>
             <span v-if="row.awardedPoints != null">· 已计 {{ row.awardedPoints }} 分</span>
             <span v-else-if="row.pointsSkippedReason" class="task-skip">· 未计分：{{ row.pointsSkippedReason }}</span>
@@ -220,6 +226,13 @@ async function removeAssignment(row) {
               @click="openReview(row.assignmentId)"
             >
               <CheckCheck :size="15" aria-hidden="true" />人工审核
+            </button>
+            <button
+              type="button"
+              :aria-expanded="submissionsAssignmentId === row.assignmentId"
+              @click="toggleSubmissions(row.assignmentId)"
+            >
+              <ListChecks :size="15" aria-hidden="true" />查看提交内容
             </button>
             <button
               v-if="task.status === 'PUBLISHED' && row.status === 'PENDING'"
@@ -258,6 +271,12 @@ async function removeAssignment(row) {
               <button type="button" class="portal-secondary" @click="activeAssignmentId = ''">取消</button>
             </div>
           </form>
+
+          <SubtaskSubmissionsPanel
+            v-if="submissionsAssignmentId === row.assignmentId"
+            :task-id="task.id"
+            :assignment-id="row.assignmentId"
+          />
         </article>
       </section>
     </template>

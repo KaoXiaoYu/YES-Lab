@@ -22,13 +22,13 @@ const statusLabels = {
   REJECTED: '已驳回，请修改后重新提交',
 }
 
-const completedCount = computed(() => props.task?.subtasks?.filter((item) => item.completed).length ?? 0)
+const submittedCount = computed(() => props.task?.subtasks?.filter((item) => item.submitted).length ?? 0)
 const totalCount = computed(() => props.task?.subtasks?.length ?? 0)
 const allCompleted = computed(
-  () => props.task?.allSubtasksCompleted ?? (totalCount.value > 0 && completedCount.value >= totalCount.value),
+  () => props.task?.allSubtasksSubmitted ?? (totalCount.value > 0 && submittedCount.value >= totalCount.value),
 )
 const progressPercent = computed(() =>
-  totalCount.value ? Math.round((completedCount.value / totalCount.value) * 100) : 0,
+  totalCount.value ? Math.round((submittedCount.value / totalCount.value) * 100) : 0,
 )
 const canSubmit = computed(() => props.editable && props.task && props.task.status !== 'APPROVED')
 /** 每个子任务是独立页面；不可编辑（未登录或已通过）时只展示状态，不给入口。 */
@@ -88,13 +88,13 @@ async function submit() {
             class="task-progress-track"
             role="progressbar"
             aria-valuemin="0"
-            :aria-valuenow="completedCount"
+            :aria-valuenow="submittedCount"
             :aria-valuemax="totalCount"
             aria-label="我的新手任务完成进度"
           >
             <span :style="{ width: `${progressPercent}%` }"></span>
           </div>
-          <span class="task-progress-label">我的进度 {{ completedCount }} / {{ totalCount }} 项子任务</span>
+          <span class="task-progress-label">我的进度 {{ submittedCount }} / {{ totalCount }} 项子任务已提交</span>
         </div>
       </div>
 
@@ -105,24 +105,24 @@ async function submit() {
       <!-- eslint-disable-next-line vue/no-v-html -->
       <div class="task-panel-content" v-html="task.contentHtml"></div>
 
-      <h3 class="task-subtask-entries-title">子任务（{{ completedCount }} / {{ totalCount }} 已完成）</h3>
+      <h3 class="task-subtask-entries-title">子任务（已提交 {{ submittedCount }} / {{ totalCount }}）</h3>
       <ul class="task-subtask-entries">
         <li v-for="subtask in task.subtasks" :key="subtask.id">
           <RouterLink v-if="canOpenSubtasks" :to="`/application/subtasks/${subtask.id}`">
-            <CheckCircle2 v-if="subtask.completed" :size="18" aria-hidden="true" />
+            <CheckCircle2 v-if="subtask.submitted" :size="18" aria-hidden="true" />
             <CircleDashed v-else :size="18" aria-hidden="true" />
             <span class="task-subtask-entry-title">{{ subtask.title }}</span>
             <span class="task-subtask-entry-meta">
-              {{ subtask.completed ? '已完成' : '未完成' }}
+              {{ subtask.submitted ? '已提交' : '未提交' }}
               <template v-if="subtask.hasContent"> · 有说明</template>
             </span>
             <ChevronRight :size="16" aria-hidden="true" />
           </RouterLink>
           <div v-else class="task-subtask-entry-static">
-            <CheckCircle2 v-if="subtask.completed" :size="18" aria-hidden="true" />
+            <CheckCircle2 v-if="subtask.submitted" :size="18" aria-hidden="true" />
             <CircleDashed v-else :size="18" aria-hidden="true" />
             <span class="task-subtask-entry-title">{{ subtask.title }}</span>
-            <span class="task-subtask-entry-meta">{{ subtask.completed ? '已完成' : '未完成' }}</span>
+            <span class="task-subtask-entry-meta">{{ subtask.submitted ? '已提交' : '未提交' }}</span>
           </div>
         </li>
       </ul>
@@ -133,7 +133,7 @@ async function submit() {
 
       <form v-else-if="canSubmit" class="task-panel-submit" @submit.prevent="submit">
         <p v-if="!allCompleted" class="task-locked-note" role="status">
-          还需要完成 {{ totalCount - completedCount }} 项子任务才能提交；勾选全部子任务后即可提交完成说明。
+          还需要提交 {{ totalCount - submittedCount }} 项子任务的内容；全部子任务提交后才能提交完成说明。
         </p>
         <label for="onboarding-note">
           完成说明

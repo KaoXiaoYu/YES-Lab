@@ -74,9 +74,9 @@ class OnboardingTaskApiTests {
                 .andExpect(jsonPath("$.data.status").value("PENDING"))
                 .andExpect(jsonPath("$.data.title").value("新手入门任务"))
                 .andExpect(jsonPath("$.data.subtasks.length()").value(5))
-                .andExpect(jsonPath("$.data.completedSubtasks").value(0))
+                .andExpect(jsonPath("$.data.submittedSubtasks").value(0))
                 .andExpect(jsonPath("$.data.totalSubtasks").value(5))
-                .andExpect(jsonPath("$.data.allSubtasksCompleted").value(false))
+                .andExpect(jsonPath("$.data.allSubtasksSubmitted").value(false))
                 .andExpect(jsonPath("$.data.endDate")
                         .value(LocalDate.now(LAB_TIME_ZONE).plusDays(7).toString()))
                 .andExpect(jsonPath("$.data.overdue").value(false))
@@ -101,15 +101,15 @@ class OnboardingTaskApiTests {
                 .andExpect(status().isBadRequest());
 
         // 勾选第一项后，自己的进度变化不影响同组的另一位报名者。
-        toggle(first.token(), subtaskIds.getFirst(), true)
-                .andExpect(jsonPath("$.data.completedSubtasks").value(1));
-        ownTask(second.token()).andExpect(jsonPath("$.data.completedSubtasks").value(0));
+        submitSubtask(first.token(), subtaskIds.getFirst())
+                .andExpect(jsonPath("$.data.submittedSubtasks").value(1));
+        ownTask(second.token()).andExpect(jsonPath("$.data.submittedSubtasks").value(0));
 
         // 勾完全部子任务后才能提交。
         for (String subtaskId : subtaskIds) {
-            toggle(first.token(), subtaskId, true);
+            submitSubtask(first.token(), subtaskId);
         }
-        ownTask(first.token()).andExpect(jsonPath("$.data.allSubtasksCompleted").value(true));
+        ownTask(first.token()).andExpect(jsonPath("$.data.allSubtasksSubmitted").value(true));
         mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
                         .header("Authorization", bearer(first.token()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -246,7 +246,7 @@ class OnboardingTaskApiTests {
         List<String> subtaskIds = JsonPath.read(view, "$.data.subtasks[*].id");
 
         // 勾选第一项，稍后验证改标题后该项勾选被保留（按 id 同步）。
-        toggle(applicant.token(), subtaskIds.getFirst(), true);
+        submitSubtask(applicant.token(), subtaskIds.getFirst());
 
         // 管理员直接改大任务：改标题、时长改 10 天、删两项、加一项，改动即时生效。
         // 保留的项带 id 提交（保留勾选），新增项不带 id。
@@ -275,8 +275,8 @@ class OnboardingTaskApiTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.title").value("新手任务（第二版）"))
                 .andExpect(jsonPath("$.data.subtasks.length()").value(4))
-                .andExpect(jsonPath("$.data.completedSubtasks").value(1))
-                .andExpect(jsonPath("$.data.subtasks[0].completed").value(true))
+                .andExpect(jsonPath("$.data.submittedSubtasks").value(1))
+                .andExpect(jsonPath("$.data.subtasks[0].submitted").value(true))
                 .andExpect(jsonPath("$.data.subtasks[*].title", hasItem("新增：完成一次设备安全操作演练")))
                 .andExpect(jsonPath("$.data.endDate")
                         .value(LocalDate.now(LAB_TIME_ZONE).plusDays(10).toString()));
@@ -326,7 +326,7 @@ class OnboardingTaskApiTests {
 
         ownTask(applicant.token())
                 .andExpect(jsonPath("$.data.status").value("PENDING"))
-                .andExpect(jsonPath("$.data.allSubtasksCompleted").value(false))
+                .andExpect(jsonPath("$.data.allSubtasksSubmitted").value(false))
                 .andExpect(jsonPath("$.data.subtasks.length()").value(5));
 
         // 完成新增项后重新提交，可以正常转正。
@@ -403,7 +403,7 @@ class OnboardingTaskApiTests {
                 .andExpect(jsonPath("$.data.title").value(RESET_SUBTASKS.get(0)))
                 .andExpect(jsonPath("$.data.contentHtml", org.hamcrest.Matchers.containsString("先安装 Git")))
                 .andExpect(jsonPath("$.data.taskTitle").value("新手入门任务"))
-                .andExpect(jsonPath("$.data.completedSubtasks").value(0))
+                .andExpect(jsonPath("$.data.submittedSubtasks").value(0))
                 .andExpect(jsonPath("$.data.totalSubtasks").value(5))
                 .andExpect(jsonPath("$.data.editable").value(true));
 
@@ -414,8 +414,8 @@ class OnboardingTaskApiTests {
                 .andExpect(status().isNotFound());
 
         // 勾选第一项后改标题（同一个 id）：勾选与正文都要保留。
-        toggle(applicant.token(), ids.getFirst(), true)
-                .andExpect(jsonPath("$.data.completedSubtasks").value(1));
+        submitSubtask(applicant.token(), ids.getFirst())
+                .andExpect(jsonPath("$.data.submittedSubtasks").value(1));
         mvc.perform(put("/api/v1/admin/tasks/onboarding")
                         .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -436,7 +436,7 @@ class OnboardingTaskApiTests {
 
         ownTask(applicant.token())
                 .andExpect(jsonPath("$.data.subtasks[0].title").value("配置开发环境（改名后）"))
-                .andExpect(jsonPath("$.data.subtasks[0].completed").value(true))
+                .andExpect(jsonPath("$.data.subtasks[0].submitted").value(true))
                 .andExpect(jsonPath("$.data.subtasks[0].hasContent").value(true));
 
         // 删除最后一项（提交里不再出现它的 id）。
@@ -460,7 +460,63 @@ class OnboardingTaskApiTests {
         ownTask(applicant.token())
                 .andExpect(jsonPath("$.data.subtasks.length()").value(4))
                 .andExpect(jsonPath("$.data.totalSubtasks").value(4))
-                .andExpect(jsonPath("$.data.completedSubtasks").value(1));
+                .andExpect(jsonPath("$.data.submittedSubtasks").value(1));
+    }
+
+    @Test
+    void subtaskSubmissionRequiresContentAndCanBeUpdatedAndReadByAdmin() throws Exception {
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        Applicant applicant = registerApplicant("onboarding-submit@example.com", "Onboarding7", "子任务提交同学");
+        reachSkillTest(applicant, teacherToken);
+
+        String view = ownTask(applicant.token()).andReturn().getResponse().getContentAsString();
+        String taskId = JsonPath.read(view, "$.data.taskId");
+        String assignmentId = JsonPath.read(view, "$.data.assignmentId");
+        String subtaskId = JsonPath.<List<String>>read(view, "$.data.subtasks[*].id").getFirst();
+
+        // 空内容不允许提交
+        mvc.perform(post("/api/v1/recruitment/me/onboarding-task/subtasks/{id}/submission", subtaskId)
+                        .header("Authorization", bearer(applicant.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contentHtml\":\"   \"}"))
+                .andExpect(status().isBadRequest());
+
+        // 提交内容会被清洗，并且详情接口能读到本人提交的内容
+        mvc.perform(post("/api/v1/recruitment/me/onboarding-task/subtasks/{id}/submission", subtaskId)
+                        .header("Authorization", bearer(applicant.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contentHtml\":\"<p onclick='evil()'>环境已配好</p><script>alert(1)</script>\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.submittedSubtasks").value(1));
+        mvc.perform(get("/api/v1/recruitment/me/onboarding-task/subtasks/{id}", subtaskId)
+                        .header("Authorization", bearer(applicant.token())))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.submitted").value(true))
+                .andExpect(jsonPath("$.data.submittedContentHtml", org.hamcrest.Matchers.containsString("环境已配好")))
+                .andExpect(jsonPath("$.data.submittedContentHtml",
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("alert"))))
+                .andExpect(jsonPath("$.data.submittedAt", notNullValue()));
+
+        // 提交后可以修改并重新提交：内容被覆盖
+        mvc.perform(post("/api/v1/recruitment/me/onboarding-task/subtasks/{id}/submission", subtaskId)
+                        .header("Authorization", bearer(applicant.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"contentHtml\":\"<p>第二版：换了 JDK 版本</p>\"}"))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/v1/recruitment/me/onboarding-task/subtasks/{id}", subtaskId)
+                        .header("Authorization", bearer(applicant.token())))
+                .andExpect(jsonPath("$.data.submittedContentHtml",
+                        org.hamcrest.Matchers.containsString("第二版")));
+
+        // 管理端可以逐条查看该对象的子任务提交内容（未提交的子任务也在列表里）
+        mvc.perform(get("/api/v1/admin/tasks/{taskId}/assignments/{assignmentId}/subtasks", taskId, assignmentId)
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(5))
+                .andExpect(jsonPath("$.data[0].submitted").value(true))
+                .andExpect(jsonPath("$.data[0].contentHtml", org.hamcrest.Matchers.containsString("第二版")))
+                .andExpect(jsonPath("$.data[1].submitted").value(false))
+                .andExpect(jsonPath("$.data[1].contentHtml").doesNotExist());
     }
 
     // ---------- 辅助 ----------
@@ -471,18 +527,19 @@ class OnboardingTaskApiTests {
                 .andExpect(status().isOk());
     }
 
-    private org.springframework.test.web.servlet.ResultActions toggle(String token, String subtaskId, boolean completed)
+    /** 为某个子任务提交内容（子任务不是勾选完成，而是提交一段富文本）。 */
+    private org.springframework.test.web.servlet.ResultActions submitSubtask(String token, String subtaskId)
             throws Exception {
-        return mvc.perform(patch("/api/v1/recruitment/me/onboarding-task/subtasks/{id}", subtaskId)
+        return mvc.perform(post("/api/v1/recruitment/me/onboarding-task/subtasks/{id}/submission", subtaskId)
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"completed\":" + completed + "}"))
+                        .content("{\"contentHtml\":\"<p>已完成该项，提交说明。</p>\"}"))
                 .andExpect(status().isOk());
     }
 
     private void completeAllSubtasks(String token, String onboardingView) throws Exception {
         for (String subtaskId : JsonPath.<List<String>>read(onboardingView, "$.data.subtasks[*].id")) {
-            toggle(token, subtaskId, true);
+            submitSubtask(token, subtaskId);
         }
     }
 

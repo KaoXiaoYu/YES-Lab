@@ -539,10 +539,10 @@ export function getOnboardingSubtask(subtaskId) {
   return apiRequest(`/api/v1/recruitment/me/onboarding-task/subtasks/${subtaskId}`)
 }
 
-export function toggleOnboardingSubtask(subtaskId, completed) {
-  return apiRequest(`/api/v1/recruitment/me/onboarding-task/subtasks/${subtaskId}`, {
-    method: 'PATCH',
-    body: { completed },
+export function submitOnboardingSubtask(subtaskId, contentHtml) {
+  return apiRequest(`/api/v1/recruitment/me/onboarding-task/subtasks/${subtaskId}/submission`, {
+    method: 'POST',
+    body: { contentHtml },
   })
 }
 
@@ -640,11 +640,16 @@ export function getAdminSubtask(taskId, subtaskId) {
   return apiRequest(`/api/v1/admin/tasks/${taskId}/subtasks/${subtaskId}`)
 }
 
-export function toggleMyTaskSubtask(assignmentId, subtaskId, completed) {
-  return apiRequest(`/api/v1/tasks/${assignmentId}/subtasks/${subtaskId}`, {
-    method: 'PATCH',
-    body: { completed },
+export function submitMySubtask(assignmentId, subtaskId, contentHtml) {
+  return apiRequest(`/api/v1/tasks/${assignmentId}/subtasks/${subtaskId}/submission`, {
+    method: 'POST',
+    body: { contentHtml },
   })
+}
+
+/** 管理端：展开某人的子任务提交内容（懒加载）。 */
+export function getAssignmentSubtaskSubmissions(taskId, assignmentId) {
+  return apiRequest(`/api/v1/admin/tasks/${taskId}/assignments/${assignmentId}/subtasks`)
 }
 
 export function submitMyTask(assignmentId, completionNote) {

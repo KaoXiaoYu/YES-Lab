@@ -146,6 +146,15 @@ public class AdminTaskController {
         return ApiResponse.ok(service.adminSubtask(taskId, subtaskId));
     }
 
+    /** 审核时展开某人的子任务提交内容。 */
+    @GetMapping("/{taskId}/assignments/{assignmentId}/subtasks")
+    public ApiResponse<List<TaskModels.SubtaskSubmissionView>> assignmentSubtasks(
+            @PathVariable UUID taskId,
+            @PathVariable UUID assignmentId
+    ) {
+        return ApiResponse.ok(service.adminAssignmentSubtasks(taskId, assignmentId));
+    }
+
     @GetMapping("/{taskId}/progress")
     public ApiResponse<TaskModels.TaskProgressView> progress(@PathVariable UUID taskId) {
         return ApiResponse.ok(service.taskProgress(taskId));

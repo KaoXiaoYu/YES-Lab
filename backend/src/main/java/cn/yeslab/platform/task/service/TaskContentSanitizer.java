@@ -59,6 +59,14 @@ final class TaskContentSanitizer {
         return List.copyOf(distinct.values());
     }
 
+    /** 成员为子任务提交的内容：必填，走与任务正文同一条白名单，上限同子任务说明。 */
+    static String cleanSubmissionContent(String value) {
+        if (value == null || value.isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "请填写该子任务的完成内容");
+        }
+        return cleanSubtaskContent(value);
+    }
+
     /**
      * 子任务说明：允许为空（纯清单项），非空时走与任务正文同一条白名单。
      * 上限按 {@link #MAX_SUBTASK_CONTENT} 校验前端提交的原始长度。

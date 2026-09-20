@@ -6,7 +6,6 @@ import cn.yeslab.platform.task.service.TaskService;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -49,14 +48,15 @@ public class TaskController {
         return ApiResponse.ok(service.mySubtaskDetail(authentication, assignmentId, subtaskId));
     }
 
-    @PatchMapping("/{assignmentId}/subtasks/{subtaskId}")
-    public ApiResponse<TaskModels.MyTaskDetailView> toggleSubtask(
+    @PostMapping("/{assignmentId}/subtasks/{subtaskId}/submission")
+    public ApiResponse<TaskModels.MyTaskDetailView> submitSubtask(
             Authentication authentication,
             @PathVariable UUID assignmentId,
             @PathVariable UUID subtaskId,
-            @Valid @RequestBody TaskModels.SubtaskToggleRequest request
+            @Valid @RequestBody TaskModels.SubtaskSubmissionRequest request
     ) {
-        return ApiResponse.ok(service.toggleMySubtask(authentication, assignmentId, subtaskId, request.completed()));
+        return ApiResponse.ok(
+                service.submitMySubtask(authentication, assignmentId, subtaskId, request.contentHtml()));
     }
 
     @PostMapping("/{assignmentId}/submission")

@@ -35,9 +35,10 @@ public final class TaskModels {
             UUID id,
             String title,
             int displayOrder,
-            boolean completed,
-            Instant completedAt,
-            /** 该子任务是否有富文本说明；列表与进度接口不返回正文本身。 */
+            /** 本人是否已提交该子任务的内容（子任务不是勾选完成，而是提交一段内容）。 */
+            boolean submitted,
+            Instant submittedAt,
+            /** 该子任务是否有管理员写的富文本说明；列表与进度接口不返回说明正文本身。 */
             boolean hasContent
     ) {
     }
@@ -59,9 +60,11 @@ public final class TaskModels {
             TaskType taskType,
             String title,
             String contentHtml,
-            boolean completed,
-            Instant completedAt,
-            int completedSubtasks,
+            boolean submitted,
+            Instant submittedAt,
+            /** 本人已提交的子任务内容，未提交时为 null。 */
+            String submittedContentHtml,
+            int submittedSubtasks,
             int totalSubtasks,
             LocalDate dueDate,
             boolean overdue,
@@ -86,9 +89,9 @@ public final class TaskModels {
             String reviewComment,
             String exemptionReason,
             UUID convertedProfileId,
-            int completedSubtasks,
+            int submittedSubtasks,
             int totalSubtasks,
-            boolean allSubtasksCompleted,
+            boolean allSubtasksSubmitted,
             List<SubtaskView> subtasks
     ) {
     }
@@ -96,7 +99,21 @@ public final class TaskModels {
     public record SubmitTaskRequest(@NotBlank(message = "请填写完成说明") String completionNote) {
     }
 
-    public record SubtaskToggleRequest(@NotNull Boolean completed) {
+    /** 成员为某个子任务提交（或重新提交）富文本内容。 */
+    public record SubtaskSubmissionRequest(
+            @NotBlank(message = "请填写该子任务的完成内容") @Size(max = 5000, message = "提交内容不能超过 5000 个字符") String contentHtml
+    ) {
+    }
+
+    /** 管理端逐条查看某人的子任务提交内容（懒加载，只在展开时请求）。 */
+    public record SubtaskSubmissionView(
+            UUID subtaskId,
+            String title,
+            String subtaskContentHtml,
+            boolean submitted,
+            Instant submittedAt,
+            String contentHtml
+    ) {
     }
 
     // ---------- 新手任务大任务（管理端） ----------
@@ -154,7 +171,7 @@ public final class TaskModels {
             String applicantUsername,
             RecruitmentStage stage,
             TaskAssignmentStatus status,
-            int completedSubtasks,
+            int submittedSubtasks,
             int totalSubtasks,
             String completionNote,
             Instant submittedAt,
@@ -300,7 +317,7 @@ public final class TaskModels {
             String role,
             String source,
             TaskAssignmentStatus status,
-            int completedSubtasks,
+            int submittedSubtasks,
             int totalSubtasks,
             String completionNote,
             Instant submittedAt,
@@ -313,7 +330,7 @@ public final class TaskModels {
     ) {
     }
 
-    public record SubtaskProgressView(UUID subtaskId, String title, int completedCount, int totalCount) {
+    public record SubtaskProgressView(UUID subtaskId, String title, int submittedCount, int totalCount) {
     }
 
     public record TaskProgressView(
@@ -339,7 +356,7 @@ public final class TaskModels {
             int points,
             TaskStatus taskStatus,
             TaskAssignmentStatus status,
-            int completedSubtasks,
+            int submittedSubtasks,
             int totalSubtasks,
             Integer awardedPoints,
             String pointsSkippedReason,

@@ -138,12 +138,12 @@ class IdentityRecruitmentApiTests {
         String assignmentId = JsonPath.read(onboardingResponse, "$.data.assignmentId");
         String onboardingTaskId = JsonPath.read(onboardingResponse, "$.data.taskId");
 
-        // 转正门槛：必须先完成大任务下的全部子任务，提交才会被接受。
+        // 转正门槛：必须先为全部子任务提交内容，提交才会被接受。
         for (String subtaskId : JsonPath.<List<String>>read(onboardingResponse, "$.data.subtasks[*].id")) {
-            mvc.perform(patch("/api/v1/recruitment/me/onboarding-task/subtasks/{id}", subtaskId)
+            mvc.perform(post("/api/v1/recruitment/me/onboarding-task/subtasks/{id}/submission", subtaskId)
                             .header("Authorization", bearer(visitorToken))
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"completed\":true}"))
+                            .content("{\"contentHtml\":\"<p>已完成该项。</p>\"}"))
                     .andExpect(status().isOk());
         }
 

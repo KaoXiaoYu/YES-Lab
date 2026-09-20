@@ -152,14 +152,14 @@ public class TaskAssignmentEntity {
                 .findFirst();
     }
 
-    public int completedSubtaskCount() {
-        return (int) subtaskProgress.stream().filter(TaskSubtaskProgressEntity::isCompleted).count();
+    public int submittedSubtaskCount() {
+        return (int) subtaskProgress.stream().filter(TaskSubtaskProgressEntity::isSubmitted).count();
     }
 
-    /** 大任务下的子任务是否已全部勾选：这是提交完成说明与审核通过的前置条件。 */
-    public boolean hasCompletedAllSubtasks() {
+    /** 大任务下的子任务是否已全部提交内容：这是提交完成说明与审核通过的前置条件。 */
+    public boolean hasSubmittedAllSubtasks() {
         int total = task == null ? 0 : task.getSubtasks().size();
-        return total > 0 && completedSubtaskCount() >= total;
+        return total > 0 && submittedSubtaskCount() >= total;
     }
 
     /** 本人发放日期（按实验室时区取创建日），用于「发放当天 + 时长」计算截止日期。 */
@@ -246,12 +246,13 @@ public class TaskAssignmentEntity {
         this.updatedAt = Instant.now();
     }
 
-    public void upsertProgress(TaskSubtaskEntity subtask, boolean completed) {
+    /** 成员为某个子任务提交内容：已有记录则覆盖（重新提交），否则新建。 */
+    public void submitSubtaskProgress(TaskSubtaskEntity subtask, String contentHtml) {
         TaskSubtaskProgressEntity existing = progressOf(subtask.getId()).orElse(null);
         if (existing == null) {
-            this.subtaskProgress.add(new TaskSubtaskProgressEntity(this, subtask, completed));
+            this.subtaskProgress.add(new TaskSubtaskProgressEntity(this, subtask, contentHtml));
         } else {
-            existing.mark(completed);
+            existing.submit(contentHtml);
         }
         this.updatedAt = Instant.now();
     }

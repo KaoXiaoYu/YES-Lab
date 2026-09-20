@@ -23,7 +23,7 @@ const filtered = computed(() =>
 
 function progressPercent(task) {
   if (!task.totalSubtasks) return 0
-  return Math.round((task.completedSubtasks / task.totalSubtasks) * 100)
+  return Math.round((task.submittedSubtasks / task.totalSubtasks) * 100)
 }
 
 onMounted(async () => {
@@ -79,14 +79,14 @@ onMounted(async () => {
             class="task-progress-track"
             role="progressbar"
             aria-valuemin="0"
-            :aria-valuenow="task.completedSubtasks"
+            :aria-valuenow="task.submittedSubtasks"
             :aria-valuemax="task.totalSubtasks"
             :aria-label="`${task.title} 的子任务完成进度`"
           >
             <span :style="{ width: `${progressPercent(task)}%` }"></span>
           </div>
           <span class="task-progress-label">
-            子任务 {{ task.completedSubtasks }} / {{ task.totalSubtasks }}
+            已提交 {{ task.submittedSubtasks }} / {{ task.totalSubtasks }}
             <span v-if="task.points > 0"> · 通过后 +{{ task.awardedPoints ?? task.points }} 积分</span>
           </span>
         </div>

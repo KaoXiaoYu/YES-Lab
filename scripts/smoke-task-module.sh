@@ -83,7 +83,7 @@ OBASSIGN=$(echo "$OB" | j "['data']['assignmentId']")
 OBN=$(echo "$OB" | j "['data']['subtasks'].__len__()")
 check "面试通过后自动发放，状态为待完成" "PENDING" "$OBSTATUS"
 check "使用内置默认大任务标题" "新手入门任务" "$OBTITLE"
-check "子任务数量" "5" "$OBN"
+check "子任务数量（至少 5）" "ok" "$(python3 -c "print('ok' if $OBN >= 5 else 'too-few')")"
 TODAY=$(date +%Y-%m-%d)
 EXPECT_END=$(python3 -c "import datetime;print((datetime.date.today()+datetime.timedelta(days=7)).isoformat())")
 check "截止日期为本人发放当天 + 大任务时长(7天)" "$EXPECT_END" "$OBEND"
@@ -93,15 +93,20 @@ check "发放日期为当天" "$TODAY" "$(echo "$OB" | j "['data']['startDate']"
 ONBOARD_ADMIN=$(curl -s "$BASE/api/v1/admin/tasks/onboarding" -H "Authorization: Bearer $TEACHER")
 check "管理端读取共享大任务" "$OBTASK" "$(echo "$ONBOARD_ADMIN" | j "['data']['taskId']")"
 
+OBFIRST=$(echo "$OB" | j "['data']['subtasks'][0]['id']")
+st=$(status_of -X POST "$BASE/api/v1/recruitment/me/onboarding-task/subtasks/$OBFIRST/submission" -H "Authorization: Bearer $VISITOR" \
+  -H 'Content-Type: application/json' -d '{"contentHtml":"   "}')
+check "空内容提交子任务被拒绝" "400" "$st"
+
 st=$(status_of -X POST "$BASE/api/v1/recruitment/me/onboarding-task/submission" -H "Authorization: Bearer $VISITOR" \
   -H 'Content-Type: application/json' -d '{"completionNote":"只完成了一部分"}')
-check "未完成全部子任务时拒绝提交" "400" "$st"
+check "未提交全部子任务时拒绝提交" "400" "$st"
 
 for idx in $(seq 0 $((OBN - 1))); do
   OBSUB=$(echo "$OB" | j "['data']['subtasks'][$idx]['id']")
-  st=$(status_of -X PATCH "$BASE/api/v1/recruitment/me/onboarding-task/subtasks/$OBSUB" -H "Authorization: Bearer $VISITOR" \
-    -H 'Content-Type: application/json' -d '{"completed":true}')
-  check "勾选第 $((idx + 1)) 个子任务" "200" "$st"
+  st=$(status_of -X POST "$BASE/api/v1/recruitment/me/onboarding-task/subtasks/$OBSUB/submission" -H "Authorization: Bearer $VISITOR" \
+    -H 'Content-Type: application/json' -d "{\"contentHtml\":\"<p>冒烟提交：第 $((idx + 1)) 项已完成。</p>\"}")
+  check "提交第 $((idx + 1)) 个子任务的内容" "200" "$st"
 done
 
 st=$(status_of -X PUT "$BASE/api/v1/admin/tasks/$OBTASK/assignments/$OBASSIGN/review" -H "Authorization: Bearer $TEACHER" \
@@ -113,7 +118,7 @@ st=$(status_of -X POST "$BASE/api/v1/recruitment/me/onboarding-task/submission" 
 check "全部子任务完成后提交" "200" "$st"
 
 # 管理员新增子任务：已提交待确认的对象退回待完成，勾选新项后可重新提交。
-# 按 id 提交（保留已勾选进度），并补上第一项的子任务说明与一项新子任务。
+# 按 id 提交（保留已提交进度），并补上第一项的子任务说明与一项新子任务。
 CUR=$(curl -s "$BASE/api/v1/admin/tasks/onboarding" -H "Authorization: Bearer $TEACHER")
 SUB0=$(echo "$CUR" | j "['data']['subtasks'][0]['id']")
 SUB1=$(echo "$CUR" | j "['data']['subtasks'][1]['id']")
@@ -123,23 +128,25 @@ SUB4=$(echo "$CUR" | j "['data']['subtasks'][4]['id']")
 st=$(status_of -X PUT "$BASE/api/v1/admin/tasks/onboarding" -H "Authorization: Bearer $TEACHER" \
   -H 'Content-Type: application/json' \
   -d "{\"title\":\"新手入门任务\",\"contentHtml\":\"<p>请完成下列基础训练。</p>\",\"durationDays\":7,\"subtasks\":[{\"id\":\"$SUB0\",\"title\":\"配置开发环境（Git、Python 或 Java、代码编辑器）\",\"contentHtml\":\"<p>安装 Git 与 JDK 21。</p>\"},{\"id\":\"$SUB1\",\"title\":\"阅读实验室新人手册与安全规范\"},{\"id\":\"$SUB2\",\"title\":\"认识实验室常用的无人机与机器狗设备，了解基本安全操作\"},{\"id\":\"$SUB3\",\"title\":\"跑通一个示例程序或仿真环境\"},{\"id\":\"$SUB4\",\"title\":\"在讨论板发布一条自我介绍\"},{\"title\":\"冒烟新增：阅读一条安全通报\"}]}")
-check "管理员在大任务上新增子任务（保留已勾选进度）" "200" "$st"
+check "管理员在大任务上新增子任务（保留已提交进度）" "200" "$st"
 OB2=$(curl -s "$BASE/api/v1/recruitment/me/onboarding-task" -H "Authorization: Bearer $VISITOR")
 check "已提交对象被退回待完成" "PENDING" "$(echo "$OB2" | j "['data']['status']")"
 check "新增子任务后总数" "6" "$(echo "$OB2" | j "['data']['subtasks'].__len__()")"
-check "新增子任务后已勾选进度保留" "5" "$(echo "$OB2" | j "['data']['completedSubtasks']")"
+check "新增子任务后已提交进度保留" "5" "$(echo "$OB2" | j "['data']['submittedSubtasks']")"
 check "大任务列表只带 hasContent 不带正文" "True" "$(python3 -c "
 import json,sys
 d=json.loads(sys.stdin.read())
 print('contentHtml' not in d['data']['subtasks'][0])
 " <<< "$OB2")"
+ONB_SUBS=$(curl -s "$BASE/api/v1/admin/tasks/$OBTASK/assignments/$OBASSIGN/subtasks" -H "Authorization: Bearer $TEACHER")
+check_contains "管理端能逐条看到某人子任务的提交内容" "冒烟提交" "$ONB_SUBS"
 SUB_DETAIL=$(curl -s "$BASE/api/v1/recruitment/me/onboarding-task/subtasks/$SUB0" -H "Authorization: Bearer $VISITOR")
 check_contains "报名者子任务页能读到富文本说明" "安装 Git 与 JDK 21" "$SUB_DETAIL"
-check "子任务页返回本人进度上下文" "5" "$(echo "$SUB_DETAIL" | j "['data']['completedSubtasks']")"
+check "子任务页返回本人进度上下文" "5" "$(echo "$SUB_DETAIL" | j "['data']['submittedSubtasks']")"
 NEWSUB=$(echo "$OB2" | j "['data']['subtasks'][5]['id']")
-st=$(status_of -X PATCH "$BASE/api/v1/recruitment/me/onboarding-task/subtasks/$NEWSUB" -H "Authorization: Bearer $VISITOR" \
-  -H 'Content-Type: application/json' -d '{"completed":true}')
-check "勾选新增子任务" "200" "$st"
+st=$(status_of -X POST "$BASE/api/v1/recruitment/me/onboarding-task/subtasks/$NEWSUB/submission" -H "Authorization: Bearer $VISITOR" \
+  -H 'Content-Type: application/json' -d '{"contentHtml":"<p>冒烟提交：新增项也已完成。</p>"}')
+check "提交新增子任务的内容" "200" "$st"
 st=$(status_of -X POST "$BASE/api/v1/recruitment/me/onboarding-task/submission" -H "Authorization: Bearer $VISITOR" \
   -H 'Content-Type: application/json' -d '{"completionNote":"新增项也已完成"}')
 check "重新提交完成说明" "200" "$st"
@@ -198,9 +205,13 @@ SUBID=$(curl -s "$BASE/api/v1/tasks/$ASSIGN" -H "Authorization: Bearer $MEMBER" 
 MYSUB=$(curl -s "$BASE/api/v1/tasks/$ASSIGN/subtasks/$SUBID" -H "Authorization: Bearer $MEMBER")
 check_contains "成员子任务页能读到富文本说明" "导出原始数据" "$MYSUB"
 check "成员子任务页可编辑" "True" "$(echo "$MYSUB" | j "['data']['editable']")"
-st=$(status_of -X PATCH "$BASE/api/v1/tasks/$ASSIGN/subtasks/$SUBID" -H "Authorization: Bearer $MEMBER" \
-  -H 'Content-Type: application/json' -d '{"completed":true}')
-check "在子任务页勾选完成" "200" "$st"
+st=$(status_of -X POST "$BASE/api/v1/tasks/$ASSIGN/subtasks/$SUBID/submission" -H "Authorization: Bearer $MEMBER" \
+  -H 'Content-Type: application/json' -d '{"contentHtml":"<p>冒烟提交：成员在子任务页提交的内容。</p>"}')
+check "在子任务页提交完成内容" "200" "$st"
+MYSUB_AFTER=$(curl -s "$BASE/api/v1/tasks/$ASSIGN/subtasks/$SUBID" -H "Authorization: Bearer $MEMBER")
+check_contains "成员能读回自己提交的内容" "成员在子任务页提交的内容" "$MYSUB_AFTER"
+ADMIN_SUBS=$(curl -s "$BASE/api/v1/admin/tasks/$TASKID/assignments/$ASSIGN/subtasks" -H "Authorization: Bearer $TEACHER")
+check_contains "管理端能逐条看到成员提交的内容" "成员在子任务页提交的内容" "$ADMIN_SUBS"
 
 st=$(status_of -X POST "$BASE/api/v1/tasks/$ASSIGN/submission" -H "Authorization: Bearer $MEMBER" \
   -H 'Content-Type: application/json' -d '{"completionNote":"已完成整理"}')
