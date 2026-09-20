@@ -82,7 +82,6 @@ CREATE TABLE task_subtask_progress (
     assignment_id BINARY(16) NOT NULL,
     subtask_id BINARY(16) NOT NULL,
     completed BIT NOT NULL,
-    content_html LONGTEXT,
     completed_at DATETIME(6),
     PRIMARY KEY (id),
     CONSTRAINT uk_task_subtask_progress UNIQUE (assignment_id, subtask_id),
