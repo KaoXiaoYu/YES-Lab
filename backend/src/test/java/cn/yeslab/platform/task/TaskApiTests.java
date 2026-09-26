@@ -1,5 +1,6 @@
 package cn.yeslab.platform.task;
 
+import cn.yeslab.platform.task.service.TaskSettlementService;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,10 @@ class TaskApiTests {
 
     @Autowired
     private WebApplicationContext context;
+
+    /** 结算没有对外接口（设计如此），测试直接调用结算服务。 */
+    @Autowired
+    private TaskSettlementService settlementService;
 
     private MockMvc mvc;
 
@@ -227,7 +232,7 @@ class TaskApiTests {
     }
 
     @Test
-    void approvalGrantsPointsAndIsIdempotentWhileRejectionSkipsThem() throws Exception {
+    void approvalRecordsResultButPointsAreOnlyGrantedAtSettlement() throws Exception {
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
         String memberToken = login("member", "YesLab-Member-2026!");
 
@@ -241,7 +246,7 @@ class TaskApiTests {
                         .content("{\"completionNote\":\"已完成\"}"))
                 .andExpect(status().isOk());
 
-        // 重复审核不重复计分：第二次调用直接返回冲突，积分只增加一次。
+        // 审核通过只记录结论：积分统一等到期结算，此刻一分都不发。
         mvc.perform(put("/api/v1/admin/tasks/{taskId}/assignments/{assignmentId}/review", taskId, assignmentId)
                         .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -250,16 +255,24 @@ class TaskApiTests {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("APPROVED"))
-                .andExpect(jsonPath("$.data.awardedPoints").value(25));
+                .andExpect(jsonPath("$.data.awardedPoints").doesNotExist());
+        org.assertj.core.api.Assertions.assertThat(memberPoints(memberToken)).isEqualTo(before);
+
+        // 重复审核仍然冲突（通过是终态）。
         mvc.perform(put("/api/v1/admin/tasks/{taskId}/assignments/{assignmentId}/review", taskId, assignmentId)
                         .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"decision\":\"APPROVED\"}"))
                 .andExpect(status().isConflict());
 
+        // 结束任务即到期：同步触发结算，这时才发积分。
+        mvc.perform(post("/api/v1/admin/tasks/{id}/close", taskId)
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CLOSED"));
         org.assertj.core.api.Assertions.assertThat(memberPoints(memberToken)).isEqualTo(before + 25);
 
-        // 完成情况里能看到计分结果与子任务完成率。
+        // 完成情况里能看到结算结果与子任务完成率。
         mvc.perform(get("/api/v1/admin/tasks/{id}/progress", taskId)
                         .header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())
@@ -267,6 +280,12 @@ class TaskApiTests {
                 .andExpect(jsonPath("$.data.awardedPointsTotal").value(25))
                 .andExpect(jsonPath("$.data.assignments[*].awardedPoints", hasItem(25)))
                 .andExpect(jsonPath("$.data.subtaskProgress.length()").value(2));
+
+        // 结算幂等：重复结算不重复计分，也不刷新结算标记。
+        TaskSettlementService.TaskSettlementSummary again =
+                settlementService.settle(java.util.UUID.fromString(taskId));
+        org.assertj.core.api.Assertions.assertThat(again.settled()).isFalse();
+        org.assertj.core.api.Assertions.assertThat(memberPoints(memberToken)).isEqualTo(before + 25);
 
         // 驳回必须填写意见，且不产生积分。
         int beforeReject = memberPoints(memberToken);
@@ -308,13 +327,12 @@ class TaskApiTests {
         String coreToken = login("core", "YesLab-Core-2026!");
         String memberToken = login("member", "YesLab-Member-2026!");
 
-        // 教师对象不能计分。
+        // 教师对象不能计分。结算的操作人是任务创建者，因此这里命中的是「教师不参与统计」。
         String teacherTask = createAndPublishWithRules(teacherToken, "教师任务", 20,
                 "[{\"dimension\":\"ROLE\",\"value\":\"TEACHER\"}]");
         String teacherAssignment = assignmentFor(teacherToken, teacherTask, "T-001");
-        String teacherUserToken = login("teacher", "YesLab-Teacher-2026!");
         mvc.perform(post("/api/v1/tasks/{id}/submission", teacherAssignment)
-                        .header("Authorization", bearer(teacherUserToken))
+                        .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"completionNote\":\"已完成\"}"))
                 .andExpect(status().isOk());
@@ -323,14 +341,18 @@ class TaskApiTests {
                         .header("Authorization", bearer(coreToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"decision\":\"APPROVED\"}"))
+                .andExpect(status().isOk());
+        closeTask(teacherToken, teacherTask);
+        mvc.perform(get("/api/v1/admin/tasks/{id}/progress", teacherTask)
+                        .header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("APPROVED"))
-                .andExpect(jsonPath("$.data.pointsSkippedReason").value("指导教师不参与成员积分统计"));
+                .andExpect(jsonPath("$.data.assignments[?(@.memberCode=='T-001')].pointsSkippedReason",
+                        hasItem("指导教师不参与成员积分统计")));
 
-        // 审核人给自己审核同样跳过。
-        String coreTask = createAndPublishWithRules(teacherToken, "核心学生任务", 15,
+        // 完成者就是任务创建者本人：结算的操作人固定为创建者，因此跳过。
+        String coreTask = createAndPublishWithRules(coreToken, "核心学生任务", 15,
                 "[{\"dimension\":\"ROLE\",\"value\":\"CORE_STUDENT\"}]");
-        String coreAssignment = assignmentFor(teacherToken, coreTask, "S-CORE-001");
+        String coreAssignment = assignmentFor(coreToken, coreTask, "S-CORE-001");
         mvc.perform(post("/api/v1/tasks/{id}/submission", coreAssignment)
                         .header("Authorization", bearer(coreToken))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -338,13 +360,18 @@ class TaskApiTests {
                 .andExpect(status().isOk());
         mvc.perform(put("/api/v1/admin/tasks/{taskId}/assignments/{assignmentId}/review",
                         coreTask, coreAssignment)
-                        .header("Authorization", bearer(coreToken))
+                        .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"decision\":\"APPROVED\"}"))
+                .andExpect(status().isOk());
+        closeTask(coreToken, coreTask);
+        mvc.perform(get("/api/v1/admin/tasks/{id}/progress", coreTask)
+                        .header("Authorization", bearer(coreToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.pointsSkippedReason").value("积分管理员不能给自己发放积分"));
+                .andExpect(jsonPath("$.data.assignments[?(@.memberCode=='S-CORE-001')].pointsSkippedReason",
+                        hasItem("积分管理员不能给自己发放积分")));
 
-        // 非正式成员不能计分：把 member 临时改为试用后审核。
+        // 非正式成员不能计分：把 member 临时改为试用后审核并结算。
         String memberProfileId = memberProfileId(teacherToken, "S-001");
         setMemberStatus(teacherToken, memberProfileId, "TRIAL");
         try {
@@ -361,13 +388,18 @@ class TaskApiTests {
                             .header("Authorization", bearer(teacherToken))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"decision\":\"APPROVED\"}"))
+                    .andExpect(status().isOk());
+            closeTask(teacherToken, trialTask);
+            mvc.perform(get("/api/v1/admin/tasks/{id}/progress", trialTask)
+                            .header("Authorization", bearer(teacherToken)))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.pointsSkippedReason").value("只能给正式成员发放积分"));
+                    .andExpect(jsonPath("$.data.assignments[?(@.memberCode=='S-001')].pointsSkippedReason",
+                            hasItem("只能给正式成员发放积分")));
         } finally {
             setMemberStatus(teacherToken, memberProfileId, "OFFICIAL");
         }
 
-        // 积分值为 0 的任务不产生任何积分记录。
+        // 积分值为 0 的任务不进入结算队列：既不产生积分记录，也不写结算标记。
         int before = memberPoints(memberToken);
         String zeroTask = createAndPublish(teacherToken, "不计分任务", 0);
         String zeroAssignment = assignmentFor(teacherToken, zeroTask, "S-001");
@@ -384,11 +416,14 @@ class TaskApiTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("APPROVED"))
                 .andExpect(jsonPath("$.data.awardedPoints").doesNotExist());
+        closeTask(teacherToken, zeroTask);
+        var zeroSummary = settlementService.settle(java.util.UUID.fromString(zeroTask));
+        org.assertj.core.api.Assertions.assertThat(zeroSummary.settled()).isFalse();
         org.assertj.core.api.Assertions.assertThat(memberPoints(memberToken)).isEqualTo(before);
     }
 
     @Test
-    void closedTaskBlocksMemberSubmissionButStillAllowsReview() throws Exception {
+    void closedTaskFreezesMemberSubmissionAndAdminReview() throws Exception {
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
         String memberToken = login("member", "YesLab-Member-2026!");
         String taskId = createAndPublish(teacherToken, "结项任务", 10);
@@ -412,14 +447,26 @@ class TaskApiTests {
                         .content("{\"contentHtml\":\"<p>任务结束后不能再提交。</p>\"}"))
                 .andExpect(status().isConflict());
 
-        // 但管理员仍可完成审核
+        // 到期即冻结管理侧结论：结束任务后管理员也不能再审核通过或驳回。
+        // CLOSED 是不可逆终局（延长截止日期也解不开），因此结束之前必须先完成审核。
         mvc.perform(put("/api/v1/admin/tasks/{taskId}/assignments/{assignmentId}/review", taskId, assignmentId)
                         .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"decision\":\"APPROVED\"}"))
+                .andExpect(status().isConflict());
+        mvc.perform(put("/api/v1/admin/tasks/{taskId}/assignments/{assignmentId}/review", taskId, assignmentId)
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"decision\":\"REJECTED\",\"comment\":\"不达标\"}"))
+                .andExpect(status().isConflict());
+
+        // 对象状态保持不变，也没有产生积分。
+        mvc.perform(get("/api/v1/admin/tasks/{id}/progress", taskId)
+                        .header("Authorization", bearer(teacherToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("APPROVED"))
-                .andExpect(jsonPath("$.data.awardedPoints").value(10));
+                .andExpect(jsonPath("$.data.submittedCount").value(1))
+                .andExpect(jsonPath("$.data.approvedCount").value(0))
+                .andExpect(jsonPath("$.data.awardedPointsTotal").value(0));
 
         // 富文本清洗：脚本与事件属性被移除，图片与链接保留。
         mvc.perform(post("/api/v1/admin/tasks")
@@ -601,6 +648,14 @@ class TaskApiTests {
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk());
         return taskId;
+    }
+
+    /** 结束任务：CLOSED 即到期，接口会同步触发一次积分结算。 */
+    private void closeTask(String token, String taskId) throws Exception {
+        mvc.perform(post("/api/v1/admin/tasks/{id}/close", taskId)
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("CLOSED"));
     }
 
     private String assignmentFor(String token, String taskId, String memberCode) throws Exception {

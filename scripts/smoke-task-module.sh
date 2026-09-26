@@ -224,17 +224,28 @@ check "驳回未填意见被拒绝" "400" "$st"
 REV2=$(curl -s -X PUT "$BASE/api/v1/admin/tasks/$TASKID/assignments/$ASSIGN/review" -H "Authorization: Bearer $TEACHER" \
   -H 'Content-Type: application/json' -d '{"decision":"APPROVED","comment":"验收通过"}')
 check "审核通过" "APPROVED" "$(echo "$REV2" | j "['data']['status']")"
-check "自动计分 17" "17" "$(echo "$REV2" | j "['data']['awardedPoints']")"
+check "审核通过只记录结论、不写入积分" "None" "$(echo "$REV2" | j "['data']['awardedPoints']")"
 
 AFTER=$(curl -s "$BASE/api/v1/member/points" -H "Authorization: Bearer $MEMBER" | j "['data']['totalPoints']")
-check "成员总积分增加 17" "$((BEFORE+17))" "$AFTER"
+check "审核通过后成员总积分不变（积分等到期结算）" "$BEFORE" "$AFTER"
+
+echo "== 6. 结束任务：同步结算，之后成员与管理员都不能再改 =="
+st=$(status_of -X POST "$BASE/api/v1/admin/tasks/$TASKID/close" -H "Authorization: Bearer $TEACHER")
+check "结束任务" "200" "$st"
+
+AFTER2=$(curl -s "$BASE/api/v1/member/points" -H "Authorization: Bearer $MEMBER" | j "['data']['totalPoints']")
+check "结束即结算，成员总积分增加 17" "$((BEFORE+17))" "$AFTER2"
 
 LEDGER=$(curl -s "$BASE/api/v1/admin/points/grants" -H "Authorization: Bearer $TEACHER")
 check_contains "积分流水来源为任务编号" "TASK:$TASKID" "$LEDGER"
 
-echo "== 6. 结束任务后成员只读、管理员仍可审核 =="
-st=$(status_of -X POST "$BASE/api/v1/admin/tasks/$TASKID/close" -H "Authorization: Bearer $TEACHER")
-check "结束任务" "200" "$st"
+st=$(status_of -X PUT "$BASE/api/v1/admin/tasks/$TASKID/assignments/$ASSIGN/review" -H "Authorization: Bearer $TEACHER" \
+  -H 'Content-Type: application/json' -d '{"decision":"APPROVED"}')
+check "结束（到期）后管理员也不能再审核" "409" "$st"
+
+st=$(status_of -X PUT "$BASE/api/v1/admin/tasks/$TASKID/assignments/$ASSIGN/review" -H "Authorization: Bearer $TEACHER" \
+  -H 'Content-Type: application/json' -d '{"decision":"REJECTED","comment":"不达标"}')
+check "结束（到期）后管理员也不能再驳回" "409" "$st"
 
 echo "== 7. 权限与状态精简 =="
 st=$(status_of "$BASE/api/v1/admin/tasks" -H "Authorization: Bearer $MEMBER")

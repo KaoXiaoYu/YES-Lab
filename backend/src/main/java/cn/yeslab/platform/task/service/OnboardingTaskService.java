@@ -181,6 +181,65 @@ public class OnboardingTaskService {
         return count;
     }
 
+    /**
+     * 按人延长新手任务的截止日期。
+     *
+     * <p>这是到期冻结之后唯一的解锁动作：某个报名者逾期后本人不能提交、管理员也不能审核，
+     * 必须先把他的 {@code due_date} 推到未来。延长只影响这一位报名者，其他人不受影响；
+     * 与「调整大任务时长」（按各自发放日重算所有人）互为补充。</p>
+     *
+     * <p>校验：对象必须属于新手任务大任务、尚未通过、属于仍在技能测试阶段的报名记录；
+     * 新日期必须晚于今天（否则解锁没有意义）且晚于原日期（不允许变相缩短）。</p>
+     */
+    @Transactional
+    public TaskModels.DueDateExtensionView extendDueDate(
+            Authentication authentication,
+            UUID assignmentId,
+            TaskModels.ExtendOnboardingDueDateRequest request
+    ) {
+        AccountEntity operator = authService.requireAccount(authentication);
+        TaskAssignmentEntity assignment = assignments.findById(assignmentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "新手任务对象不存在"));
+        if (!assignment.isOnboarding()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "只能延长新手任务的截止日期");
+        }
+        if (assignment.getStatus() == TaskAssignmentStatus.APPROVED) {
+            throw new ApiException(HttpStatus.CONFLICT, "该报名者已经通过新手任务，无需延长");
+        }
+        RecruitmentApplicationEntity application = assignment.getRecruitmentApplication();
+        if (application == null) {
+            throw new ApiException(HttpStatus.CONFLICT, "新手任务没有关联的报名记录");
+        }
+
+        LocalDate today = LocalDate.now(LAB_TIME_ZONE);
+        LocalDate newDueDate = request.dueDate();
+        if (!newDueDate.isAfter(today)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "新的截止日期必须晚于今天");
+        }
+        LocalDate previousDueDate = assignment.getDueDate();
+        if (previousDueDate != null && !newDueDate.isAfter(previousDueDate)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "新的截止日期必须晚于原截止日期");
+        }
+        String reason = request.reason() == null || request.reason().isBlank()
+                ? null
+                : request.reason().trim();
+
+        assignment.extendDueDate(newDueDate, operator, reason);
+        TaskAssignmentEntity saved = assignments.save(assignment);
+        notifyApplicant(saved, "TASK_UPDATED", "新手任务截止日期已延长",
+                "管理员已将你的新手任务截止日期延长至 " + newDueDate + "，请在新的截止日期前完成。");
+        return new TaskModels.DueDateExtensionView(
+                saved.getId(),
+                application.getId(),
+                application.getName(),
+                previousDueDate,
+                newDueDate,
+                saved.getDueDateExtendedAt(),
+                operator.getUsername(),
+                reason
+        );
+    }
+
     /** 时长变化后，按每个对象自己的发放日期重算截止日期（已通过的对象不动）。 */
     private int reschedulePending(TaskEntity task) {
         int days = task.getDurationDays();

@@ -1,5 +1,15 @@
 <script setup>
-import { ArrowRight, CalendarCheck, CircleCheck, Eye, KeyRound, Search, UserPlus, XCircle } from '@lucide/vue'
+import {
+  ArrowRight,
+  CalendarCheck,
+  CircleCheck,
+  Eye,
+  KeyRound,
+  RotateCcw,
+  Search,
+  UserPlus,
+  XCircle,
+} from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import AuthenticatedImage from '../components/AuthenticatedImage.vue'
 import InterviewSessionManager from '../components/InterviewSessionManager.vue'
@@ -132,13 +142,21 @@ async function rejectApplication() {
 async function updateInterviewResultPending(pending) {
   if (!selected.value) return
   const applicantName = selected.value.name
+  const revokeRejection =
+    pending && selected.value.stage === 'REJECTED' && selected.value.interview?.decision === 'REJECTED'
   const message = pending
-    ? `确认将 ${applicantName} 设为“待补录面试结果”吗？如有未结束的预约，系统会同步将其结束；切换后对方不能重复预约。`
+    ? revokeRejection
+      ? `确认撤销 ${applicantName} 的“面试未通过”结论吗？记录将回到“待补录面试结果”，报名者会收到通知，原面试评价和评分会保留。`
+      : `确认将 ${applicantName} 设为“待补录面试结果”吗？如有未结束的预约，系统会同步将其结束；切换后对方不能重复预约。`
     : `确认将 ${applicantName} 恢复为“面试”吗？系统会释放未录入结论的已结束预约，恢复后对方可以重新预约。`
   if (!window.confirm(message)) return
   await runAction(
     () => setInterviewResultPending(selected.value.id, pending),
-    pending ? '已设为待补录面试结果。' : '已恢复为面试阶段。',
+    pending
+      ? revokeRejection
+        ? '已撤销面试未通过，记录已回到待补录面试结果。'
+        : '已设为待补录面试结果。'
+      : '已恢复为面试阶段。',
   )
 }
 
@@ -371,14 +389,14 @@ function splitTags(value) {
             <button v-if="nextStages[selected.stage]" type="button" :disabled="working" @click="advance">
               进入{{ stageLabels[nextStages[selected.stage]] }}<ArrowRight :size="17" aria-hidden="true" /></button
             ><button
-              v-if="
-                selected.stage === 'INTERVIEW' && !selected.interview?.decision && !selected.interview?.resultPending
-              "
+              v-if="selected.interview?.resultPendingTransitionAllowed"
+              class="interview-rejection-revoke"
               type="button"
               :disabled="working"
               @click="updateInterviewResultPending(true)"
             >
-              设为待补录面试结果<ArrowRight :size="17" aria-hidden="true" /></button
+              <RotateCcw v-if="selected.stage === 'REJECTED'" :size="17" aria-hidden="true" />
+              {{ selected.stage === 'REJECTED' ? '撤销面试未通过' : '设为待补录面试结果' }}</button
             ><button
               v-if="selected.stage === 'INTERVIEW' && selected.interview?.resultPending"
               type="button"

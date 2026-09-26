@@ -57,11 +57,30 @@ public class TaskEntity {
     /** 新手任务大任务的时长（天）：每人的截止日期 = 本人发放当天 + 时长。普通任务为空。 */
     private Integer durationDays;
 
+    /** 悬赏：接取人数上限。{@code null} = 不限人数；非空 = 最多 n 人接取、先到先得。 */
+    private Integer headcountLimit;
+
+    /** 悬赏：奖金份数 m，最先完成的 m 人获奖。{@code null} = 不设奖金。 */
+    private Integer prizeSlots;
+
+    /** 悬赏：奖金的一段统一说明（线下发放，系统只登记，不逐人区分金额）。 */
+    @Column(length = 500)
+    private String prizeDescription;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private TaskStatus status;
 
     private Instant publishedAt;
+
+    /**
+     * 积分结算时间：{@code null} 表示未结算。
+     *
+     * <p>它同时承担两个职责：既是「已结算」的唯一标记，也是结算认领的争用字段
+     * （条件更新 {@code WHERE points_settled_at IS NULL} 保证跨实例只执行一次）。
+     * 到期结算只给状态为「已通过」的对象发放积分，因此结算一旦执行即为终局。</p>
+     */
+    private Instant pointsSettledAt;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_account_id", nullable = false, updatable = false)
@@ -115,7 +134,11 @@ public class TaskEntity {
     public int getPoints() { return points; }
     public TaskStatus getStatus() { return status; }
     public Integer getDurationDays() { return durationDays; }
+    public Integer getHeadcountLimit() { return headcountLimit; }
+    public Integer getPrizeSlots() { return prizeSlots; }
+    public String getPrizeDescription() { return prizeDescription; }
     public Instant getPublishedAt() { return publishedAt; }
+    public Instant getPointsSettledAt() { return pointsSettledAt; }
     public AccountEntity getCreatedBy() { return createdBy; }
     public List<TaskSubtaskEntity> getSubtasks() { return List.copyOf(subtasks); }
     public List<TaskAudienceRuleEntity> getAudienceRules() { return List.copyOf(audienceRules); }
@@ -124,6 +147,52 @@ public class TaskEntity {
     public Instant getUpdatedAt() { return updatedAt; }
 
     public boolean isOnboarding() { return taskType == TaskType.ONBOARDING; }
+
+    public boolean isBounty() { return taskType == TaskType.BOUNTY; }
+
+    /** 是否设了奖金份数。 */
+    public boolean hasPrize() { return prizeSlots != null && prizeSlots > 0; }
+
+    /** 接取人数上限；{@code null} 表示不限。 */
+    public boolean hasHeadcountLimit() { return headcountLimit != null; }
+
+    /** 悬赏内容写入：标题、正文、奖金说明与份数、接取上限、起止日期。 */
+    public void updateBountyDetails(
+            String title,
+            String contentHtml,
+            String prizeDescription,
+            Integer prizeSlots,
+            Integer headcountLimit,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        this.title = title;
+        this.contentHtml = contentHtml;
+        this.prizeDescription = prizeDescription;
+        this.prizeSlots = prizeSlots;
+        this.headcountLimit = headcountLimit;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.updatedAt = Instant.now();
+    }
+
+    /** 上调接取名额上限（发布后只增不减）。 */
+    public void raiseHeadcountLimit(int newLimit) {
+        this.headcountLimit = newLimit;
+        this.updatedAt = Instant.now();
+    }
+
+    /** 上调奖金份数（发布后只增不减）。 */
+    public void raisePrizeSlots(int newSlots) {
+        this.prizeSlots = newSlots;
+        this.updatedAt = Instant.now();
+    }
+
+    /** 是否已结算积分。 */
+    public boolean isPointsSettled() { return pointsSettledAt != null; }
+
+    /** 是否绑定了积分（新手任务恒为 0，因此不参与结算）。 */
+    public boolean hasBoundPoints() { return points > 0; }
 
     public void updateDetails(
             String title,
@@ -146,6 +215,23 @@ public class TaskEntity {
         this.contentHtml = contentHtml;
         this.startDate = startDate;
         this.endDate = endDate;
+        this.updatedAt = Instant.now();
+    }
+
+    /** 标记积分已结算。由结算服务的条件更新认领之后调用。 */
+    public void markPointsSettled(Instant settledAt) {
+        this.pointsSettledAt = settledAt;
+        this.updatedAt = Instant.now();
+    }
+
+    /**
+     * 重置结算标记，让任务重新进入待结算队列。
+     *
+     * <p>只在「延长截止日期」时使用：已结算的任务如果被延后，新的完成者否则将永远拿不到积分。
+     * 已发放过的对象靠来源编号幂等跳过，因此重复结算不会重复计分。</p>
+     */
+    public void resetPointsSettlement() {
+        this.pointsSettledAt = null;
         this.updatedAt = Instant.now();
     }
 

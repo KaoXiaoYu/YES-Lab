@@ -244,7 +244,7 @@ async function runAction(action, task, confirmText) {
   <PortalShell
     eyebrow="ADMIN / TASKS"
     title="任务管理"
-    description="按角色、成员状态、年级与能力标签发放任务，或直接指定成员。发布后积分与发放对象锁定。"
+    description="按角色、成员状态、年级与能力标签发放任务，或直接指定成员。发布后积分与发放对象锁定；积分在任务到期后统一结算。"
   >
     <section class="task-toolbar" aria-label="任务筛选与操作">
       <div>
@@ -286,11 +286,16 @@ async function runAction(action, task, confirmText) {
           <DiscussionRichTextEditor v-model="form.contentHtml" label="大任务描述" :max-length="20000" />
         </div>
         <label>开始日期<input v-model="form.startDate" type="date" /></label>
-        <label>截止日期<input v-model="form.endDate" type="date" /></label>
+        <label
+          >截止日期<input v-model="form.endDate" type="date" />
+          <small>到期后成员不能再提交、管理员也不能再审核或驳回，并触发积分结算；留空表示不设截止。</small></label
+        >
         <label
           >每个通过对象可得积分
           <input v-model.number="form.points" type="number" min="0" max="100000" :disabled="published" />
-          <small>0 表示该任务不计分。发布后不可修改，也不追溯已发放的积分。</small></label
+          <small
+            >0 表示该任务不计分。发布后不可修改；积分在任务到期后统一结算，只发给结算时已通过审核的对象。</small
+          ></label
         >
         <TaskSubtaskEditor
           v-model="form.subtasks"
@@ -369,8 +374,15 @@ async function runAction(action, task, confirmText) {
         <h2>{{ task.title }}</h2>
         <p class="task-card-dates">{{ task.startDate || '未设置开始' }} — {{ task.endDate || '未设置截止' }}</p>
         <p class="task-card-progress">
-          对象 {{ task.assignmentCount }} 人 · 已通过 {{ task.approvedCount }} · 待确认 {{ task.submittedCount }} ·
+          对象 {{ task.assignmentCount }} 人 · 已通过 {{ task.approvedCount }} · 待审核 {{ task.submittedCount }} ·
           进行中 {{ task.pendingCount }} · 已驳回 {{ task.rejectedCount }}
+        </p>
+        <p v-if="task.points > 0" class="task-card-settle">
+          {{ task.pointsSettledAt ? `积分已结算（${task.pointsSettledAt.slice(0, 10)}）` : '积分待结算' }}
+        </p>
+        <p v-if="task.expired" class="task-skip">任务已截止：不能再审核或驳回。</p>
+        <p v-else-if="task.submittedCount > 0" class="task-skip">
+          还有 {{ task.submittedCount }} 人待审核，到期后将无法审核。
         </p>
         <div class="task-card-actions">
           <button type="button" :disabled="working" @click="openEdit(task)">
@@ -388,7 +400,13 @@ async function runAction(action, task, confirmText) {
             v-if="task.status === 'PUBLISHED'"
             type="button"
             :disabled="working"
-            @click="runAction(closeTask, task, `确认结束「${task.title}」？结束后成员不能再提交，管理员仍可审核。`)"
+            @click="
+              runAction(
+                closeTask,
+                task,
+                `确认结束「${task.title}」？结束后到期即结算，成员不能再提交、管理员也不能再审核或驳回，且不可撤销。`,
+              )
+            "
           >
             <Square :size="15" aria-hidden="true" />结束
           </button>

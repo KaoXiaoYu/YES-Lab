@@ -281,6 +281,14 @@
   color: var(--color-danger);
   font-size: 11px;
 }
+/* 管理表单是 flex 列布局且自带 gap：字段级错误要紧贴输入框，不能叠加外边距 */
+.admin-form-grid .field-error,
+.task-editor-field .field-error {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+}
 .field-help {
   display: block;
   margin: -8px 0 14px;
@@ -9685,6 +9693,7 @@ body.submission-feedback-open {
 .task-card-progress,
 .task-card-skip,
 .task-card-reject,
+.task-card-settle,
 .task-row-note,
 .overdue {
   margin: 0;
@@ -9694,6 +9703,11 @@ body.submission-feedback-open {
 .overdue,
 .task-skip {
   color: var(--color-danger);
+}
+
+/* 结算状态是中性信息（不是错误），用次级文字色，与「已截止」「未计分」区分开。 */
+.task-card-settle {
+  color: var(--color-text-secondary);
 }
 
 .task-card footer {
@@ -10300,4 +10314,110 @@ a.portal-secondary {
 
 .task-submissions li small {
   color: var(--color-text-subtle);
+}
+
+/* ---------- 悬赏任务 ---------- */
+
+/* 接取上限与奖金份数是两个独立设置，用同一套「指标」版式并各自标注名称。 */
+.bounty-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin: 0;
+}
+
+.bounty-metrics div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.bounty-metrics dt {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+}
+
+.bounty-metrics dd {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.bounty-prize {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--color-foreground);
+}
+
+.bounty-prize small,
+.bounty-mine,
+.bounty-subtask-static {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.bounty-mine {
+  margin: 0;
+  font-weight: 600;
+}
+
+/* 接取不可逆：确认区与详情页的动作区分开，并给出可见的说明。 */
+.bounty-confirm {
+  display: grid;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-muted);
+}
+
+.bounty-confirm p {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-foreground);
+}
+
+.bounty-subtask-static {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.bounty-inline-choice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+}
+
+.bounty-inline-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.task-toolbar-note {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.bounty-card .task-card-actions {
+  flex-wrap: wrap;
 }

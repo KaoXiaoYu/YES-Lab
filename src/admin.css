@@ -446,6 +446,10 @@
     transform 120ms ease-out;
 }
 
+.portal-page--admin .detail-actions button.interview-rejection-revoke {
+  min-height: 44px;
+}
+
 :root[data-theme='dark'] .portal-page--admin .portal-primary,
 :root[data-theme='dark']
   .portal-page--admin

@@ -343,6 +343,18 @@ public class RecruitmentService {
     ) {
         AccountEntity operator = authService.requireAccount(authentication);
         RecruitmentApplicationEntity application = requireApplication(applicationId);
+        if (pending && application.getStage() == RecruitmentStage.REJECTED
+                && application.getInterviewDecision() == InterviewDecision.REJECTED) {
+            application.changeStage(RecruitmentStage.INTERVIEW);
+            application.resolveInterviewDecision(null, null, null);
+            application.setInterviewResultPending(true);
+            histories.save(new RecruitmentStatusHistoryEntity(application.getId(), RecruitmentStage.REJECTED,
+                    RecruitmentStage.INTERVIEW, snapshot(operator), "撤销面试未通过，恢复为待补录面试结果"));
+            notificationService.send(application.getApplicant(), "INTERVIEW_RESULT_REOPENED", "面试结论已撤销",
+                    "此前的面试未通过结论已撤销，目前正在补录面试结果。你暂时不需要重新预约，后续结果会通过站内消息通知。",
+                    "/application");
+            return toView(applications.save(application));
+        }
         if (application.getStage() != RecruitmentStage.INTERVIEW || application.getInterviewDecision() != null) {
             throw new ApiException(HttpStatus.CONFLICT, "只有尚未提交结论的面试阶段记录可以切换待补录状态");
         }
@@ -610,9 +622,11 @@ public class RecruitmentService {
     }
 
     private boolean resultPendingTransitionAllowed(RecruitmentApplicationEntity application) {
-        return application.getStage() == RecruitmentStage.INTERVIEW
-                && application.getInterviewDecision() == null
-                && !application.isInterviewResultPending();
+        return (application.getStage() == RecruitmentStage.REJECTED
+                        && application.getInterviewDecision() == InterviewDecision.REJECTED
+                || application.getStage() == RecruitmentStage.INTERVIEW
+                        && application.getInterviewDecision() == null
+                        && !application.isInterviewResultPending());
     }
 
     private boolean hasActiveInterviewBooking(RecruitmentApplicationEntity application) {

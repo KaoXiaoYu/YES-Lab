@@ -66,7 +66,18 @@ public class PointService {
     @PreAuthorize("hasAuthority('POINTS_MANAGE')")
     @Transactional
     public PointModels.GrantView grant(Authentication authentication, PointModels.GrantRequest request) {
-        AccountEntity operator = authService.requireAccount(authentication);
+        return grantAs(authService.requireAccount(authentication), request);
+    }
+
+    /**
+     * 发放的核心实现。
+     *
+     * <p>拆出这一层是为了让「有认证上下文的公开发放」与「任务结算的系统发放」复用同一段校验与落库逻辑：
+     * 公开路径 {@link #grant} 负责把认证换成操作人并保留 {@code @PreAuthorize}；
+     * 结算路径 {@link #grantForTaskSettlement} 的操作人由任务模块显式传入（任务创建者）。
+     * 两条路径都会走 {@link #validateAllocations} 与 {@link #validateRecipient}，因此规则完全一致。</p>
+     */
+    private PointModels.GrantView grantAs(AccountEntity operator, PointModels.GrantRequest request) {
         String sourceReference = request.sourceReference().trim();
         if (grants.existsBySourceReferenceIgnoreCase(sourceReference)) {
             throw new ApiException(HttpStatus.CONFLICT, "该积分来源已经发放，请勿重复提交");
@@ -131,22 +142,35 @@ public class PointService {
         return toGrantView(saved);
     }
 
-    @PreAuthorize("hasAuthority('POINTS_MANAGE')")
+    /**
+     * 任务到期结算时给单个对象发放积分。
+     *
+     * <p>调用方是任务模块的结算服务（定时任务或「结束任务」触发），<b>没有认证上下文</b>，因此
+     * 操作人由调用方显式传入，约定为**任务创建者**。这里刻意不加 {@code @PreAuthorize}
+     * （它只被内部调用、也不暴露任何 Controller），并且仍然走 {@link #validateRecipient}
+     * 与 {@link #validateAllocations}，所以并没有放宽积分模块的任何既有规则。</p>
+     *
+     * <p>幂等由来源编号唯一约束保证：{@code sourcePrefix:taskId:memberProfileId}
+     * （普通任务沿用历史上的 {@code TASK:} 前缀，悬赏用 {@code BOUNTY:}）。重复结算直接复用原批次，
+     * 既不重复计分也不报错——这也是「延长截止日期后重新结算」能够安全重跑的前提。</p>
+     *
+     * @param sourcePrefix 来源编号前缀，用于区分任务类型并保持与历史记录一致
+     */
     @Transactional
-    public TaskGrantResult grantForTask(
-            Authentication authentication,
+    public TaskGrantResult grantForTaskSettlement(
             UUID taskId,
             UUID memberProfileId,
             int points,
+            AccountEntity operator,
+            String sourcePrefix,
             String taskTitle,
             LocalDate occurredOn,
             String evidenceUrl,
             String description,
             String contribution
     ) {
-        AccountEntity operator = authService.requireAccount(authentication);
-        String sourceReference = "TASK:" + taskId + ":" + memberProfileId;
-        // 幂等：来源编号唯一，重复审核直接复用原批次，不重复计分也不报错。
+        String sourceReference = sourcePrefix + ":" + taskId + ":" + memberProfileId;
+        // 幂等：来源编号唯一，重复结算直接复用原批次，不重复计分也不报错。
         PointGrantEntity existing = grants.findBySourceReferenceIgnoreCase(sourceReference).orElse(null);
         if (existing != null) {
             int credited = existing.getEntries().stream().mapToInt(PointEntryEntity::getPoints).sum();
@@ -172,7 +196,7 @@ public class PointService {
                 List.of(new PointModels.AllocationRequest(
                         memberProfileId, points, limit(contribution, 500)))
         );
-        PointModels.GrantView granted = grant(authentication, request);
+        PointModels.GrantView granted = grantAs(operator, request);
         return new TaskGrantResult(true, granted.id(), granted.awardedPoints(), null);
     }
 

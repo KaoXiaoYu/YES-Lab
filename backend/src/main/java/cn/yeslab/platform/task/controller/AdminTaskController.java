@@ -61,6 +61,21 @@ public class AdminTaskController {
         return ApiResponse.ok(service.backfillOnboardingTasks(authentication));
     }
 
+    /**
+     * 按人延长新手任务的截止日期。
+     *
+     * <p>到期（本人 {@code due_date} 已过）会冻结该报名者的提交与管理员审核，必须先把截止日期
+     * 推到未来才能继续；延长只影响这一位报名者，其他人不受影响。</p>
+     */
+    @PutMapping("/onboarding-assignments/{assignmentId}/due-date")
+    public ApiResponse<TaskModels.DueDateExtensionView> extendOnboardingDueDate(
+            Authentication authentication,
+            @PathVariable UUID assignmentId,
+            @Valid @RequestBody TaskModels.ExtendOnboardingDueDateRequest request
+    ) {
+        return ApiResponse.ok(onboardingTaskService.extendDueDate(authentication, assignmentId, request));
+    }
+
     // ---------- 普通任务 ----------
 
     @GetMapping

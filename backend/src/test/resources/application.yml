@@ -11,6 +11,11 @@ spring:
     enabled: false
 
 yeslab:
+  task:
+    settlement:
+      # 测试环境关闭到期结算调度：调度线程使用独立事务并会提交，而测试依赖逐用例回滚做绝对断言
+      # （PointApiTests 就依赖这一点）。测试改为直接调用 TaskSettlementService.settle(...)。
+      enabled: false
   storage:
     sponsors-directory: ./target/test-sponsors
     homepage-models-directory: ./target/test-homepage-models

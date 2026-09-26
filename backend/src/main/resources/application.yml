@@ -64,3 +64,10 @@ yeslab:
       password: ${YESLAB_INITIAL_ADMIN_PASSWORD:}
       display-name: ${YESLAB_INITIAL_ADMIN_DISPLAY_NAME:系统管理员}
       member-code: ${YESLAB_INITIAL_ADMIN_MEMBER_CODE:T-001}
+  task:
+    settlement:
+      # 任务积分的到期结算：定时扫描已到期且未结算的任务并统一发放积分。
+      # 关闭后不会有任何结算发生（测试环境必须关闭：调度线程用独立事务并会提交，会污染依赖回滚的测试）。
+      enabled: ${YESLAB_TASK_SETTLEMENT_ENABLED:true}
+      # 默认每小时第 5 分钟检查一次；到期按业务日期判定，晚几分钟无影响。
+      cron: ${YESLAB_TASK_SETTLEMENT_CRON:0 5 * * * *}

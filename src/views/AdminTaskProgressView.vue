@@ -23,7 +23,7 @@ const submissionsAssignmentId = ref('')
 function toggleSubmissions(assignmentId) {
   submissionsAssignmentId.value = submissionsAssignmentId.value === assignmentId ? '' : assignmentId
 }
-const review = reactive({ decision: 'APPROVED', comment: '', evidenceUrl: '', memberCode: '', skillTagsText: '' })
+const review = reactive({ decision: 'APPROVED', comment: '', memberCode: '', skillTagsText: '' })
 const supplementTags = ref('')
 
 const statusLabels = {
@@ -53,7 +53,6 @@ function openReview(assignmentId) {
   activeAssignmentId.value = assignmentId
   review.decision = 'APPROVED'
   review.comment = ''
-  review.evidenceUrl = ''
   review.memberCode = ''
   review.skillTagsText = ''
 }
@@ -64,7 +63,6 @@ async function submitReview() {
   successMessage.value = ''
   try {
     const payload = { decision: review.decision, comment: review.comment || null }
-    if (review.decision === 'APPROVED') payload.evidenceUrl = review.evidenceUrl || null
     await reviewTaskAssignment(route.params.taskId, activeAssignmentId.value, payload)
     activeAssignmentId.value = ''
     successMessage.value = review.decision === 'APPROVED' ? '已确认通过。' : '已驳回。'
@@ -120,7 +118,7 @@ async function removeAssignment(row) {
   <PortalShell
     eyebrow="ADMIN / TASK PROGRESS"
     title="任务完成情况"
-    description="任务汇总、子任务提交率与逐人明细；审核通过后自动发放积分，驳回不发分。"
+    description="任务汇总、子任务提交率与逐人明细；审核只记录结论，积分在任务到期后由系统统一结算。"
   >
     <RouterLink class="task-back" to="/admin/tasks"><ArrowLeft :size="16" aria-hidden="true" />返回任务管理</RouterLink>
 
@@ -163,7 +161,19 @@ async function removeAssignment(row) {
             <dt>已发放积分</dt>
             <dd>{{ progress.awardedPointsTotal }}</dd>
           </div>
+          <div>
+            <dt>积分结算</dt>
+            <dd>{{ task.pointsSettledAt ? `已结算 ${task.pointsSettledAt.slice(0, 10)}` : '待结算' }}</dd>
+          </div>
         </dl>
+        <p v-if="task.expired" class="task-skip" role="status">
+          任务已截止：不能再审核或驳回{{
+            task.pointsSettledAt ? '，积分已结算' : ''
+          }}。如仍需处理，请先延长截止日期（已结算的任务会重新进入待结算）。
+        </p>
+        <p v-else-if="progress.submittedCount > 0" class="task-skip" role="status">
+          还有 {{ progress.submittedCount }} 人待审核：到期后将无法审核或驳回，请在此之前完成。
+        </p>
       </section>
 
       <section v-if="task.status === 'PUBLISHED'" class="admin-form-card" aria-labelledby="supplement-title">
@@ -222,7 +232,8 @@ async function removeAssignment(row) {
             <button
               v-if="row.status === 'SUBMITTED'"
               type="button"
-              :disabled="working"
+              :disabled="working || task.expired"
+              :title="task.expired ? '任务已截止，不能再审核或驳回' : ''"
               @click="openReview(row.assignmentId)"
             >
               <CheckCheck :size="15" aria-hidden="true" />人工审核
@@ -253,12 +264,9 @@ async function removeAssignment(row) {
               </select></label
             >
             <label class="full">审核意见<input v-model.trim="review.comment" maxlength="1000" /></label>
-            <label v-if="review.decision === 'APPROVED'" class="full"
-              >积分凭证链接（可选）<input
-                v-model.trim="review.evidenceUrl"
-                maxlength="1000"
-                placeholder="留空时使用任务详情站内路径"
-            /></label>
+            <p v-if="review.decision === 'APPROVED'" class="task-skip full">
+              通过只记录结论；积分在任务到期后统一结算，凭证使用任务详情站内路径。
+            </p>
             <p v-if="review.decision === 'REJECTED'" class="task-skip">驳回必须填写审核意见，且不会发放积分。</p>
             <div class="task-form-actions">
               <button

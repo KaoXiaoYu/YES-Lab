@@ -13,6 +13,7 @@ import org.springframework.web.context.WebApplicationContext;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
@@ -44,6 +45,10 @@ class OnboardingTaskApiTests {
 
     @Autowired
     private WebApplicationContext context;
+
+    /** 用于把某个对象的 due_date 改到过去，模拟「本人已逾期」。 */
+    @Autowired
+    private cn.yeslab.platform.task.repository.TaskAssignmentRepository assignmentRepository;
 
     private MockMvc mvc;
 
@@ -201,9 +206,119 @@ class OnboardingTaskApiTests {
                 .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
     }
 
+    /** 按人延长只影响被延长的那位报名者；共享大任务与其他人完全不变。 */
     @Test
-    void conversionGuardBlocksUnfinishedOnboardingTaskAndExemptionClosesIt() throws Exception {
+    void extendingOneApplicantDoesNotAffectOthers() throws Exception {
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        String stamp = String.valueOf(System.nanoTime());
+        Applicant first = registerApplicant("extend-a-" + stamp + "@example.com", "Extend2026", "延期甲同学");
+        Applicant second = registerApplicant("extend-b-" + stamp + "@example.com", "Extend2026", "延期乙同学");
+        reachSkillTest(first, teacherToken);
+        reachSkillTest(second, teacherToken);
+
+        String firstView = ownTask(first.token()).andReturn().getResponse().getContentAsString();
+        String secondView = ownTask(second.token()).andReturn().getResponse().getContentAsString();
+        String firstAssignment = JsonPath.read(firstView, "$.data.assignmentId");
+        String secondDue = JsonPath.read(secondView, "$.data.endDate");
+
+        LocalDate newDueDate = LocalDate.now(LAB_TIME_ZONE).plusDays(21);
+        mvc.perform(put("/api/v1/admin/tasks/onboarding-assignments/{id}/due-date", firstAssignment)
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"dueDate\":\"" + newDueDate + "\",\"reason\":\"只延甲\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dueDate").value(newDueDate.toString()));
+
+        ownTask(first.token()).andExpect(jsonPath("$.data.endDate").value(newDueDate.toString()));
+        ownTask(second.token()).andExpect(jsonPath("$.data.endDate").value(secondDue));
+    }
+
+    @Test
+    void overdueApplicantIsFrozenUntilDueDateIsExtendedPerPerson() throws Exception {
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        String stamp = String.valueOf(System.nanoTime());
+        String memberCode = "S-EXT-" + stamp;
+        Applicant applicant = registerApplicant("extend-" + stamp + "@example.com", "Extend2026", "延期同学");
+        reachSkillTest(applicant, teacherToken);
+
+        String view = ownTask(applicant.token()).andReturn().getResponse().getContentAsString();
+        String taskId = JsonPath.read(view, "$.data.taskId");
+        String assignmentId = JsonPath.read(view, "$.data.assignmentId");
+
+        // 把本人的 due_date 改到昨天：模拟「这个人已逾期」，其他人不受影响。
+        cn.yeslab.platform.task.model.TaskAssignmentEntity assignment =
+                assignmentRepository.findById(UUID.fromString(assignmentId)).orElseThrow();
+        LocalDate overdueDate = LocalDate.now(LAB_TIME_ZONE).minusDays(1);
+        assignment.assignDueDate(overdueDate);
+        assignmentRepository.saveAndFlush(assignment);
+
+        // 逾期后本人不能提交、管理员也不能审核（到期即冻结）。
+        mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
+                        .header("Authorization", bearer(applicant.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"completionNote\":\"逾期提交\"}"))
+                .andExpect(status().isConflict());
+        mvc.perform(review(teacherToken, taskId, assignmentId,
+                        "{\"decision\":\"APPROVED\",\"memberCode\":\"" + memberCode + "\",\"skillTags\":[\"机器人\"]}"))
+                .andExpect(status().isConflict());
+
+        // 按人延长截止日期：只影响这一位报名者，并留下操作人与理由。
+        LocalDate newDueDate = LocalDate.now(LAB_TIME_ZONE).plusDays(14);
+        mvc.perform(put("/api/v1/admin/tasks/onboarding-assignments/{id}/due-date", assignmentId)
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"dueDate\":\"" + newDueDate + "\",\"reason\":\"课题冲突，同意延期\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.previousDueDate").value(overdueDate.toString()))
+                .andExpect(jsonPath("$.data.dueDate").value(newDueDate.toString()))
+                .andExpect(jsonPath("$.data.extendedBy").value("teacher"))
+                .andExpect(jsonPath("$.data.reason").value("课题冲突，同意延期"));
+
+        // 校验：新日期必须晚于今天，且晚于原日期。
+        mvc.perform(put("/api/v1/admin/tasks/onboarding-assignments/{id}/due-date", assignmentId)
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"dueDate\":\"" + LocalDate.now(LAB_TIME_ZONE) + "\",\"reason\":\"今天\"}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(put("/api/v1/admin/tasks/onboarding-assignments/{id}/due-date", assignmentId)
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"dueDate\":\"" + newDueDate + "\",\"reason\":\"同一天\"}"))
+                .andExpect(status().isBadRequest());
+
+        // 管理端总览能看到延长留痕。
+        mvc.perform(get("/api/v1/admin/tasks/onboarding-overview")
+                        .header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rows[?(@.assignmentId=='" + assignmentId + "')].dueDateExtensionReason",
+                        hasItem("课题冲突，同意延期")))
+                .andExpect(jsonPath("$.data.rows[?(@.assignmentId=='" + assignmentId + "')].dueDateExtendedBy",
+                        hasItem("teacher")));
+
+        // 延长之后恢复可提交、可审核，并正常转正。
+        String refreshed = ownTask(applicant.token()).andReturn().getResponse().getContentAsString();
+        completeAllSubtasks(applicant.token(), refreshed);
+        mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
+                        .header("Authorization", bearer(applicant.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"completionNote\":\"延期后按期完成\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
+        mvc.perform(review(teacherToken, taskId, assignmentId,
+                        "{\"decision\":\"APPROVED\",\"memberCode\":\"" + memberCode + "\",\"skillTags\":[\"机器人\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("APPROVED"));
+
+        // 已通过之后再延长会被拒绝。
+        mvc.perform(put("/api/v1/admin/tasks/onboarding-assignments/{id}/due-date", assignmentId)
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"dueDate\":\"" + newDueDate.plusDays(1) + "\",\"reason\":\"再延一次\"}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void conversionGuardBlocksUnfinishedOnboardingTaskAndExemptionClosesIt() throws Exception {        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
         Applicant applicant = registerApplicant("onboarding-guard@example.com", "Onboarding3", "新手任务豁免同学");
         reachSkillTest(applicant, teacherToken);
 

@@ -115,6 +115,16 @@ export function reversePointGrant(grantId, payload) {
   return apiRequest(`/api/v1/admin/points/grants/${grantId}/reversal`, { method: 'POST', body: payload })
 }
 
+export function issueBountyPrize(taskId, assignmentId) {
+  return apiRequest(`/api/v1/admin/bounties/${taskId}/claims/${assignmentId}/prize-fulfillment/issue`, {
+    method: 'POST',
+  })
+}
+
+export function confirmBountyPrizeReceived(assignmentId) {
+  return apiRequest(`/api/v1/tasks/${assignmentId}/bounty-prize/confirm-received`, { method: 'POST' })
+}
+
 export function createCoreStudent(payload) {
   return apiRequest('/api/v1/admin/members/core-students', { method: 'POST', body: payload })
 }
@@ -567,6 +577,71 @@ export function getOnboardingOverview() {
 
 export function backfillOnboardingTasks() {
   return apiRequest('/api/v1/admin/tasks/onboarding-tasks/backfill', { method: 'POST' })
+}
+
+/** 按人延长新手任务截止日期：到期（本人 due_date 已过）后唯一的解锁动作。 */
+export function extendOnboardingDueDate(assignmentId, payload) {
+  return apiRequest(`/api/v1/admin/tasks/onboarding-assignments/${assignmentId}/due-date`, {
+    method: 'PUT',
+    body: payload,
+  })
+}
+
+// ---------- 悬赏任务 ----------
+
+export function getBountyBoard() {
+  return apiRequest('/api/v1/bounties')
+}
+
+export function getBountyDetail(taskId) {
+  return apiRequest(`/api/v1/bounties/${taskId}`)
+}
+
+export function claimBounty(taskId) {
+  return apiRequest(`/api/v1/bounties/${taskId}/claim`, { method: 'POST' })
+}
+
+export function abandonBounty(taskId) {
+  return apiRequest(`/api/v1/bounties/${taskId}/abandon`, { method: 'POST' })
+}
+
+export function listBounties() {
+  return apiRequest('/api/v1/admin/bounties')
+}
+
+export function createBounty(payload) {
+  return apiRequest('/api/v1/admin/bounties', { method: 'POST', body: payload })
+}
+
+export function updateBounty(taskId, payload) {
+  return apiRequest(`/api/v1/admin/bounties/${taskId}`, { method: 'PUT', body: payload })
+}
+
+export function publishBounty(taskId) {
+  return apiRequest(`/api/v1/admin/bounties/${taskId}/publish`, { method: 'POST' })
+}
+
+export function closeBounty(taskId) {
+  return apiRequest(`/api/v1/admin/bounties/${taskId}/close`, { method: 'POST' })
+}
+
+export function deleteBounty(taskId) {
+  return apiRequest(`/api/v1/admin/bounties/${taskId}`, { method: 'DELETE' })
+}
+
+export function getBountyClaims(taskId) {
+  return apiRequest(`/api/v1/admin/bounties/${taskId}/claims`)
+}
+
+export function revokeBountyClaim(taskId, assignmentId, payload) {
+  return apiRequest(`/api/v1/admin/bounties/${taskId}/claims/${assignmentId}/revoke`, {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export function removeBountyClaim(taskId, assignmentId) {
+  return apiRequest(`/api/v1/admin/bounties/${taskId}/claims/${assignmentId}`, { method: 'DELETE' })
 }
 
 export function reviewTaskAssignment(taskId, assignmentId, payload) {

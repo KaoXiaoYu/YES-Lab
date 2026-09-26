@@ -886,3 +886,526 @@
 
 - 提交 `V11` 还原 + `V13` → 重新构建镜像 → **先在预生产库**跑一遍 Flyway → 再部署生产。
 - 点击验收脚本 `.codex-run/ui-review/clickthrough-task-module.mjs` 的 `clickText` 已改为「单次求值定位 + 精确匹配必须命中精确元素」，但**未复跑验证**。
+
+## 2026-09-20：悬赏任务设计（待审，未施工）
+
+### 背景
+
+用户要求在现有任务系统上新增「悬赏任务」，特点是**有人数要求**并且**设置奖金**。先按项目约定逐项确认口径，再出书面设计，本条目只记录设计结论，代码零改动。
+
+经两轮确认，最终口径为：**奖金是线下现金/实物，系统只登记一段统一说明**（不逐人区分金额）；**名额制**——最多 N 人接取、先到先得、各自独立完成与结算；**成员自主接取**占名额；**提交即完成**（不再有管理员审核环节），管理员只做事后复核；**可放弃，但同一人只能接一次**。
+
+> **本条目记录的是第一版口径，已被后续两轮修订取代**：人数与奖金从「一个名额」拆成「接取上限 × 奖金份数 m」两个独立设置，获奖依据从「先接取先得」改为「先完成先得」，积分改为**到期结算**，并且**到期后不能驳回**。当前口径以 `docs/bounty-task-requirements.md`、`docs/bounty-task-design.md`、`docs/task-settlement-requirements.md`、`docs/task-settlement-design.md` 四份文档为准。
+
+### 完成内容（仅文档）
+
+- 新增 `docs/bounty-task-requirements.md`：8 组 40 余条编号需求（任务语义、接取与名额、完成与结算、管理端、权限、数据库、界面、文档与验收），附界面入口、明确不做项、7 条待确认项与六批施工顺序。
+- 新增 `docs/bounty-task-design.md`：完整实现前设计。核心结论：
+  - **不发积分**：悬赏 `points` 恒为 0，完全不经过 `PointService.grantForTask`（`points/service/PointService.java:136`），因此绕开了积分模块「只能给正式成员发放」「教师不参与统计」「审核人不能给自己发放」三条硬约束，也无需新增积分接口。
+  - **名额是上限不是门槛**：占用 = 状态属于 `PENDING`（进行中）或 `APPROVED`（已获得）；`ABANDONED` / `REJECTED` 归还名额。未招满也照常按实际接取人数结算。
+  - **并发控制是本次最关键实现点**：`task_assignments` 的唯一约束只能防「同一人重复接取」，防不了超发，MySQL 也无法用 CHECK 表达「计数 ≤ N」。方案是事务内先 `findByIdForUpdate` 悲观写锁锁住**任务行**，再计数、校验、插入，锁粒度限定在单条悬赏。
+  - **状态机**：`PENDING --提交（提交即完成）--> APPROVED`；`PENDING --本人放弃/管理员移除--> ABANDONED`；`APPROVED --管理员事后驳回--> REJECTED`。`SUBMITTED`（待确认）在悬赏上永不出现，继续服务普通任务与新手任务。
+  - **成员端复用既有提交端点**：`TaskService.submitMyTask` 只校验任务 `PUBLISHED` 与对象非 `APPROVED`（`:824`、`:936`），不看任务类型；`myTasks`（`:788`）也不筛类型，因此「已接取的悬赏进入我的任务」零新增列表接口，只需视图模型补悬赏字段。
+  - **迁移 `V14__bounty_task.sql`**：`tasks.task_type` 追加 `BOUNTY`、`task_assignments.source` 追加 `CLAIM`、`status` 追加 `ABANDONED`，`tasks` 新增 `headcount_limit` 与 `prize_description`。**ENUM 新值只能追加到末尾**——MySQL 按序号存储，插到中间会让存量行读出错值；加列沿用 `V13` 的 `information_schema` 幂等模式。
+  - 独立 `BountyService` + `BountyController` / `AdminBountyController`，管理端接口与普通任务的列表/汇总/条件预览按类型双向隔离，避免悬赏混进「按等级发放」流程。
+- **UI 规则取用**（已加载 `ui-ux-pro-max` 并先读 `design-system/yes-lab/MASTER.md`）：`"limited slots remaining claim" --domain ux` **0 命中**，按技能契约改写查询重试；`"remaining count scarcity"` 命中 Contextual Live Badge Updates（剩余名额用单一 `role="status" aria-atomic="true"` 播报完整句子，不播裸数字）、`"irreversible action confirmation"` 命中 Confirmation Dialogs + Confirmation Messages（接取不可逆需二次确认、成功要有明确反馈）、`"loading feedback async submit"` 命中 Loading Buttons + Submit Feedback（提交期间禁用防重复点击）。结论已写入设计文档 13.2 节。
+
+### 验证结果
+
+- 本轮**只新增两份文档与开发日志，未改任何代码**：`npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 生产构建），`git diff --check` 通过。
+- 未运行后端测试（后端未改动）；未连接生产环境，也未执行部署。
+- 设计中引用的实现事实均已逐条比对源码确认：`TaskType` / `TaskAssignmentStatus` / `TaskAssignmentSource` 三处枚举、`V11__task_module.sql:8/51/52/68-70` 的 ENUM 与约束、`TaskAssignmentEntity.isTerminal()`、`TaskService.myTasks/submitMyTask/isMemberEditable/requireStandardEditable`、`PointService.grantForTask`、`TaskAssignmentRepository` 现有查询。
+
+### 待办
+
+- 等用户审核两份文档，重点是设计文档第 5 节（名额并发方案）与需求清单第 5 节 7 条待确认项；通过后按六批施工，第 1 批 `V14` 需先在预生产 MySQL 演练。
+- 施工完成后再同步 `AGENTS.md` 的「当前能力范围」（当前尚未改动，避免把设计写成现状）。
+- `DEVLOG.md` 的日期条目已 35 条、超过「只保留最近 20 条」的约定，需单独一轮把较早条目移入 `docs/devlog-archive.md`（本次未擅自大范围搬移）。
+
+## 2026-09-20：悬赏任务设计修订（多份奖金 + 先完成先得 + 可选积分）
+
+### 背景
+
+用户改了悬赏模型，并补了一条时间约束：
+
+1. **可以设置多份奖金，也就是 m 个指标**；**接取人数可以不限、也可以限制 n 人**；**最先完成的 m 人获得奖金**；
+2. **可以绑定积分发放，完成悬赏任务的都可以获得积分**；
+3. **悬赏任务依旧有时间限制，结束后不能提交**。
+
+据此又确认了四条默认（接取上限与奖金份数是两个独立设置、每份奖金内容相同、积分由系统自动发放且操作人记为任务创建者、奖金发完不自动结束）与两条驳回相关边界（**奖金顺延**给下一位完成者、**积分不自动撤回**走既有反向流水）。
+
+> **本条目中「积分在完成时自动发放」的结论已被同日的「悬赏任务积分改为到期结算」取代**：积分改为**任务到期后统一结算**（定时任务触发），结算时状态为「已完成」的才发。奖金不变量与顺延、操作人记为任务创建者、驳回不撤回积分三条结论不变。以修订条目为准。
+
+### 完成内容（仅文档，第一版结论已被本次取代）
+
+- 重写 `docs/bounty-task-requirements.md`：改为「奖励分两层（奖金 m 份 + 可选积分）」的口径，需求增至 9 组 50 余条，新增 D 组「积分发放」与 C 组的时间限制条款，待确认项收敛为 8 条，上线验收补到 7 步。
+- 重写 `docs/bounty-task-design.md`，本次设计的三个关键结论：
+  - **奖金分配写成一条不变量**：`奖金持有者 = 已完成对象中 completion_rank 最靠前的 min(m, 已完成人数) 位`。`prize_awarded` 只是这条不变量在库里的投影列，在每次「完成」或「驳回」后于**任务行锁内**重算一次。**顺延因此不需要额外规则**——驳回者离开集合、后面的名次整体前移，补位自然发生；被降级的只会是刚被驳回的那一个人。新增列 `task_assignments.completion_rank`（名次，一经分配不重算）与 `prize_awarded`。
+  - **积分自动发放撞上积分模块的两条既有约束**：`PointGrantEntity.operator` 是 `optional = false`（`:60-62`），`PointService.grant` 带 `@PreAuthorize("hasAuthority('POINTS_MANAGE')")`（`:67-68`），且 `validateRecipient` 禁止操作人给自己发放（`:409-419`）；而悬赏是成员自助提交，现场没有管理员。处理方式是**操作人记为任务创建者**（`TaskEntity.getCreatedBy()`，`TaskEntity.java:119`），并把「创建者本人完成」交给既有的 `taskRecipientIneligibleReason`（`:183-188`）按「跳过并记原因」处理——**不放宽任何积分规则，也不新增对外发放接口**。做法是把 `grant` 的方法体抽成私有 `grantAs(operator, request)`，公开方法的签名与鉴权完全不变，另加仅供任务模块内部调用的 `grantForBountyCompletion(...)`。
+  - **截止日期在悬赏上是硬边界**：新增 `requireBountyEditable`，要求「已发布 且 今天在 `[start_date, end_date]` 内」；这与普通任务**有意不同**——`requireStandardEditable`（`:936`）与 `isMemberEditable`（`:920`）只看任务状态，普通任务的 `end_date` 只是显示层「已逾期」标记。两者分开写并加了「普通任务 `end_date` 仍只作显示」的回归用例，避免施工时照抄。
+- 人数与份数拆成两个独立设置：`headcount_limit`（可空 = 不限）只管接取规模，`prize_slots` 只管获奖份数；已发布后两者只增不减，`end_date` 可延长（延长后成员侧立即恢复可提交，因为窗口每次实时读取）。
+- 迁移 `V14` 在原有三处 ENUM 追加之上，新增 `tasks.headcount_limit / prize_slots / prize_description` 与 `task_assignments.completion_rank / prize_awarded`；`prize_awarded` 为 `NOT NULL DEFAULT FALSE`（带默认值，避免旧库加列失败）。`tasks.points` 与起止日期复用现有列，积分子类不新增、`point_grants` 表结构不变。
+- **UI 规则取用**（已加载 `ui-ux-pro-max` 并先读 `design-system/yes-lab/MASTER.md`）：除上一轮的三条外，新增两次检索——`"deadline expiry countdown" --domain ux` **0 命中**，改写为 `"expired unavailable disabled state" --domain ux` 命中 **Disabled States**（已截止/已满员的按钮必须明显区别于可用状态：降透明度 + `cursor: not-allowed`，不能只在文案上区分）。查询词与采纳结论均记入设计文档 15.2 节。
+
+### 验证结果
+
+- 本轮**只改文档与开发日志，未改任何代码**：`npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 生产构建），`git diff --check` 通过。
+- 未运行后端测试（后端未改动）；未连接生产环境，也未执行部署。
+- 新引用的实现事实已逐条核对源码：`PointGrantEntity.operator` 的非空约束、`PointService.grant` 的 `@PreAuthorize` 与 `validateRecipient`、`taskRecipientIneligibleReason` 三条判定、`TaskEntity.getCreatedBy()`、`TaskService.isMemberEditable` / `requireStandardEditable` 只看任务状态、`V11` 三处 ENUM 定义与两处唯一约束。
+
+### 待办
+
+- 等用户审核两份文档（重点是设计文档第 6 节奖金不变量与顺延、第 7 节积分发放的操作人口径、第 9 节截止日期硬边界），通过后按六批施工；第 1 批 `V14` 需先在预生产 MySQL 演练。
+- 施工完成后再同步 `AGENTS.md` 的「当前能力范围」。
+- `DEVLOG.md` 的日期条目仍超过「只保留最近 20 条」的约定，需单独一轮归档（本次未擅自大范围搬移）。
+
+## 2026-09-20：悬赏任务积分改为到期结算（定时任务）
+
+### 背景
+
+用户把积分时序从「完成即发」改为：**所有积分发放都等任务到期发放；到期时状态是「已完成」就得到积分，未完成 / 被驳回则不能获得**。据此又确认三条：结算由**定时任务自动执行**（不是管理员手动点）、到期的定义是「截止日期已过 **或** 任务被结束」、到期未提交的人**什么都不做**（只显示逾期，不自动改状态）。
+
+> **本条目中「只改悬赏」「结算后驳回但不回收积分」两条结论已被下一轮取代**：用户随后要求**所有任务都到期结算**（普通任务一并纳入，新手任务也纳入到期冻结），并且**结算后不能驳回**——最终落地口径是更严格的「**到期即不能驳回、也不能审核通过**」。同时悬赏相关内容已拆分为「结算横切改造」与「悬赏本体」两组文档。以 `docs/task-settlement-requirements.md` + `docs/task-settlement-design.md` 为准。
+
+### 完成内容（仅文档）
+
+- 重写 `docs/bounty-task-requirements.md` 的 D 组为「积分到期结算」（D1—D13），并在第 1 节写明**范围边界**：到期结算只针对悬赏，普通任务维持「审核通过即发放积分」。上线验收补到 10 步，其中第 8 步专验结算。
+- 重写 `docs/bounty-task-design.md` 第 7 节为「积分到期结算」，本次的四个关键结论：
+  - **结算资格只看结算那一刻的状态**：只发 `APPROVED`；`PENDING`（到期未提交）、`ABANDONED`（放弃/被移除）、`REJECTED`（被驳回）一律不发、不改变状态。到期后成员不能再提交，因此**结算时的 `APPROVED` 集合是冻结的**——这正是把「截止硬边界」与「到期结算」配套设计带来的确定性。
+  - **触发方式沿用仓库既有基础设施**：`YesLabApplication.java:8` 已有 `@EnableScheduling`，既有先例 `recruitment/service/InterviewRetentionScheduler.java:21` 是「`@Component` + `@Scheduled(cron = "${...}", zone = ...)`，调度器不持事务、事务在同名 Service」。结算照抄这套分工（新增 `BountySettlementScheduler` + `BountySettlementService`），不引入新框架。**有意与先例不同的是时区**：到期判定用实验室时区，因此显式写 `zone = "Asia/Shanghai"`（interviews 清理用的是 UTC），漏写会算错一天。
+  - **幂等与跨实例互斥分两层**：任务级 `points_settled_at` 用**条件更新认领**（`UPDATE ... WHERE id = ? AND points_settled_at IS NULL`，返回 1 才继续）作跨实例互斥，不需要分布式锁；每人一笔的来源编号 `BOUNTY:{taskId}:{memberProfileId}` 唯一保证重复执行不重复计分。`compose.yaml` 的 api 目前是单实例，但按多实例安全设计。同时记录了一个 JPA 陷阱：`@Modifying` 批量更新不同步持久化上下文，认领后必须重新读取任务或用 `clearAutomatically`，否则会把标记又写回 `NULL`。
+  - **延长截止日期会重置结算标记**：这是我自己识别出的边界——若已结算的任务延长截止日期，新完成者会永远拿不到积分。处理为「延长且已结算时把 `points_settled_at` 置回 `NULL`」，任务重新进入待结算队列，已发过的人靠来源编号幂等跳过。文档、接口与前端提示三处都写明。
+- **测试隔离成为必做项**：测试有独立的 `backend/src/test/resources/application.yml`（H2 + `ddl-auto: create-drop` + Flyway 关闭），新增 `yeslab.bounty.settlement.enabled: false` 关闭调度。理由是调度线程使用**独立事务并会提交**，而 `PointApiTests` 之类依赖逐用例回滚做绝对断言——`DEVLOG` 已记录过两次同类隔离事故。
+- 其他连带更新：迁移 `V14` 新列由 5 个增至 6 个（新增 `tasks.points_settled_at`）；`close` 接口内同步触发一次结算（不必等下一个调度周期）；结算**不新增任何对外端点**（无「手动结算」接口）；完成消息不再含积分结果，改为「积分将在任务到期后统一发放」；新增「结算完成后给创建者发汇总消息」；结算不对未完成者发催办消息；前端交互要点补「积分待结算 / 已结算 +N」两种时态。
+- **UI 规则取用**：沿用本日已加载的 `ui-ux-pro-max` 与 `design-system/yes-lab/MASTER.md`，本轮无新增检索（未新增页面类型，仍是既有三条规则 + Disabled States 的适用）。
+
+### 验证结果
+
+- 本轮**只改文档与开发日志，未改任何代码**：`npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 生产构建），`git diff --check` 通过。
+- 未运行后端测试（后端未改动）；未连接生产环境，也未执行部署。
+- 新引用的实现事实已逐条核对源码：`YesLabApplication.java:8` 的 `@EnableScheduling`、`InterviewRetentionScheduler.java:21` 的 cron 与 zone 写法、`InterviewRetentionService` 的 `@Transactional` 位置、`backend/src/test/resources/application.yml` 的内容、`compose.yaml` 中 `api` 服务无 `deploy.replicas`。
+
+### 待办
+
+- 等用户审核两份文档（重点是设计文档第 7.3 节调度与事务边界、第 7.4 节幂等与认领、第 7.6 节延长截止日期重置结算），通过后按六批施工；第 1 批 `V14` 需先在预生产 MySQL 演练。
+- 若后续决定给结算加**手动补跑入口**或**催办消息**，需要单独确认（当前明确不做）。
+- 施工完成后再同步 `AGENTS.md` 的「当前能力范围」。
+- `DEVLOG.md` 的日期条目仍超过「只保留最近 20 条」的约定，需单独一轮归档（本次未擅自大范围搬移）。
+
+## 2026-09-20：全站统一到期结算与到期冻结（含新手任务冻结）
+
+### 背景
+
+用户连续给出两条口径：**所有任务都到期结算**（不是只改悬赏），以及**结算后不能驳回**。据此又确认三条：普通任务的截止日期也变成硬边界（**到期后成员不能提交、管理员也不能审核**）、禁止驳回的界线是「**任务已到期**」而不是「已结算」标记、**新手任务也纳入到期冻结**。
+
+这次把改造从「悬赏特性」升级为**横切三类任务的口径变更**，其中多条会直接改变已上线的普通任务与招新流程行为。
+
+### 完成内容（仅文档）
+
+- 文档结构拆成「横切改造 + 悬赏本体」两组，避免把两件事混在一处：
+  - 新增 `docs/task-settlement-requirements.md` / `docs/task-settlement-design.md`（到期冻结与到期结算的通用规则，覆盖三类任务）；
+  - 重写 `docs/bounty-task-requirements.md` / `docs/bounty-task-design.md`，删掉结算细节、改为引用结算文档，迁移编号让位为 `V15`；
+  - 在 `docs/task-module-design.md` 顶部加「被推翻条款」对照表（第 7 节审核即计分、第 9 节逾期只是显示层、第 4.8 节新手任务逾期仍可审核、第 4.8 节 `CLOSED` 后管理员仍可审核），其余条款保持有效。
+- 核心设计结论：
+  - **统一窗口判定**：新增 `TaskTiming`（有效截止时间 / 是否到期 / 成员是否可写 / 管理是否可下结论），三类任务共用一条代码路径。**新手任务的有效截止时间是对象级 `due_date`**（`OnboardingTaskIssuerService:78` = 发放日 + 时长），不是任务级 `end_date`——若只写任务级判定，个人逾期无法冻结，或反过来会冻结所有人。
+  - **冻结与结算同时发生在到期时点**，因此不存在「已结算但还能改结论」的窗口：「结算后不能驳回」不需要额外守卫，它由「到期即不能驳回」覆盖，规则更少也更难写错。
+  - **结算只认 `APPROVED`**，而到期后不能再审核 → **管理员必须在到期前审核完**；到期仍为 `SUBMITTED` 的对象永久停留、不计分、不自动改状态（这是本次对已上线普通任务最大的行为变化）。
+  - **历史数据必须回填**：`V14` 把迁移时已存在的 `STANDARD` 任务全部置为已结算。否则部署后调度会把它们当待结算逐个处理——虽然来源编号幂等不会重复计分，但会写结算标记、给创建者发一批汇总消息，还让这些历史任务意外失去驳回能力。普通任务的来源编号保持 `TASK:{taskId}:{memberProfileId}` 不变，与历史记录幂等兼容。
+  - **操作人变化**：结算由系统触发、没有认证上下文，因此积分流水的 operator 从「审核人」改为**任务创建者**（`TaskEntity.getCreatedBy()`）；「创建者本人完成」按既有 `taskRecipientIneligibleReason` 跳过并记原因，**不放宽任何积分规则**。
+  - **新手任务冻结的出口**（否则会堵死招新）：新增**按人延长 `due_date`** 的管理动作（新接口 + 审计 + 站内消息），并保留既有的「调整大任务时长」与「打回技能测试阶段」；管理端在逾期对象上就地给出动作入口，不再出现死路。
+  - 迁移拆两次：`V14__task_settlement.sql`（`points_settled_at` + 索引 + 历史回填，全站可独立上线）与 `V15__bounty_task.sql`（悬赏三处 ENUM + 五列）；结算代码完全不依赖悬赏字段。
+- **受影响的既有测试必须按新口径改造而不是删除**（`DEVLOG` 有「不得放宽业务校验掩盖失败」的前例）：`TaskApiTests` 中「审核通过自动计分／总积分增加／重复审核不重复计分／三种跳过情形」等用例，以及 `scripts/smoke-task-module.sh` 里断言「审核通过后积分增加」的检查点，全部改为「审核不计量 → 到期结算才计量 → 结算幂等」。设计文档第 9.3 节逐条列出。
+
+### 验证结果
+
+- 本轮**只改文档与开发日志，未改任何代码**：`npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 生产构建），`git diff --check` 通过。
+- 未运行后端测试（后端未改动）；未连接生产环境，也未执行部署。
+- 新引用的实现事实已核对源码：`TaskService.isMemberEditable:920` / `requireStandardEditable:936` 只判断任务状态、`reviewStandard` 的即时计分位置、`PointService.grantForTask:136` 的 `@PreAuthorize` 与 operator 来源、`taskRecipientIneligibleReason:183-188`、`OnboardingTaskIssuerService:78` 的 `due_date` 计算、`OnboardingTaskService:191-192` 的时长变更重算、`TaskAssignmentEntity.assignDueDate:170`、`YesLabApplication:8` 与 `InterviewRetentionScheduler:21`、测试 `application.yml`、`compose.yaml` 单实例。
+
+### 待办
+
+- 等用户审核四份文档；重点确认「本次对已上线行为的变化」清单（结算需求清单第 5 节：普通任务改为到期结算、截止日期变硬边界、到期不能驳回、operator 改创建者、新手任务逾期冻结）。
+- **施工顺序有依赖**：结算横切改造（`V14` + `TaskTiming` + 结算服务）必须先于悬赏本体（`V15`），否则悬赏的窗口与结算无法复用统一实现。
+- 若后续决定加「手动补跑结算」或「到期催办」，需单独确认（当前明确不做）。
+- 施工完成后再同步 `AGENTS.md` 的「当前能力范围」。
+
+## 2026-09-21：任务到期结算施工第 1 批（`V14` 迁移 + 真机演练）
+
+### 完成内容
+
+- 新增 `backend/src/main/resources/db/migration/V14__task_settlement.sql`：给 `tasks` 加 `points_settled_at DATETIME(6) NULL`、加待结算扫描索引 `idx_tasks_settlement (task_type, points_settled_at, end_date)`、并把**迁移时已存在的普通任务回填为已结算**。不改任何既有列与数据，新手任务（`points = 0`）不回填。
+- **回填方式按实现收敛了一处**：设计文档原写 `created_at < NOW(6)`，实际改为**与「本次刚加上该列」严格绑定**（`IF(@has_settled = 0, ...)`）。原因是 `NOW(6)` 在重复执行时会更晚，反而把迁移之后新建的任务也误标；绑定加列这个一次性动作后，重复执行天然只走 `DO 0` 分支。文档已同步更新。
+- 新增可重复执行的演练脚本 `.codex-run/settlement-rehearsal/rehearse-v14.sh`（已 gitignore）：重建基线库 → 按 Flyway 版本序应用 `V1`—`V13` → 造存量数据 → 执行 `V14` → 13 项断言。
+
+### 验证结果
+
+- **临时 MySQL 真机演练（9.5.0，独立 datadir `/tmp/yeslab-v14`、端口 3399，未触碰任何既有实例）**：**13 项断言全部通过**。覆盖加列与列属性、索引三列、历史普通任务已回填、新手任务未回填、存量 `task_type`/`assignment.status` 读回值不变、重复执行无报错（幂等）、历史结算时间未被刷新、**迁移后新建任务未被误标**、已结算总数仍为 1。
+- **修正了一个演练方法问题**：手工用 `sort -V` 排序会得到 `V7_1_1 → V7_1_2 → V7_1 → V7` 的错误顺序（`V7` 之后才创建 `discussion_posts`），导致 `V7_1*` 报「表不存在」——这正是 `DEVLOG` 之前记过的「简陋执行器」问题。演练脚本已写死 Flyway 的正确版本序 `V7 < V7_1 < V7_1_1 < V7_1_2`。
+- 本批不含 Java 代码，未跑后端测试；`git diff --check` 通过。
+
+### 待办
+
+- 临时 MySQL 实例（端口 3399，后台 job `bash-37`）暂时保留，供第 7 批 `V15` 演练与 `ddl-auto=validate` 结构校验复用，**施工收尾时必须关闭并删除 `/tmp/yeslab-v14`**。
+
+## 2026-09-21：任务到期结算施工第 2 批（统一窗口判定与到期冻结守卫）
+
+### 完成内容
+
+- 新增 `task/model/TaskTiming.java`：三类任务共用的纯函数判定——`deadlineOf`（新手任务优先取对象 `due_date`，其余取任务 `end_date`）、`isExpired`（截止日已过，或任务 `CLOSED`）、`isMemberEditable`（成员侧可写）、`isTaskExpired`（任务级，供悬赏接取窗口用）。对象层判定是必需的：新手任务的有效截止时间是**每人不同**的 `due_date`。
+- `TaskService` 接入守卫：`requireEditable`（报名者侧）与 `requireStandardEditable`（成员侧）各补一条到期判断并给出区分文案；`isMemberEditable` 改为委托 `TaskTiming`；`dueDateOf` 改为委托 `TaskTiming.deadlineOf`，消除第二处截止日期来源；新增 `requireNotExpired`，在 `reviewOnboarding` / `reviewStandard` 的「已通过」判断之后调用，**到期即不能审核通过、也不能驳回**。
+- 实现与设计草稿收敛一处：没有单独保留 `isConclusiveAllowed`，管理侧守卫直接用 `isExpired`，少一层间接；文档已同步。
+
+### 验证结果
+
+- `./mvnw compile` 通过（首轮因漏加 `TaskTiming` 的 import 失败，已修正）。
+- Java 21 全量测试：**51 项通过，0 失败、0 错误、0 跳过**。首轮 1 项失败，且**失败的是本次有意变更的行为**：`closedTaskBlocksMemberSubmissionButStillAllowsReview` 断言「结束任务后管理员仍可审核」，与新的「到期即冻结结论」直接冲突。
+- 该用例**按新口径改造而非放宽守卫**：重命名为 `closedTaskFreezesMemberSubmissionAndAdminReview`，断言结束任务后成员提交 409、**管理员审核通过 409、驳回 409**，并加查 `submittedCount=1 / approvedCount=0 / awardedPointsTotal=0` 确认对象状态与积分都没被动过。
+- **顺带纠正了文档的一处不准确**：`CLOSED` 是管理员主动结束的**不可逆终局**，延长截止日期解不开它（`isExpired` 对 `CLOSED` 恒为真），因此「结束 = 结算 = 终局」，结束之前必须先完成审核。需求清单新增 C3.1 条说明这一点。
+- `git diff --check` 通过；`npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 生产构建）。
+
+### 待办
+
+- 进入第 3 批：`TaskSettlementScheduler` + `TaskSettlementService`（认领、幂等、逐人发放、汇总通知）+ `PointService` 内部发放路径（`grantAs` + `grantForTaskSettlement`），并**移除 `reviewStandard` 里的即时计分**——这一批会改变已上线的普通任务行为，需要同步改造 `TaskApiTests` 与冒烟脚本里依赖「审核即计分」的断言。
+
+## 2026-09-21：任务到期结算施工第 3 批（结算服务与调度器，普通任务改为到期计分）
+
+### 完成内容
+
+- **`PointService`**：把 `grant(Authentication, request)` 的方法体抽成私有 `grantAs(operator, request)`，公开方法与鉴权一字未改；新增**不带 `@PreAuthorize`、不暴露任何接口**的 `grantForTaskSettlement(taskId, memberProfileId, points, operator, sourcePrefix, ...)`，来源编号由前缀拼成 `{prefix}:{taskId}:{memberProfileId}`（普通任务仍是历史上的 `TASK:`，保证与已发记录幂等兼容）。**删除了只有审核路径在用的 `grantForTask`**，来源前缀改由任务模块传入，为悬赏的 `BOUNTY:` 前缀预留同一段逻辑。
+- **`TaskEntity`**：新增 `pointsSettledAt`（结算标记）与 `isPointsSettled()` / `hasBoundPoints()` / `markPointsSettled()` / `resetPointsSettlement()`。`resetPointsSettlement` 供第 4 批「延长截止日期」使用。
+- **`TaskRepository`**：新增 `findDueSettlementTaskIds(today, onboardingType, closedStatus)`（到期或已结束、绑了积分、未结算；显式排除新手任务）与 `claimSettlement(taskId, settledAt)`——**条件更新认领**，`@Modifying(clearAutomatically, flushAutomatically)` 让后续读取拿到认领后的状态（否则会把刚写的标记当成未结算写回去）。
+- **`TaskSettlementService`**：`findDue` + 事务方法 `settle(taskId)`。`settle` 先查「是否绑积分」再查「是否到期」，然后认领、逐人发放、写回 `point_grant_id` / `awarded_points` / `points_skipped_reason`，最后给任务创建者发一条结算汇总消息。只给 `APPROVED` 发放，其余状态只计数不改状态。
+- **`TaskSettlementScheduler`**：`@Scheduled(cron = "${yeslab.task.settlement.cron:0 5 * * * *}", zone = "Asia/Shanghai")` + `@ConditionalOnProperty`，循环与 try/catch 容错放在调度器里。**这是对设计草稿的一处收敛**：原稿的 `settleAllDue` 不再存在，从而天然避开「同 bean 内直调导致 `@Transactional` 失效」的自调用陷阱，不需要自注入代理。
+- **`TaskService`**：`reviewStandard` **删除即时计分**（不再注入 `PointService`），通过消息改为「N 积分将在任务到期后统一结算」；`closeStandardTask` 在关闭后同步调用一次结算（结束 = 到期 = 结算 = 终局）；删掉随之失效的 `evidenceFor` 与 `grantDescription`。
+- **配置**：`application.yml` 新增 `yeslab.task.settlement.enabled` 与 `yeslab.task.settlement.cron`；`src/test/resources/application.yml` 设 `enabled: false`（调度线程用独立事务并会提交，会污染依赖逐用例回滚的测试）。
+- **测试按新口径改造（未放宽任何断言）**：`TaskApiTests` 的「审核通过自动计分且幂等」改名为 `approvalRecordsResultButPointsAreOnlyGrantedAtSettlement`，断言审核后 `awardedPoints` 为空且总积分不变 → `close` 后积分才 +25 → 再结算一次 `settled=false`；「三种不可计分情形」改为审核后触发结算再核对跳过原因，其中「自己给自己」那条按新口径改成**完成者即任务创建者**（原先测的是审核人本人，结算没有审核人）。
+- **新增 `TaskSettlementApiTests`（4 项）**：只发已通过且幂等、未到期不结算、`points=0` 不进队列且不写标记、结束任务即结算。
+
+### 验证结果
+
+- Java 21 全量测试：**55 项通过，0 失败、0 错误、0 跳过**（51 + 新增 4）。
+- **首轮全套出现 1 项失败，是真实的测试隔离问题**：`dueTaskGrantsApprovedOnlyAndIsIdempotent` 在单独跑时通过、在全套跑时 `notApprovedCount` 期望 1 实际 3——因为它用「角色条件」发布任务，匹配到了**其它测试类遗留在共享 H2 上下文里的成员档案**。修法是改用**按成员显式指派**（`memberProfileIds`），让用例与全局成员集合解耦，而不是把断言放宽成 `>= 1`。
+- **冒烟脚本按新口径改造并实跑通过**：`scripts/smoke-task-module.sh` 由 53 项增至 **60 项全部通过**，新增/改写的检查点——「审核通过只记录结论、不写入积分」「审核通过后成员总积分不变」「结束即结算，成员总积分增加 17」「结束（到期）后管理员也不能再审核」「结束（到期）后管理员也不能再驳回」，积分流水仍断言来源为 `TASK:{taskId}`。
+- **定时任务路径端到端实测**：以 `YESLAB_TASK_SETTLEMENT_CRON='*/5 * * * * *'` 启动打包后的 jar（隔离内存库），内联脚本 `.codex-run/settlement-rehearsal/verify-scheduled-settlement.sh` **5 项断言全部通过**（审核不发分 → 把截止日期改到昨天 → 等一个调度周期积分自动 +23 → 再等两个周期不重复计分），后端日志出现 `[scheduling-1] 任务结算完成：待结算 1 个，成功 1 个，失败 0 个`，确认 cron 绑定、时区与「未结算」扫描都生效。
+- 说明：`./mvnw spring-boot:run` 在本沙箱下失败（Maven 需写 `~/.m2` 的插件元数据，被文件沙箱拒绝），改用 `./mvnw package -DskipTests` + `java -jar target/yes-lab-api-0.1.0-SNAPSHOT.jar` 启动，效果等同。
+- `npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 生产构建）；`git diff --check` 通过。
+
+### 待办
+
+- 进入第 4 批：新手任务**按人延长 `due_date`** 的管理动作与接口（含审计留痕与站内消息），以及「延长截止日期时重置结算标记」的接线——`TaskEntity.resetPointsSettlement()` 已就位但还没有调用方。
+- 第 3 批起**尚未在真实 MySQL 上做 `ddl-auto=validate` 结构校验**：`V14` 已演练，但 `points_settled_at` 的实体映射要与 `V14` 的列一起验证，留到第 4 批结束时用临时 MySQL 实例补做。
+
+## 2026-09-21：任务到期结算施工第 4 批（按人延长截止日期 + 延长后重新结算）
+
+### 完成内容
+
+- **`V14` 追加三列 + 一个外键**（脚本尚未部署，可以直接改）：`task_assignments.due_date_extended_at` / `due_date_extended_by_account_id` / `due_date_extension_reason` 与指向 `accounts` 的外键，全部按既有 `information_schema` 模式做幂等判断。**留痕只保留最近一次延长**：延长是低频管理动作，先落最近一次；完整历史等「全局操作审计」（README 既有待办）落地后再补流水表。这一取舍已写进设计与需求清单（新增 E3.1）。
+- **`TaskAssignmentEntity`**：新增三个留痕字段与 `extendDueDate(newDueDate, operator, reason)`。
+- **`OnboardingTaskService.extendDueDate(...)`**（新）：按人延长，校验「属于新手任务对象」「尚未通过」「新日期晚于今天且晚于原日期」，落库后给报名者发站内消息，返回 `DueDateExtensionView`。
+- **`AdminTaskController`**：新增 `PUT /api/v1/admin/tasks/onboarding-assignments/{assignmentId}/due-date`（`TASK_MANAGE`）。
+- **`TaskService.updateStandardTask`**：已发布任务延长截止日期且**该任务已结算**时，调用 `resetPointsSettlement()` 让它重新变成「未结算」，否则延长期内新完成的人将永远拿不到积分。新增 `isDeadlineExtended(previous, current)` 判定（旧值为空也算延长；缩短不改动）。
+- **视图**：`TaskView` 增加 `pointsSettledAt`（管理端据此显示「待结算 / 已结算」）；`OnboardingRowView` 增加最近一次延长的三个字段，「无对象」占位行同步补齐参数。
+- **结算汇总口径修正**：`TaskSettlementSummary` 区分 `grantedCount`（本次新发放）与 `reusedCount`（幂等复用原批次）。原先把「已发过、本次复用」也计为已发放，延长后重新结算时汇总会显示成「2 人获得积分」，容易误导。
+
+### 验证结果
+
+- Java 21 全量测试：**57 项通过，0 失败、0 错误、0 跳过**（55 + 新增 2）。
+  - `OnboardingTaskApiTests` 新增 `overdueApplicantIsFrozenUntilDueDateIsExtendedPerPerson`：直接把本人 `due_date` 改到昨天（沿用本仓库「直接改写实体模拟时间」的既有做法）→ 断言本人提交 409、管理员审核 409 → 按人延长（断言返回的原日期/新日期/操作人/理由）→ 断言「今天」与「同一天」两个非法日期返回 400 → 总览能查到留痕 → 延长后可提交、可审核、正常转正 → 已通过后再延长 409。
+  - `TaskSettlementApiTests` 新增 `extendingDeadlineAfterSettlementGrantsOnlyNewCompleters`：两位成员的任务，第一轮只有 A 完成 → 到期结算 A 得 21 分；把截止日期延长到未来 → 断言 `pointsSettledAt` 被清空（**同时断言此时它不该出现在 `findDue` 里**，因为 `findDue` 还要求「已到期」）→ B 在延长期内完成并审核 → 再次到期结算 → `grantedCount=1 / reusedCount=1`，B +21、A 不变。
+- **`V14` 重新演练：15 项断言全部通过**（原 13 项 + 三列与外键的存在性核对），含幂等与「迁移后新建任务未被误标」。
+- **补做了第 3 批遗留的 `ddl-auto=validate` 结构校验**：用打包后的 jar 连接临时 MySQL（由 `V1`—`V14` 建出的 `yeslab_probe_v14`），以 `spring.jpa.hibernate.ddl-auto=validate`、`flyway.enabled=false` 启动，**应用正常启动**（`Started YesLabApplication`，MySQL Connector/J、`MySQLDialect`），说明实体映射（含 `points_settled_at` 与三个延长留痕字段）与迁移建出的表结构完全一致。
+- `npm run check` 通过；`git diff --check` 通过。
+
+### 待办
+
+- 进入第 5 批：按需求清单补齐结算与冻结的其余用例（`CLOSED` 后仍可延长与移除、按人延长对他人无影响、结算消息与凭证路径等），第 5 批不再改产品代码。
+- 第 6 批前端需要新增：逾期对象的「延长截止日期」入口与留痕展示、管理端「待结算 / 已结算」状态、普通任务到期后的只读态与「还有 N 人待审核」提示。
+- 第 7 批悬赏本体（`V15`）尚未开始；临时 MySQL 实例（端口 3399）继续保留给它演练。
+
+## 2026-09-21：任务到期结算施工第 5 批（补齐冻结与结算的测试覆盖）
+
+### 完成内容（本批只加测试，未改产品代码）
+
+- `TaskSettlementApiTests` 增加 4 项：
+  - `expiredStandardTaskFreezesEveryoneUntilDeadlineIsExtended`：截止日期已过但任务仍是 `PUBLISHED` 时，成员提交 409、管理员审核通过 409、驳回 409；延长截止日期后恢复可提交、可审核，并能正常结算。这条补上了一个覆盖缺口——此前只有 `CLOSED` 的冻结被覆盖，而「自然到期」这条生产主路径没有；
+  - `taskWithoutDeadlineNeverExpires`：`end_date` 为空 = 永不到期，随时可提交，结算给出「任务尚未到期」且不写结算标记；
+  - `closedTaskCannotBeModifiedAnymore`：`CLOSED` 是不可逆终局，**连修改（含延长截止日期）都被拒**，把需求清单 C3.1 钉进测试；
+  - `settlementUsesStationTaskPathAsEvidenceAndNotifiesCreator`：积分凭证是站内任务路径 `/tasks/{assignmentId}`（审核表单里填的外部链接在结算口径下不再使用），并断言任务创建者收到标题为「任务积分已结算」的汇总消息。
+- `OnboardingTaskApiTests` 增加 `extendingOneApplicantDoesNotAffectOthers`：两位报名者共享同一个大任务，按人延长甲之后，甲的 `due_date` 变、乙的完全不变。
+- 测试辅助 `createTask` 支持 `endDate = null`（不设截止日期）。
+- `docs/task-settlement-design.md` 第 9 节按实现重写：逐条标注已落地的用例名、把「当前 50 项」更新为 **62 项**、并明确两条**无法在 H2 覆盖**的验证去向（认领互斥的并发性 → 预生产 MySQL；历史任务不被结算 → `V14` 演练脚本）。
+
+### 验证结果
+
+- Java 21 全量测试：**62 项通过，0 失败、0 错误、0 跳过**（57 + 新增 5）。
+- 首轮 1 项失败：`settlementUsesStationTaskPathAsEvidenceAndNotifiesCreator` 里我忘了把截止日期移到过去，`settle` 因「未到期」直接返回、`grantedCount` 为 0。属测试自身的顺序错误（真实语义是对的），补上移动截止日期的步骤后通过——仍然没有放宽任何断言。
+- `npm run check` 通过；`git diff --check` 通过。
+
+### 待办
+
+- 进入第 6 批（前端）：到期只读态与「已截止」文案、管理端「待审核 N 人（到期后将无法审核）」与「待结算 / 已结算」、逾期对象的「延长截止日期」入口与留痕展示、导航不变。前端改动必须按约定加载 `ui-ux-pro-max`、先读 `design-system/yes-lab/MASTER.md`，并做真机截图自检。
+- 第 7 批悬赏本体（`V15` + `BountyService` + 悬赏前后端）仍未开始；临时 MySQL（端口 3399）继续保留给它演练。
+
+## 2026-09-21：任务到期结算施工第 6 批（前端：只读态、审批提示、延长入口）
+
+### 完成内容
+
+- **先补后端视图字段**（界面需要权威判定，前端不重复实现窗口规则）：`MyTaskView` / `MyTaskDetailView` 新增 `expired` / `editable` / `pointsSettled`；`TaskView` / `TaskSummaryView` 新增 `pointsSettledAt` / `expired`。
+- **成员端**：
+  - `TasksView`：到期卡片显示红色「已截止」（未到期但过期未通过才显示「已逾期」）；已通过时显示「积分待结算：任务到期后统一发放 / 积分已结算：+N」；已通过后不再重复显示「通过后 +N 积分」。
+  - `TaskDetailView`：可写性改为读后端的 `editable`（此前是前端按 `taskStatus` 自己推断，到期后会出现「界面能点、接口 409」的错位）；只读原因按状态给出具体解释；**新增「已提交但已截止」的说明**——明确告知本次不会计分、可联系管理员延长，避免成员一直等审核。
+- **管理端**：
+  - `AdminTaskProgressView`：汇总新增「积分结算：待结算 / 已结算（日期）」；未到期且有待审核对象时提示「还有 N 人待审核：到期后将无法审核或驳回」，已截止时改为红色提示并说明延长后可补救；到期后「人工审核」按钮禁用；**移除已失效的「积分凭证链接」输入**（结算不再使用审核人填写的链接），改为一句说明。
+  - `AdminTasksView`：页面说明与表单文案改为「积分在任务到期后统一结算」；截止日期补「到期后成员不能提交、管理员不能审核或驳回」；列表卡片新增「积分待结算 / 已结算」与「还有 N 人待审核」；结束任务的确认文案改为「不可撤销」。
+  - `AdminOnboardingTaskView`：逾期行显示「已逾期，无法审核」，审核按钮在逾期时禁用并给出 title；新增「延长截止日期」按钮与就地表单（默认今天 +14 天、可填理由）；行内展示最近一次延长的操作人、时间与理由。
+- `authApi.js` 新增 `extendOnboardingDueDate`；`portal.css` 为 `.task-card-settle` 补样式（中性次级文字色，与「已截止」「未计分」的红色区分开）。
+
+### 验证结果
+
+- `npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 构建）；后端 Java 21 全量测试仍 **62 项通过**（视图记录改动未破坏既有断言）。
+- **真机截图自检**（无头 Chrome 153 + CDP，`.codex-run/ui-review/`，已 gitignore）：10 张截图覆盖 `settle-member-tasks`/`-mobile`、`settle-member-detail`（已结算）、`settle-member-detail-pending`（已截止待审核）、`settle-admin-list`、`settle-admin-progress-settled`/`-pending`、`settle-admin-onboarding`、`settle-admin-onboarding-extend`（延长表单展开）；**全部页面 `scrollWidth == innerWidth`**（1440 与 375 均无横向滚动）。
+- **程序化界面断言 14 项全部通过**（`.codex-run/ui-review/verify-settlement-ui.mjs`）：已截止待审核页说明含「未能在截止前完成审核」且提交表单消失、已结算页显示「已结算 20 积分」、进行中任务仍有提交表单、已截止任务的「人工审核」按钮 `disabled === true`、管理端显示「待结算」与「不能再审核或驳回」、新手任务页存在「延长截止日期」入口。
+- **首轮截图暴露的三个真实问题**（均已修）：
+  1. 成员端详情页一开始用 `teacher` 账号打开，页面显示「任务不存在」——截图脚本要按账号分组（成员端用 member、管理端用 teacher），这是脚本问题，但也确认了成员端接口按成员档案归属校验生效；
+  2. 全局 `scroll-behavior: smooth` 让 `scrollIntoView` 还在动画中，脚本读到的坐标是滚动前的，点击落空、延长表单没展开——改为 `behavior: 'instant'` + 滚动后重新测量，并在点击后**校验预期文案出现**（含 `expectText` 断言）；
+  3. 截图看出「通过后 +N 积分」与「积分已结算：+N」重复显示、延长表单提示文字被栅格挤成窄列——分别改为已通过时不渲染前者、提示段落加 `full` 跨满整行。
+- 验证用进程已全部停止（8080 / 5173 / 9222 均释放），Chrome 临时 profile 已删除；后端全程使用隔离内存库，未触碰本机 `backend/data/yeslab.mv.db`。
+- 临时 MySQL（端口 3399）继续保留给第 7 批的 `V15` 演练。
+
+### 待办
+
+- 进入第 7 批（悬赏本体）：`V15__bounty_task.sql`、`BountyService`（接取并发、名次、奖金不变量与顺延）、`BountyController` / `AdminBountyController`、悬赏前后端（悬赏榜、详情、管理端表单与名单复核、结算状态），并把悬赏的 `ABANDONED` 状态、`BOUNTY:` 来源前缀、移除接取者等用例补齐。
+- 前端在悬赏落地后需要同样做一次真机截图自检；届时可复用第 6 批的截图与断言脚本骨架。
+
+## 2026-09-21：悬赏任务第 7 批（后端：迁移、领域、服务与接口）
+
+### 完成内容
+
+- **迁移 `V15__bounty_task.sql`**（不碰 `V11`—`V14`）：`tasks.task_type` 追加 `BOUNTY`、`task_assignments.source` 追加 `CLAIM`、`status` 追加 `ABANDONED`（三处 `MODIFY` 都写出完整定义且**新值在末尾**）；`tasks` 新增 `headcount_limit` / `prize_slots` / `prize_description`，`task_assignments` 新增 `completion_rank` / `prize_awarded`（`NOT NULL DEFAULT FALSE`），全部按 `information_schema` 幂等判断。
+- **领域层**：`TaskType.BOUNTY`、`TaskAssignmentStatus.ABANDONED`（并补进 `isTerminal`）、`TaskAssignmentSource.CLAIM`；`TaskEntity` 新增 `headcountLimit` / `prizeSlots` / `prizeDescription`、`isBounty()` / `hasPrize()` / `updateBountyDetails(...)` / `raiseHeadcountLimit` / `raisePrizeSlots`；`TaskAssignmentEntity` 新增 `completionRank` / `prizeAwarded` 与 `completeWithRank`（提交即完成并锁名次）、`abandon`、`revokeCompletion`、`markPrize`。
+- **仓储**：`TaskRepository.findByIdForUpdate`（`@Lock(PESSIMISTIC_WRITE)`，接取与完成的串行化入口）；`TaskAssignmentRepository` 新增 `countByTaskIdAndStatusIn`（名额占用）、`countByTaskIdAndCompletionRankIsNotNull`（名次分配）、`findByTaskIdAndCompletionRankIsNotNullOrderByCompletionRankAsc`（奖金不变量重算）。
+- **`BountyService`**：悬赏榜与详情（含「我能否接取及原因」）、接取（任务行锁 + 重复校验 + 名额上限）、放弃、提交即完成（锁内分配名次并重算奖金）、管理端创建/修改/发布/结束/删除、名单汇总、事后驳回（触发顺延）、移除接取者。
+- **奖金不变量与顺延**按设计落地成**一条重算**：`recomputePrizeHolders` 取「已通过对象中名次最靠前的 `min(m, 已完成人数)` 位」作为持有者，与库里的 `prizeAwarded` 比对后同步；驳回者离开集合、后面的名次整体前移，**顺延不需要额外规则**；无人可补时份额空置，等下一个完成者自动获得。被降级的只会是刚被驳回者（其余人相对名次未变）。
+- **提交按类型分派**：`TaskService.submitMyTask` 遇到悬赏走「提交即完成」，普通任务仍是「提交 → 待确认」；`BountyService.interactive` 侧只保留接取/放弃。
+- **结算接入**：`TaskSettlementService` 对悬赏用 `BOUNTY:` 来源前缀（普通任务仍是历史上的 `TASK:`，保证幂等兼容），结算汇总通知指向 `/admin/bounties/{id}/claims`，贡献说明区分「提交即完成」。
+- **类型隔离**：`requireStandardTask` 由「排除新手任务」改为「**只接受 STANDARD**」——否则悬赏会混进按等级条件发放的列表、预览与补充发放。
+- **条件校验复用**：把 `TaskService.validateRuleValue` 提成包内静态方法，悬赏的条件取值走同一套校验（角色/成员状态/年级/标签），语义与普通任务一致。
+- **修正了一处接口语义**：已发布悬赏的更新改为「奖励口径锁定、`null` 表示保持原值、人数与份数只增不减、截止日期只能延长」，避免部分更新把奖金说明误清或把已锁定的奖励改掉。
+
+### 验证结果
+
+- Java 21 全量测试：**72 项通过，0 失败、0 错误、0 跳过**（62 + 新增 `BountyApiTests` 10 项）。新增用例覆盖：名额 1 的接取与「名额已满」拦截、同一人不能接两次、放弃后名额归还但本人不可再接、不限人数、完成名次递增与「只有前 m 名获奖」、**驳回第 1 名后奖金顺延给第 2 名且名次保留**、唯一完成者被驳回后份额空置并等下一个完成者、提交即完成（状态直接已通过且不发积分）、到期结算只发已完成的且来源编号为 `BOUNTY:`、到期后不能接取与驳回但管理员仍可移除接取者、奖励成对校验与人数只增不减、悬赏与普通任务流程的双向隔离与权限。
+- **`V15` 真机演练 19 项断言全部通过**（`.codex-run/settlement-rehearsal/rehearse-v15.sh`）：三处 ENUM 追加后**存量行读回值不变**、五处新列与 `prize_awarded` 默认值、悬赏行与 `CLAIM`/`ABANDONED` 可写入读回、`CHECK`（双目标恰一个非空）与唯一约束（同一人重复接取）仍生效、重复执行幂等。
+- **`ddl-auto=validate` 结构校验通过**：用打包后的 jar 连接由 `V1`—`V15` 建出的真实 MySQL 库启动成功（`Started YesLabApplication`），确认悬赏字段与新增 ENUM 取值的实体映射与迁移完全一致。
+- 施工中修掉三处**测试自身**的问题（不是产品缺陷）：`createBounty` 辅助少传参数；断言用了 `==` 匹配只含两段的来源编号（实际是 `BOUNTY:{taskId}:{profileId}`），改为前缀正则；以及一条断言方向写反——本脚本里那条普通任务是 `V14` 之后新建的，「未被回填」才是正确结果。
+- **一处产品问题在测试中被发现并修正**：`requireNotDecreased` 原先把 `null` 当作下调，导致「只改截止日期」的部分更新被拒；改为 `null` 表示保持原值。
+- `npm run check` 通过；`git diff --check` 通过。
+
+### 待办
+
+- **悬赏前端尚未施工**（本批只做后端）：悬赏榜 `/bounties`、悬赏详情 `/bounties/:taskId`、管理端 `/admin/bounties`（列表 + 创建/编辑表单）与 `/admin/bounties/:taskId/claims`（名单与事后复核）、`PortalShell` 导航、我的任务的悬赏分支（奖金与名次、提交即完成的文案）。落地后同样要做真机截图自检与程序化界面断言。
+- 冒烟脚本 `scripts/smoke-task-module.sh` 尚未加入悬赏链路（可新增 `scripts/smoke-bounty.sh` 或在现有脚本追加一段）。
+- 悬赏上线前需按设计文档第 13 节在预生产 MySQL 演练 `V15` 并做并发接取验证（H2 的锁行为不能替代 InnoDB）。
+- 施工收尾时关闭临时 MySQL（端口 3399）并删除 `/tmp/yeslab-v14`。
+
+## 2026-09-21：悬赏任务第 7b 批（前端：悬赏榜、详情、管理端表单与名单）
+
+### 完成内容
+
+- **新增 4 个视图**：`BountyBoardView`（悬赏榜：可接取/我已接取/满员/已截止，接取与奖金两组数字分开标注，接取前二次确认）、`BountyDetailView`（正文、子任务入口、奖金与名额、接取与放弃）、`AdminBountiesView`（列表 + 创建/编辑表单：接取上限「不限/限制 N 人」二选一、奖金份数与说明、绑定积分、起止日期、**接取资格条件**、子任务）、`AdminBountyClaimsView`（名额与奖金进度、逐人明细含完成名次与是否持有奖金、驳回与移除）。
+- **管理端表单复用普通任务的条件维度**（角色/成员状态/年级/能力标签，同维度「或」、跨维度「且」，全不选=全体成员可接），只是不含「直接指定成员」——悬赏对象只能由成员自主接取产生。
+- `authApi.js` 新增 12 个悬赏接口封装；路由新增 `/bounties`、`/bounties/:taskId`、`/admin/bounties`、`/admin/bounties/:taskId/claims`（全部懒加载）；`PortalShell` 顶栏加「悬赏」、后台加「悬赏管理」，侧栏与「后台管理」下拉同步。
+- **「我的任务」补悬赏分支**：状态文案改为「进行中/已完成」（悬赏没有待确认），列出完成名次、是否获奖与奖金说明；提交按钮在悬赏下是「提交并完成悬赏」，并说明「提交即完成、管理员只做事后复核」。
+- `portal.css` 新增悬赏版式（`.bounty-metrics` 两组指标、`.bounty-prize`、`.bounty-confirm` 确认区、`.bounty-inline-choice` 人数二选一），沿用既有语义色令牌。
+- **界面补充一处遗漏**：悬赏榜卡片原本没显示积分的结算状态（详情页有），补上「积分已结算：+N」/「积分待结算：+N，悬赏到期后统一发放」。
+
+### 验证结果
+
+- `npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 构建）；后端全量测试仍 **72 项通过**（本批未改后端逻辑）。
+- **真机截图 + 程序化断言 21 项全部通过**（`.codex-run/ui-review/verify-bounty-ui.mjs`，9 张截图 `bounty-*.png`，均已 gitignore）：
+  - 成员端榜单：同时展示「接取」与「奖金」两组数字、奖金份数进度、不限人数标注、满员原因、我已完成的**完成名次与已获奖**、奖金说明标注「线下发放」、无横向滚动（1440 与 375）；
+  - **接取链路用真实鼠标点击跑通**：立即接取 → 出现二次确认（「只能接取这条悬赏一次」）→ 确认接取 → 跳转到 `/tasks/{assignmentId}`；
+  - 管理端：列表显示接取与奖金进度、已截止标注、草稿有发布动作；名单页显示名额占用、奖金份数进度、进行中接取的「移除接取」、以及「驳回会顺延奖金」提示；已截止悬赏明示「不能再接取或驳回」并显示结算时间。
+- **验证过程中修掉三个脚本自身的问题**（都不是产品缺陷，但都值得记）：
+  1. 接取是一次性不可逆动作，脚本第二次运行就找不到「立即接取」了——改为**由脚本自己现造一条悬赏再点**，使其可重复运行；
+  2. 页面里的裸 `fetch` 拿不到授权：应用把 JWT 放在 **Authorization 头**（cookie 只有刷新令牌），改为先取令牌再带上；
+  3. 首次运行时脚本被 `tail` 缓冲吞掉输出、看起来像卡死——改为写日志文件后定位。
+- **种子数据也被一条真实校验拦下**：奖金份数 2 份但接取上限只有 1 人时创建返回 400（「奖金份数不能多于接取人数上限」），说明服务端校验生效；种子改为份数与上限一致。
+- 验证用进程已全部停止（8080/5173/9222 释放），Chrome 临时 profile 已删除；后端全程使用隔离内存库。
+
+### 待办
+
+- 第 7c 批：悬赏冒烟脚本（`scripts/smoke-bounty.sh` 或追加到现有脚本）、同步 `AGENTS.md` / `README.md` / `backend/docs/module-boundaries.md` / `access-control.md`，并做施工收尾（关闭临时 MySQL、删除 `/tmp/yeslab-v14`）。
+- 悬赏上线前需按 `docs/bounty-task-design.md` 第 13 节在预生产 MySQL 演练 `V15` 并做并发接取验证（H2 的锁行为不能替代 InnoDB）。
+
+## 2026-09-21：悬赏任务第 7c 批（冒烟脚本、文档同步与收尾）
+
+### 完成内容
+
+- 新增 `scripts/smoke-bounty.sh`：悬赏端到端冒烟（真实 HTTP、独立内存库、41 项断言），覆盖创建与发布、奖金份数多于接取上限被拒、先到先得与满员即止、同一人不能接两次、提交即完成与完成名次、先完成先得奖金、驳回后奖金顺延与被驳回者不可再接、结束悬赏即结算（只发已完成的、来源编号 `BOUNTY:`）、到期后接取/驳回/提交全部被拒、悬赏与普通任务流程的双向隔离与权限。
+- **文档同步**：`AGENTS.md`「当前能力范围」新增到期结算与悬赏两条并更新上线待办（`V11`—`V15` 演练、悬赏并发实机验证）；`README.md` 能力清单新增「任务」条目（含三类任务与到期结算口径）并在末尾指向四份设计文档；`backend/docs/module-boundaries.md` 任务模块补「三类任务 + 到期结算」说明；`backend/docs/access-control.md` 的 `TASK_MANAGE` 说明补充按人延长、悬赏管理端与「普通任务积分改到期结算」。
+
+### 验证结果
+
+- **`scripts/smoke-bounty.sh` 实跑 41 项断言全部通过**：其中「奖金顺延」这条在真实 HTTP 上验证了「驳回第 1 名 → 第 2 名自动持有奖金、被驳回者归还奖金但名次保留」，「结束即结算」验证了核心学生拿到 17 积分而被驳回者不发、流水来源为 `BOUNTY:{taskId}`。
+- 首轮脚本自身有两处问题（已修）：`EXPIRE` 那行写坏了、以及用 `TaskView` 断言奖金份数（该视图不含悬赏字段，改为查管理端列表的 `BountySummaryView`）。
+- `npm run check` 通过；后端全量测试 **72 项通过**；`git diff --check` 通过。
+
+### 待办
+
+- 施工收尾：关闭临时 MySQL（端口 3399）并删除 `/tmp/yeslab-v14`（本次验证已无残留进程占用 8080/5173/9222）。
+- 上线前必须在预生产 MySQL 演练 `V14` + `V15`：核对 ENUM 追加后存量行读回值不变、`V14` 回填历史普通任务、`V16`（如后续再改表）不得修改已应用脚本；并按 `docs/bounty-task-design.md` 第 13 节用两个并发请求验证悬赏不超发。
+- 部署后需执行一次「批量补发新手任务」，并补做真实浏览器点击验收（悬赏接取 → 提交 → 驳回顺延 → 到期结算）。
+
+## 2026-09-21：Token 使用约定与用量自查脚本
+
+### 背景
+
+用户问「为什么 token 消耗这么高」。查了本次会话的 DSH 记录（`~/.dsh/sessions/…/session.v3.jsonl.zstd`，每条 `assistant/message` 自带 `usage`），实测结论：**581 次模型调用共 2.56 亿 token，其中 99.68% 是上下文重读**（命中缓存的输入 2.55 亿、未命中输入 32.7 万、输出 48.8 万），平均每次调用携带 43.99 万 token。也就是说成本 ≈ Σ(每次调用的上下文大小)，与单次产出多少代码几乎无关。
+
+进一步的归因：上下文按字节看，**我自己的消息占 72%**（思维链 15.3 万 token + `write` 参数 447 KB），工具返回占 15%（最大单次是 76 KB 的文件读取）；重复读取最严重的是 `TaskService.java` 11 次、`DEVLOG.md` 10 次。按轮次看，贵的轮次就是上下文最大的轮次（turn 8 一轮 62.6M）。
+
+### 完成内容
+
+- `AGENTS.md` 新增「Token 使用约定」一节（放在「协作流程」之后，共 8 条 + 一段依据说明）：批次切分会话、**减少重复阅读文档**（先 `grep` 取小节标题再按窗口读，同一份文档不反复通读，读到的结论立即落盘）、**避免「先格式化、后编辑」**（`prettier --write` 会让文件变新，随后的 `edit` 被迫重读）、编辑优先 `edit` 并合并连续修改、文档增量维护禁止整篇重写、合并命令往返并让长输出落盘、**主动配合上下文压缩**（压缩后早期细节只剩摘要，所以关键结论必须及时落盘、不复述已写进文件的大段内容、批次收口就切会话）、验证脚本先自检再跑。**刻意保持简短**，因为 `AGENTS.md` 本身就是每次会话的常驻上下文。
+- 用户明确「不需要每次结束自查一遍 token」，因此**没有**把用量自查写进约定；`.codex-run/token-usage.py`（已 gitignore）保留为**按需排查工具**（自动定位最近一次会话，按轮次与来源聚合用量），不进例行流程。
+- 顺带修掉 `AGENTS.md`「当前能力范围」里我刚引入的一处自相矛盾：任务模块那条仍写着「普通任务与积分自动发放」，与新加的「到期结算」冲突，改为「按等级条件发放或指定个人」。
+
+### 验证结果
+
+- 确认了 DSH 自带上下文压缩机制（`compaction` / `contextWindowCompression` / UI 有压缩指示），因此第 7 条写成「配合自动压缩该怎么做」，不是凭空要求。
+- `python3 .codex-run/token-usage.py` 按需实跑通过，输出与手工聚合一致（586 次调用 / 2.6 亿 / 99.68% / 最大单次 73 万）。
+- `npm run check` 通过（`AGENTS.md` 在 Prettier 检查范围内）；`git diff --check` 通过。
+- 本次只改文档与新增一个本地脚本，未触碰后端、前端与迁移。
+
+### 待办
+
+- 规则是否有效需要在后续任务中观察：可用同一脚本对比「一个批次一个会话」与「单会话跑多批次」的用量差异。
+
+## 2026-09-21：「悬赏管理」创建表单提交失败（只提示「请检查提交内容」）修复
+
+### 背景
+
+用户反馈「无法提交悬赏任务」，截图里悬赏创建表单填了奖金份数 123，界面只显示一句「请检查提交内容」，看不出改哪里。
+
+### 根因（已复刻）
+
+- 隔离内存库真实 HTTP 复刻：`POST /api/v1/admin/bounties` 带 `prizeSlots: 123` 返回 400 `{"message":"请检查提交内容","fields":{"prizeSlots":"奖金份数不能超过 100"}}`；同一载荷把份数改成 100 即 200。即**唯一原因是奖金份数超过后端 `@Max(100)`**。
+- 数字输入框的 `min`/`max` 不生效：表单没有 `<form>` 包裹、按钮是 `type="button"`，`v-model.number` 照收越界值，只在服务端被拦。
+- `AdminBountiesView.save()` 只渲染 `error.message`，丢掉了 `error.fields` 明细；`.portal-state.error` 还有 220px 最小高，提示显示为一大块空白。同一类问题在 2026-09-20 的招新报名表单上已记录过（本次按用户确认只修悬赏表单）。
+
+### 完成内容
+
+- **提交前按后端同一套约束做字段级校验**：标题必填/≤160、悬赏说明非空、奖金份数 1—100 的整数、奖金说明与份数成对且 ≤500、积分 0—100000、人数上限 1—1000、份数不多于人数上限、截止不早于开始、子任务标题非空。
+- **就近提示 + 可访问性**：出错字段下方 `<small class="field-error">` 并用 `aria-invalid` / `aria-describedby` 关联；顶部汇总为「请检查提交内容：<第一条>」保持 `role="alert"`，焦点与视口移到第一个出错字段（`prefers-reduced-motion` 时瞬时滚动）；字段一改就撤掉它的提示、汇总同步更新。
+- **后端返回 `fields` 时同样逐字段显示**（原来只显示 message），`fields` 为空才退回整句 message。
+- 通知块改用 `portal-state inline error`（矮条，不再占 220px），并给 `.admin-form-grid .field-error` 补 margin/行高，避免 flex 列布局的 gap 把提示推远。
+
+### 验证结果
+
+- `npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 构建）；`git diff --check` 通过。
+- **真机浏览器验收 17 项断言全部通过**：`.codex-run/ui-review/verify-bounty-form-validation.mjs`（隔离内存库后端 8099 + Vite 5199 代理 + 无头 Chrome CDP 9222）。覆盖：越界值被拦下且**未发出创建请求**、就近提示文案、`aria-invalid`/`aria-describedby` 关联、焦点落到奖金份数字段、改成 100 后提示即时消失并成功保存草稿（列表出现新卡片）、份数多于人数上限的提示、人数上限越界提示、无横向滚动。
+- 截图 5 张（`bounty-form-error-desktop/dark/mobile`、`bounty-form-saved` 等，已 gitignore）：1440 亮/暗与 375 亮下均确认顶部汇总与就近提示可见、未被固定顶栏遮挡、明暗对比可读。
+- 未触碰用户正在运行的 8080 实例与 `backend/data/yeslab.mv.db`；验证用 8099/5199/9222 进程与 Chrome 临时 profile 在收尾时停止。
+
+### 待办（发现但未改，需用户确认）
+
+- **已发布悬赏的子任务改动会被静默忽略**：`BountyService.updatePublished` 完全不处理 `subtasks`，而管理端表单对已发布悬赏仍允许增删改子任务（只锁了奖励口径、人数与条件）。二选一：已发布时禁用子任务编辑器并说明原因，或像普通任务那样改走 `replaceSubtasksForPublished`（按 id `syncSubtasks`，保留勾选记录）。
+- 其他表单仍是「只有一句请检查提交内容」（招新报名、普通任务表单等），如需统一修需另开批次。
+
+## 2026-09-21：事故——临时演练 mysqld 未关停，把系统盘吃到 98%
+
+### 背景
+
+用户截图 Activity Monitor：两个 `mysqld` 各写盘 74.74 GB / 75.47 GB，`kernel_task` 191.13 GB，`df` 显示 Data 卷 **427 GiB 已用 / 仅 12 GB 可用（98%）**，质问「你在我的磁盘里干了什么」。两个 `mysqld` 指向同一临时实例：`--datadir=/tmp/yeslab-mig13/data --socket=/tmp/yeslab-mig13/m.sock --port=3399 --log-error=/tmp/yeslab-mig13/run.log`。
+
+### 根因
+
+- 这两个进程是**历史会话遗留的临时演练实例**（PID 96710 / 96886，均已 `ppid=1`，已运行 11 小时 45 分），与本次会话无关，但确是本项目施工的产物。
+- `/tmp/yeslab-mig13` 目录**事后被删掉**，而两个进程仍持有该目录下 `run.log` 的写句柄：`lsof` 显示 `NLINK=0`、`SIZE/OFF` 分别为 **79,067,327,604** 与 **78,028,492,888** 字节（合计 **146 GB**）。已 unlink 的文件不占用任何目录项，因此 `du`、Finder、磁盘分析工具**都看不见**，空间却真实被占。
+- 实测膨胀速率 **171 MB / 20 秒 ≈ 30 GB/小时**（采样两次 `lsof -p <pid>` 的 FD 1w 大小），磁盘剩余 12 GB → 约 24 分钟撑满。
+
+### 处置
+
+- `kill`（SIGTERM）**无效**，进程未退出且继续写；改用 `kill -9 96710 96886` 后两个进程结束，`lsof +L1` 中 `yeslab-mig13` 归零。
+- 空间回收**有明显延迟**：刚杀完 `df` 只回来约 4 GB（一度以为被 APFS 快照钉住），约 1 分钟后对账正常。**Data 卷 459.5 GB → 304.2 GB；可用 12 GB → 155 GB；占用率 98% → 65%**（`tmutil listlocalsnapshots` 只有两条系统更新快照，与本事故无关）。
+- 清理 `/tmp` 下本会话历史的残留 **约 906 MB**：`yeslab-*.log`、`yeslab-chrome-profile*`、`chrome-bounty-flow`、`DEVLOG.orig*.md`、`_devlog_split.json`、`yeslab-before.mv.db`。
+- **未触碰**用户自己的实例与数据：PID 230（`/usr/local/mysql/data`）、Homebrew `/usr/local/var/mysql`、`backend/data/yeslab.mv.db`。
+
+### 验证结果
+
+- 全盘对账 `du -x -d1 /System/Volumes/Data` = 289 GB ≈ `df` 283 GiB：Users 206G（其中微信 57G + QQ 37G 为用户应用）、Applications 48G、usr 12G、Library 11G、System 6.5G、private 6G。
+- 全盘仅一个 >4 GB 单文件（用户的 `~/Downloads/openEuler-24.03-LTS-SP4-x86_64-dvd.iso`）。**本项目工作区只占 410 MB**（`node_modules` 178M、`backend` 73M、`dist` 15M）。
+- 因此本事故以外的大额占用与施工无关。
+
+### 未能查明与教训
+
+- **无法查明那 79 GB 日志的具体内容**：文件已 unlink，进程结束后内容不可读取。只知道它是 `--log-error` 追加写出来的，且两个实例共用同一 datadir/socket/pid 文件本身就违规。
+- `mig13` 实例**不是** `rehearse-v14.sh` / `rehearse-v15.sh` 起的：这两个脚本只连 `127.0.0.1:3399`（`MYSQL_BIN ... -P$PORT`），全文没有 `log-error`/`nohup`/`trap`/`kill`，即实例由更早的某次手工启动。
+- **教训**：DEVLOG 在 2026-09-21 已写过「临时 MySQL 实例……施工收尾时必须关闭并删除」，但没人执行；`/tmp` 里长期存活的演练实例 + `--log-error` 是无上限增长的定时炸弹。
+- **排查方法沉淀**：磁盘对不上账时，`du`/Finder 看不见 unlink 但仍被占用的文件，必须用 `lsof +L1`（看 `NLINK=0` 与大 `SIZE/OFF`）。
+
+### 待办（需用户确认）
+
+- 是否把「临时演练实例必须即起即关、禁止跨会话保留」升格为 `AGENTS.md` 硬规则，并在演练脚本里加 `trap ... EXIT` 兜底关停 + `--log-error` 总量上限？本次未擅自改 `AGENTS.md` 与脚本。
+
+### 后续处置（同日，用户确认后执行）
+
+- **规则落地**：`AGENTS.md` 新增「后台进程与临时实例约定」三条硬规则——临时实例只能经 `scripts/temp-mysql.sh` 起、后台进程日志必须有界、磁盘对不上账先跑 `lsof +L1`。
+- **兜底脚本**：新增 `scripts/temp-mysql.sh`（`init|start|status|stop`）：pid 文件互斥（拒绝同 datadir 起第二个进程）、看门狗在 TTL 到期或 `run.log` 超上限时**无条件 kill**、`stop` 关停并删除目录。
+- **脚本自检（真机跑通）**：`init` → `start` → 重复 `start` 被拒（退出码 1）→ `stop`；再用 `TTL_MIN=0` 模拟「忘了关」，25 秒后看门狗触发，`watchdog.log` 记录 `兜底关停：TTL 到期（pid=62067）` 且进程已退出，收尾无残留目录。
+- **修掉脚本自身一个坑**：中文全角标点紧跟 `$VAR`（如 `$DIR。`、`$pid）`）会被 bash 当成变量名的一部分，`set -u` 下报 `unbound variable`；全部改为 `${VAR}` 后 0 报错。
+- **3306 端口争用（独立问题，一并修复）**：机器上**两套 MySQL 抢 3306**——Oracle 那套（`/usr/local/mysql/data`，root LaunchDaemon，已运行 9 天）实际占着端口，Homebrew 那套（`/usr/local/var/mysql`）因此**累计失败重启 41,701 + 57,907 = 99,608 次**，从 2026-06-15 一直滚到今天；而 Homebrew 实例里**只有 `mysql`/`sys`/`performance_schema`、零用户库，从未成功服务过**。按用户选择执行 `brew services stop mysql`；因该 plist 的 `RunAtLoad` 与 `KeepAlive` 均为 true（不删则下次登录必然复活），另移除 `~/Library/LaunchAgents/homebrew.mxcl.mysql.plist`（需要时 `brew services start mysql` 可重建）。
+- **验证**：`brew services list` → `mysql none`；两个 err 日志 60 秒 **0 KB 增长**（末尾为 `Shutdown complete` / `mysqld_safe ... ended`），无进程持有日志句柄。**未触碰** Oracle 实例与其 datadir（`/usr/local/mysql/data` 无读权限，未做任何改动）。
+- 附带结论：`application.yml` 默认 `jdbc:h2:file:./data/yeslab`、生产走 `YESLAB_DATABASE_URL`，**3306 上跑什么与本项目无关**，停掉 Homebrew 实例不影响施工与本地开发。
+
+## 2026-09-26：核查悬赏验收状态与撤销面试未通过
+
+### 悬赏任务状态核查
+
+- `V14` 到期结算与 `V15` 悬赏任务的后端、前端、冒烟脚本已在本地施工完成；既有 DEVLOG 记录后端 72 项测试、`smoke-bounty.sh` 41 项断言、`V15` 本地 MySQL 演练 19 项断言均通过。
+- **项目仍处于未完成上线验收阶段**：预生产 MySQL 上 `V14`/`V15` 演练和 InnoDB 并发接取验证尚未完成；部署后批量补发新手任务、真实浏览器业务链路验收也未完成。本次只核对记录，没有连接生产或预生产环境。
+- 现有未决问题仍在：已发布悬赏的管理表单允许修改子任务，但后端更新会忽略这部分提交；此前 DEVLOG 已标注需选择禁用编辑或实现同步，本次未改变悬赏行为。
+
+### 面试未通过撤销
+
+- 招新管理的待补录动作现在也接受“最终面试未通过”记录：只有 `stage=REJECTED` 且 `interviewDecision=REJECTED` 才能通过该入口回到 `INTERVIEW` 并标为待补录；初筛未通过及其他拒绝记录不允许回退。
+- 撤销后清除旧最终结论与面试官名单，保留面试评分、详细评价和建议标签供重新补录；写入 `REJECTED → INTERVIEW` 历史，并通知报名者结果正在重新补录、无需重新预约。候选端在待补录期间仍不能预约。
+- 招新详情新增“撤销面试未通过”按钮和二次确认；接口继续使用 `RECRUITMENT_MANAGE` 管理权限。按钮触控高度明确设为 44px，使用现有焦点样式与 reduced-motion 规则。README 与模块/权限说明已同步。
+
+### 验证结果
+
+- Java 21 `CollaborationApiTests` 全部 **4 项通过**；新增 `rejectedInterviewCanBeRevokedBackToPendingResult` 覆盖回退状态、清理旧结论、保留面试材料、审计记录与报名者通知，并确认普通拒绝记录不能误回退。
+- `npm run check` 通过（ESLint、Prettier、Vite 生产构建）；`git diff --check` 通过。
+- 本地隔离 H2 + 真实浏览器检查：招新管理中可见“撤销面试未通过”入口；撤销后列表显示“待补录面试结果”，表单保留评分/评价，状态历史出现撤销记录。浏览器为 Codex 内嵌视口，截图记录在 `.codex-run/ui-review/interview-rejection-pending-current.png`；未连接或改动生产数据。
+
+## 2026-09-26：补齐悬赏计数播报并复核功能状态
+
+### 完成内容
+
+- 核对悬赏需求清单后确认，已发布悬赏子任务按 ID 同步、保留已有勾选记录的实现及回归测试已在工作区；修复了 DEVLOG 旧待办仍称该问题未解决的记录偏差。
+- 悬赏榜接取、详情页放弃、管理名单页驳回/移除后，增加单条完整的 `role="status"` + `aria-atomic="true"` 播报，包含当前接取人数及奖金份数；避免屏幕阅读器只听到裸数字。需求清单状态说明同步为“本地已实现、上线验收待完成”。
+- 按 `ui-ux-pro-max` 查询 `"live status count screen reader" --domain ux`，采纳“单条、有上下文、原子播报”的建议；未采用 Vue 栈搜索结果（无匹配）。
+
+### 验证结果
+
+- Java 21 `BountyApiTests`：**11 项通过**；`npm run check`（ESLint、Prettier、Vite 生产构建）通过；`git diff --check` 通过。Vite 仅提示已有的大型 chunk 警告。
+- 隔离 H2 + 本机浏览器验收：`verify-bounty-ui.mjs` **21 项断言通过**，包含 375px 小屏、无横向滚动及鼠标真实接取链路；页面截图写入 gitignore 下的 `.codex-run/ui-review/`。临时后端、Vite、Chrome 均已关停，Chrome 临时 profile 已清理；未连接生产/预生产库。
+
+### 尚未完成的上线验收
+
+- 预生产 MySQL 上分别演练 `V14` / `V15`，并在 MySQL 8.4 做并发抢最后一个名额验证；之后部署并完成批量补发新手任务及真实业务链路验收。H2 测试不能替代上述步骤。
+
+## 2026-09-26：实施悬赏线下奖金发放/领取台账
+
+### 完成内容
+
+- 用户确认后实现逐获奖对象的 `PENDING → ISSUED → RECEIVED` 状态与 `REVOKED` 历史态；新增 `V16__bounty_prize_fulfillment.sql`，为既有获奖对象幂等回填待发放记录，不修改 `V11`—`V15`。
+- 管理端新增线下实际发放登记、确认对话框、操作人与时间留痕；获奖成员任务详情显示状态并可本人确认领取；两端完成后互发站内通知。截止/结束不阻止补录；已发放/领取后驳回返回 409；待发放者被驳回则记录撤销并顺延。
+- 台账不参与完成名次、奖金持有者重算与积分结算；误记不提供系统反向按钮，需人工审计。需求/设计、README、权限说明和项目协作摘要已同步。
+
+### 验证与待办
+
+- Java 21 下 `BountyApiTests` 通过（12 项；覆盖领取人限制、履约留痕、发放后驳回冲突、结束后补录和既有悬赏回归）。前端 `npm run check` 通过；本地 H2 服务用教师/成员浏览器检查管理名单和成员任务详情，确认状态与本人领取入口渲染正常。
+- 未连接预生产/生产数据库。`V16` MySQL DDL 与历史数据回填仍须备份后在预生产重复执行并 `ddl-auto=validate`；还需按项目规定补齐 1440/375、亮/暗截图验收，以及 `V14`—`V16` MySQL 演练、InnoDB 并发接取和部署后业务复核。
+- `npm run check` 的构建存在既有大 chunk 警告，不影响通过；已用临时内存 H2，验收后关停本地前后端，测试数据不会写入持久库。

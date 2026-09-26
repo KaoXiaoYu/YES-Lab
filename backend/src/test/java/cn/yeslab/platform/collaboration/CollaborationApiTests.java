@@ -31,6 +31,7 @@ import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
@@ -334,6 +335,68 @@ class CollaborationApiTests {
         assertEquals(1, interviewRetention.purgeExpiredBefore(Instant.now().plusSeconds(1)));
         assertFalse(sessions.existsById(UUID.fromString(sessionId)));
         assertEquals(0, bookings.countBySessionId(UUID.fromString(sessionId)));
+    }
+
+    @Test
+    void rejectedInterviewCanBeRevokedBackToPendingResult() throws Exception {
+        String email = "interview-revoke-" + UUID.randomUUID().toString().substring(0, 8) + "@example.com";
+        String applicantToken = register(email);
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        createInterviewApplication(email, "撤销面试未通过同学", "2025");
+        UUID applicationId = applications
+                .findByApplicantId(accounts.findByUsernameIgnoreCase(email).orElseThrow().getId())
+                .orElseThrow().getId();
+
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-result-pending", applicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pending\":true}"))
+                .andExpect(status().isOk());
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-decision", applicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"decision\":\"REJECTED\",\"interviewerNames\":[\"汤洪\"],"
+                                + "\"score\":68,\"evaluation\":\"项目经历需要继续核实\","
+                                + "\"suggestedTags\":[\"工程实现\"],\"opinion\":\"本轮暂不录取\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stage").value("REJECTED"))
+                .andExpect(jsonPath("$.data.interview.decision").value("REJECTED"));
+
+        mvc.perform(get("/api/v1/admin/recruitment/applications").header("Authorization", bearer(teacherToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[?(@.id == '" + applicationId
+                        + "')].interview.resultPendingTransitionAllowed", hasItem(true)));
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-result-pending", applicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pending\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.stage").value("INTERVIEW"))
+                .andExpect(jsonPath("$.data.interview.resultPending").value(true))
+                .andExpect(jsonPath("$.data.interview.finalDecisionAllowed").value(true))
+                .andExpect(jsonPath("$.data.interview.decision").value(nullValue()))
+                .andExpect(jsonPath("$.data.interview.passed").value(nullValue()))
+                .andExpect(jsonPath("$.data.interview.score").value(68))
+                .andExpect(jsonPath("$.data.interview.evaluation").value("项目经历需要继续核实"))
+                .andExpect(jsonPath("$.data.interview.decisionInterviewerNames", hasSize(0)))
+                .andExpect(jsonPath("$.data.interview.decisionOpinion").value(nullValue()))
+                .andExpect(jsonPath("$.data.history[*].note", hasItem("撤销面试未通过，恢复为待补录面试结果")));
+        mvc.perform(get("/api/v1/notifications").header("Authorization", bearer(applicantToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.messages[0].type").value("INTERVIEW_RESULT_REOPENED"))
+                .andExpect(jsonPath("$.data.messages[0].title").value("面试结论已撤销"));
+
+        String otherEmail = "interview-not-revoke-" + UUID.randomUUID().toString().substring(0, 8) + "@example.com";
+        register(otherEmail);
+        createInterviewApplication(otherEmail, "非面试结论未通过同学", "2025");
+        UUID otherApplicationId = applications
+                .findByApplicantId(accounts.findByUsernameIgnoreCase(otherEmail).orElseThrow().getId())
+                .orElseThrow().getId();
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/stage", otherApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"stage\":\"REJECTED\",\"note\":\"其他原因\",\"linkedQuizId\":null}"))
+                .andExpect(status().isOk());
+        mvc.perform(patch("/api/v1/admin/recruitment/applications/{id}/interview-result-pending", otherApplicationId)
+                        .header("Authorization", bearer(teacherToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"pending\":true}"))
+                .andExpect(status().isConflict());
     }
 
     @Test

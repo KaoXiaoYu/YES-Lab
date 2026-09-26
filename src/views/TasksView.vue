@@ -16,6 +16,13 @@ const statusLabels = {
   REJECTED: '已驳回',
 }
 const taskStatusLabels = { PUBLISHED: '进行中', CLOSED: '已结束' }
+// 悬赏是「提交即完成」，没有待确认；APPROVED 对悬赏的含义是「已完成」。
+const bountyStatusLabels = { PENDING: '进行中', APPROVED: '已完成', REJECTED: '已驳回', ABANDONED: '已放弃' }
+
+function statusLabel(task) {
+  if (task.taskType === 'BOUNTY') return bountyStatusLabels[task.status] || task.status
+  return statusLabels[task.status] || task.status
+}
 
 const filtered = computed(() =>
   tasks.value.filter((task) => statusFilter.value === 'ALL' || task.status === statusFilter.value),
@@ -66,13 +73,14 @@ onMounted(async () => {
         :to="`/tasks/${task.assignmentId}`"
       >
         <header>
-          <span :data-status="task.status">{{ statusLabels[task.status] || task.status }}</span>
+          <span :data-status="task.status">{{ statusLabel(task) }}</span>
           <b>{{ taskStatusLabels[task.taskStatus] || task.taskStatus }}</b>
         </header>
         <h2>{{ task.title }}</h2>
         <p class="task-card-dates">
           {{ task.startDate || '未设置开始' }} — {{ task.endDate || '未设置截止' }}
-          <span v-if="task.overdue" class="overdue">已逾期</span>
+          <span v-if="task.expired" class="overdue">已截止</span>
+          <span v-else-if="task.overdue" class="overdue">已逾期</span>
         </p>
         <div v-if="task.totalSubtasks" class="task-progress">
           <div
@@ -87,9 +95,26 @@ onMounted(async () => {
           </div>
           <span class="task-progress-label">
             已提交 {{ task.submittedSubtasks }} / {{ task.totalSubtasks }}
-            <span v-if="task.points > 0"> · 通过后 +{{ task.awardedPoints ?? task.points }} 积分</span>
+            <span v-if="task.points > 0 && task.status !== 'APPROVED'">
+              · {{ task.taskType === 'BOUNTY' ? '完成后' : '通过后' }} +{{ task.points }} 积分</span
+            >
           </span>
         </div>
+        <p v-if="task.taskType === 'BOUNTY'" class="bounty-mine">
+          <template v-if="task.completionRank">完成名次第 {{ task.completionRank }} 名</template>
+          <template v-if="task.prizeSlots">
+            <template v-if="task.completionRank"> · </template>
+            <!-- 只在有结论（已完成 / 已驳回）时谈获奖，进行中就说「未获得奖金」会误导 -->
+            <template v-if="task.status === 'APPROVED' || task.status === 'REJECTED'">
+              {{ task.prizeAwarded ? '已获得奖金' : '未获得奖金' }}
+            </template>
+            <template v-else>奖金 {{ task.prizeSlots }} 份，按完成先后发放</template>
+          </template>
+          <template v-if="task.prizeDescription"> · {{ task.prizeDescription }}</template>
+        </p>
+        <p v-if="task.status === 'APPROVED' && task.points > 0" class="task-card-settle">
+          {{ task.pointsSettled ? `积分已结算：+${task.awardedPoints ?? 0}` : '积分待结算：任务到期后统一发放' }}
+        </p>
         <p v-if="task.pointsSkippedReason" class="task-card-skip">本次未计分：{{ task.pointsSkippedReason }}</p>
         <p v-if="task.status === 'REJECTED' && task.reviewComment" class="task-card-reject">
           驳回意见：{{ task.reviewComment }}

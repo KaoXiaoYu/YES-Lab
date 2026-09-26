@@ -67,6 +67,30 @@ const routes = [
     meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
   },
   {
+    path: '/bounties',
+    name: 'bounties',
+    component: () => import('../views/BountyBoardView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
+  },
+  {
+    path: '/bounties/:taskId',
+    name: 'bounty-detail',
+    component: () => import('../views/BountyDetailView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
+  },
+  {
+    path: '/admin/bounties',
+    name: 'admin-bounties',
+    component: () => import('../views/AdminBountiesView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
+  },
+  {
+    path: '/admin/bounties/:taskId/claims',
+    name: 'admin-bounty-claims',
+    component: () => import('../views/AdminBountyClaimsView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
+  },
+  {
     path: '/admin/tasks',
     name: 'admin-tasks',
     component: () => import('../views/AdminTasksView.vue'),

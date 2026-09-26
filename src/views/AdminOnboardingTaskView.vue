@@ -1,5 +1,5 @@
 <script setup>
-import { ArrowLeft, CheckCheck, ListChecks, RefreshCw, Save, X } from '@lucide/vue'
+import { ArrowLeft, CalendarClock, CheckCheck, ListChecks, RefreshCw, Save, X } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
 import DiscussionRichTextEditor from '../components/DiscussionRichTextEditor.vue'
@@ -7,6 +7,7 @@ import TaskSubtaskEditor from '../components/TaskSubtaskEditor.vue'
 import SubtaskSubmissionsPanel from '../components/SubtaskSubmissionsPanel.vue'
 import {
   backfillOnboardingTasks,
+  extendOnboardingDueDate,
   getAdminSubtask,
   getOnboardingOverview,
   getOnboardingTask,
@@ -21,6 +22,8 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const activeAssignmentId = ref('')
 const submissionsAssignmentId = ref('')
+const extendAssignmentId = ref('')
+const extendForm = reactive({ dueDate: '', reason: '' })
 
 function toggleSubmissions(assignmentId) {
   submissionsAssignmentId.value = submissionsAssignmentId.value === assignmentId ? '' : assignmentId
@@ -148,6 +151,35 @@ function openReview(row) {
   review.exemptionReason = ''
 }
 
+/** 默认建议日期：今天 +14 天；后端要求必须晚于今天且晚于原截止日期。 */
+function openExtend(row) {
+  extendAssignmentId.value = row.assignmentId
+  const base = new Date()
+  base.setDate(base.getDate() + 14)
+  extendForm.dueDate = base.toISOString().slice(0, 10)
+  extendForm.reason = ''
+}
+
+async function submitExtend(row) {
+  if (!extendForm.dueDate) return
+  working.value = true
+  errorMessage.value = ''
+  successMessage.value = ''
+  try {
+    const result = await extendOnboardingDueDate(row.assignmentId, {
+      dueDate: extendForm.dueDate,
+      reason: extendForm.reason || null,
+    })
+    extendAssignmentId.value = ''
+    successMessage.value = `已将 ${row.applicantName} 的截止日期延长至 ${result.dueDate}。`
+    await load()
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    working.value = false
+  }
+}
+
 async function submitReview(row) {
   working.value = true
   errorMessage.value = ''
@@ -267,9 +299,13 @@ async function submitReview(row) {
               <span v-if="row.startDate || row.endDate">
                 · {{ row.startDate || '未设置' }} — {{ row.endDate || '未设置' }}</span
               >
-              <span v-if="row.overdue" class="overdue">已逾期</span>
+              <span v-if="row.overdue" class="overdue">已逾期，无法审核</span>
             </span>
           </div>
+          <p v-if="row.dueDateExtendedAt" class="task-row-note">
+            最近一次延长：{{ row.dueDateExtendedBy }} 于 {{ row.dueDateExtendedAt.slice(0, 10) }} 延长至 {{ row.endDate
+            }}<template v-if="row.dueDateExtensionReason"> · 理由：{{ row.dueDateExtensionReason }}</template>
+          </p>
           <p v-if="row.completionNote" class="task-row-note">完成说明：{{ row.completionNote }}</p>
           <p v-if="row.exemptionReason" class="task-skip">已豁免：{{ row.exemptionReason }}</p>
           <p v-if="row.reviewComment" class="task-row-note">审核意见：{{ row.reviewComment }}</p>
@@ -278,10 +314,19 @@ async function submitReview(row) {
             <button
               v-if="row.assignmentId && row.status !== 'APPROVED'"
               type="button"
-              :disabled="working"
+              :disabled="working || row.overdue"
+              :title="row.overdue ? '已逾期，无法审核；请先延长截止日期' : ''"
               @click="openReview(row)"
             >
               <CheckCheck :size="15" aria-hidden="true" />审核
+            </button>
+            <button
+              v-if="row.assignmentId && row.status !== 'APPROVED'"
+              type="button"
+              :aria-expanded="extendAssignmentId === row.assignmentId"
+              @click="extendAssignmentId === row.assignmentId ? (extendAssignmentId = '') : openExtend(row)"
+            >
+              <CalendarClock :size="15" aria-hidden="true" />延长截止日期
             </button>
             <button
               v-if="row.assignmentId"
@@ -293,6 +338,25 @@ async function submitReview(row) {
             </button>
             <span v-if="row.convertedProfileId">已转为正式成员</span>
           </div>
+
+          <form
+            v-if="extendAssignmentId === row.assignmentId"
+            class="task-review-form"
+            @submit.prevent="submitExtend(row)"
+            aria-label="延长该报名者的截止日期"
+          >
+            <p class="task-skip full">
+              延长只影响这一位报名者；新的截止日期必须晚于今天、且晚于原截止日期。延长后本人即可继续提交，你也可以审核。
+            </p>
+            <label>新的截止日期<input v-model="extendForm.dueDate" type="date" required /></label>
+            <label class="full">延长理由（可选）<input v-model.trim="extendForm.reason" maxlength="500" /></label>
+            <div class="task-form-actions">
+              <button class="portal-primary" type="submit" :disabled="working || !extendForm.dueDate">
+                {{ working ? '提交中…' : '确认延长' }}
+              </button>
+              <button type="button" class="portal-secondary" @click="extendAssignmentId = ''">取消</button>
+            </div>
+          </form>
 
           <form
             v-if="activeAssignmentId === row.assignmentId"

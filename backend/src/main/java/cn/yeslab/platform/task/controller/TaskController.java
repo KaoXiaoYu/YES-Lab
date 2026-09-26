@@ -67,4 +67,12 @@ public class TaskController {
     ) {
         return ApiResponse.ok(service.submitMyTask(authentication, assignmentId, request.completionNote()));
     }
+
+    @PostMapping("/{assignmentId}/bounty-prize/confirm-received")
+    public ApiResponse<TaskModels.MyTaskDetailView> confirmBountyPrizeReceived(
+            Authentication authentication,
+            @PathVariable UUID assignmentId
+    ) {
+        return ApiResponse.ok(service.confirmBountyPrizeReceived(authentication, assignmentId));
+    }
 }

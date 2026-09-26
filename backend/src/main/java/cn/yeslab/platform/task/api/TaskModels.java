@@ -5,6 +5,7 @@ import cn.yeslab.platform.task.model.TaskAssignmentStatus;
 import cn.yeslab.platform.task.model.TaskAudienceDimension;
 import cn.yeslab.platform.task.model.TaskStatus;
 import cn.yeslab.platform.task.model.TaskType;
+import cn.yeslab.platform.task.model.BountyPrizeFulfillmentStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -153,6 +154,26 @@ public final class TaskModels {
     public record BackfillResult(int issued, int skipped) {
     }
 
+    /** 按人延长新手任务截止日期：新日期必须晚于今天，且晚于原日期。 */
+    public record ExtendOnboardingDueDateRequest(
+            @NotNull(message = "请选择新的截止日期") LocalDate dueDate,
+            @Size(max = 500, message = "延长理由不能超过 500 字") String reason
+    ) {
+    }
+
+    /** 延长结果：新的截止日期与本次留痕。 */
+    public record DueDateExtensionView(
+            UUID assignmentId,
+            UUID applicationId,
+            String applicantName,
+            LocalDate previousDueDate,
+            LocalDate dueDate,
+            Instant extendedAt,
+            String extendedBy,
+            String reason
+    ) {
+    }
+
     public record OnboardingOverviewView(
             OnboardingTaskAdminView task,
             int skillTestCount,
@@ -182,7 +203,10 @@ public final class TaskModels {
             UUID convertedProfileId,
             LocalDate startDate,
             LocalDate endDate,
-            boolean overdue
+            boolean overdue,
+            Instant dueDateExtendedAt,
+            String dueDateExtendedBy,
+            String dueDateExtensionReason
     ) {
     }
 
@@ -265,6 +289,8 @@ public final class TaskModels {
             TaskStatus status,
             Instant publishedAt,
             int assignmentCount,
+            Instant pointsSettledAt,
+            boolean expired,
             List<SubtaskView> subtasks,
             List<AudienceRuleRequest> rules
     ) {
@@ -282,7 +308,9 @@ public final class TaskModels {
             int approvedCount,
             int submittedCount,
             int pendingCount,
-            int rejectedCount
+            int rejectedCount,
+            Instant pointsSettledAt,
+            boolean expired
     ) {
     }
 
@@ -361,7 +389,18 @@ public final class TaskModels {
             Integer awardedPoints,
             String pointsSkippedReason,
             String reviewComment,
-            boolean overdue
+            boolean overdue,
+            boolean expired,
+            boolean editable,
+            boolean pointsSettled,
+            TaskType taskType,
+            String prizeDescription,
+            Integer prizeSlots,
+            Integer completionRank,
+            boolean prizeAwarded,
+            BountyPrizeFulfillmentStatus prizeFulfillmentStatus,
+            Instant prizeIssuedAt,
+            Instant prizeReceivedAt
     ) {
     }
 
@@ -381,7 +420,175 @@ public final class TaskModels {
             Integer awardedPoints,
             String pointsSkippedReason,
             boolean overdue,
+            boolean expired,
+            boolean editable,
+            boolean pointsSettled,
+            TaskType taskType,
+            String prizeDescription,
+            Integer prizeSlots,
+            Integer completionRank,
+            boolean prizeAwarded,
+            BountyPrizeFulfillmentStatus prizeFulfillmentStatus,
+            Instant prizeIssuedAt,
+            Instant prizeReceivedAt,
             List<SubtaskView> subtasks
+    ) {
+    }
+
+    // ---------- 悬赏：成员端 ----------
+
+    /** 悬赏榜与详情共用的奖励与名额信息。 */
+    public record BountyPrizeView(
+            String prizeDescription,
+            Integer prizeSlots,
+            long prizeIssued,
+            Integer headcountLimit,
+            long claimed,
+            int points,
+            boolean pointsSettled
+    ) {
+    }
+
+    public record BountyBoardItemView(
+            UUID taskId,
+            String title,
+            String summary,
+            BountyPrizeView prize,
+            LocalDate startDate,
+            LocalDate endDate,
+            long daysRemaining,
+            boolean windowOpen,
+            String windowClosedReason,
+            UUID myAssignmentId,
+            TaskAssignmentStatus myStatus,
+            Integer myRank,
+            boolean myPrizeAwarded,
+            boolean claimable,
+            String claimBlockedReason
+    ) {
+    }
+
+    public record BountyDetailView(
+            UUID taskId,
+            String title,
+            String contentHtml,
+            BountyPrizeView prize,
+            LocalDate startDate,
+            LocalDate endDate,
+            long daysRemaining,
+            boolean windowOpen,
+            String windowClosedReason,
+            UUID myAssignmentId,
+            TaskAssignmentStatus myStatus,
+            Integer myRank,
+            boolean myPrizeAwarded,
+            boolean claimable,
+            String claimBlockedReason,
+            List<SubtaskView> subtasks
+    ) {
+    }
+
+    public record BountyClaimResult(
+            UUID assignmentId,
+            TaskAssignmentStatus status,
+            long claimed,
+            Integer headcountLimit
+    ) {
+    }
+
+    public record BountyAbandonResult(long claimed, Integer headcountLimit) {
+    }
+
+    // ---------- 悬赏：管理端 ----------
+
+    /**
+     * 创建 / 修改悬赏。
+     *
+     * <p>奖金与积分互相独立、至少要有一个：只填 {@code prizeSlots}（需配 {@code prizeDescription}）
+     * 或只填 {@code points} 都可以，两者都为空则拒绝。{@code headcountLimit} 为空表示不限接取人数。</p>
+     */
+    public record CreateBountyRequest(
+            @NotBlank(message = "请输入悬赏标题") @Size(max = 160) String title,
+            @NotBlank(message = "请填写悬赏正文") String contentHtml,
+            @Size(max = 500, message = "奖金说明不能超过 500 字") String prizeDescription,
+            @Min(value = 1, message = "奖金份数至少 1 份") @Max(value = 100, message = "奖金份数不能超过 100") Integer prizeSlots,
+            @Min(value = 0, message = "积分不能为负") @Max(value = 100000, message = "积分不能超过 100000") int points,
+            @Min(value = 1, message = "接取人数上限至少 1 人") @Max(value = 1000, message = "接取人数上限不能超过 1000") Integer headcountLimit,
+            LocalDate startDate,
+            LocalDate endDate,
+            @Size(max = 50, message = "子任务不能超过 50 项") @Valid List<SubtaskInput> subtasks,
+            @Valid @Size(max = 200, message = "接取条件不能超过 200 条") List<AudienceRuleRequest> rules
+    ) {
+    }
+
+    /** 悬赏事后驳回：只收一条必填意见。 */
+    public record BountyRevokeRequest(
+            @NotBlank(message = "驳回必须填写审核意见") @Size(max = 1000, message = "审核意见不能超过 1000 个字符") String comment
+    ) {
+    }
+
+    public record BountyClaimRowView(
+            UUID assignmentId,
+            UUID memberProfileId,
+            String name,
+            String memberCode,
+            String grade,
+            String memberStatus,
+            String role,
+            TaskAssignmentStatus status,
+            Integer completionRank,
+            boolean prizeAwarded,
+            String completionNote,
+            Instant claimedAt,
+            Instant submittedAt,
+            String reviewedBy,
+            Instant reviewedAt,
+            String reviewComment,
+            Integer awardedPoints,
+            String pointsSkippedReason,
+            boolean overdue,
+            BountyPrizeFulfillmentStatus prizeFulfillmentStatus,
+            Instant prizeIssuedAt,
+            String prizeIssuedBy,
+            Instant prizeReceivedAt,
+            String prizeReceivedBy,
+            Instant prizeRevokedAt,
+            String prizeRevokedBy,
+            String prizeRevokedReason
+    ) {
+    }
+
+    /** 悬赏汇总：名额占用、奖金份数进度与逐人明细。 */
+    public record BountyClaimsView(
+            TaskView task,
+            Integer headcountLimit,
+            long claimed,
+            long occupied,
+            long approved,
+            long abandoned,
+            long rejected,
+            Integer prizeSlots,
+            long prizeIssued,
+            List<BountyClaimRowView> rows
+    ) {
+    }
+
+    public record BountySummaryView(
+            UUID id,
+            String title,
+            TaskStatus status,
+            LocalDate startDate,
+            LocalDate endDate,
+            Integer headcountLimit,
+            long claimed,
+            long approved,
+            Integer prizeSlots,
+            /** 管理端编辑表单要回填现有奖金说明：{@code TaskView} 不含悬赏字段，只能从列表带回来。 */
+            String prizeDescription,
+            long prizeIssued,
+            int points,
+            Instant pointsSettledAt,
+            boolean expired
     ) {
     }
 }

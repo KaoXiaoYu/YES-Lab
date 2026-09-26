@@ -8,13 +8,13 @@ import cn.yeslab.platform.identity.model.Role;
 import cn.yeslab.platform.identity.repository.MemberProfileRepository;
 import cn.yeslab.platform.identity.service.AuthService;
 import cn.yeslab.platform.notification.service.NotificationService;
-import cn.yeslab.platform.points.service.PointService;
 import cn.yeslab.platform.recruitment.model.RecruitmentApplicationEntity;
 import cn.yeslab.platform.recruitment.model.RecruitmentStage;
 import cn.yeslab.platform.recruitment.repository.RecruitmentApplicationRepository;
 import cn.yeslab.platform.recruitment.service.RecruitmentService;
 import cn.yeslab.platform.task.api.TaskModels;
 import cn.yeslab.platform.task.model.TaskAssignmentEntity;
+import cn.yeslab.platform.task.model.BountyPrizeFulfillmentEntity;
 import cn.yeslab.platform.task.model.TaskAssignmentSource;
 import cn.yeslab.platform.task.model.TaskAssignmentStatus;
 import cn.yeslab.platform.task.model.TaskAudienceDimension;
@@ -22,8 +22,10 @@ import cn.yeslab.platform.task.model.TaskAudienceRuleEntity;
 import cn.yeslab.platform.task.model.TaskEntity;
 import cn.yeslab.platform.task.model.TaskStatus;
 import cn.yeslab.platform.task.model.TaskSubtaskEntity;
+import cn.yeslab.platform.task.model.TaskTiming;
 import cn.yeslab.platform.task.model.TaskType;
 import cn.yeslab.platform.task.repository.TaskAssignmentRepository;
+import cn.yeslab.platform.task.repository.BountyPrizeFulfillmentRepository;
 import cn.yeslab.platform.task.repository.TaskRepository;
 import cn.yeslab.platform.task.repository.TaskSubtaskProgressRepository;
 import org.springframework.http.HttpStatus;
@@ -64,38 +66,44 @@ public class TaskService {
 
     private final TaskRepository tasks;
     private final TaskAssignmentRepository assignments;
+    private final BountyPrizeFulfillmentRepository prizeFulfillments;
     private final TaskSubtaskProgressRepository subtaskProgressRepository;
     private final MemberProfileRepository profiles;
     private final RecruitmentApplicationRepository applications;
     private final OnboardingTaskService onboardingTaskService;
     private final OnboardingTaskIssuerService issuer;
     private final RecruitmentService recruitmentService;
-    private final PointService pointService;
+    private final TaskSettlementService taskSettlementService;
+    private final BountyService bountyService;
     private final AuthService authService;
     private final NotificationService notifications;
 
     public TaskService(
             TaskRepository tasks,
             TaskAssignmentRepository assignments,
+            BountyPrizeFulfillmentRepository prizeFulfillments,
             TaskSubtaskProgressRepository subtaskProgressRepository,
             MemberProfileRepository profiles,
             RecruitmentApplicationRepository applications,
             OnboardingTaskService onboardingTaskService,
             OnboardingTaskIssuerService issuer,
             RecruitmentService recruitmentService,
-            PointService pointService,
+            TaskSettlementService taskSettlementService,
+            BountyService bountyService,
             AuthService authService,
             NotificationService notifications
     ) {
         this.tasks = tasks;
         this.assignments = assignments;
+        this.prizeFulfillments = prizeFulfillments;
         this.subtaskProgressRepository = subtaskProgressRepository;
         this.profiles = profiles;
         this.applications = applications;
         this.onboardingTaskService = onboardingTaskService;
         this.issuer = issuer;
         this.recruitmentService = recruitmentService;
-        this.pointService = pointService;
+        this.taskSettlementService = taskSettlementService;
+        this.bountyService = bountyService;
         this.authService = authService;
         this.notifications = notifications;
     }
@@ -143,6 +151,9 @@ public class TaskService {
         if (assignment.getStatus() == TaskAssignmentStatus.APPROVED) {
             throw new ApiException(HttpStatus.CONFLICT, "新手任务已通过，不能再修改");
         }
+        if (TaskTiming.isExpired(assignment, LocalDate.now(LAB_TIME_ZONE))) {
+            throw new ApiException(HttpStatus.CONFLICT, "新手任务已截止，不能再提交；如需继续请联系管理员延长截止日期");
+        }
         RecruitmentApplicationEntity application = assignment.getRecruitmentApplication();
         if (application != null && application.getStage() != RecruitmentStage.SKILL_TEST
                 && application.getStage() != RecruitmentStage.PROBATION) {
@@ -186,7 +197,7 @@ public class TaskService {
                 rows.add(new TaskModels.OnboardingRowView(
                         null, null, application.getId(), application.getName(), application.getApplicant().getUsername(),
                         application.getStage(), null, 0, 0, null, null, null, null, null, null, null,
-                        null, null, false));
+                        null, null, false, null, null, null));
                 continue;
             }
             rows.add(toOnboardingRow(assignment));
@@ -244,6 +255,7 @@ public class TaskService {
         if (assignment.getStatus() == TaskAssignmentStatus.APPROVED) {
             throw new ApiException(HttpStatus.CONFLICT, "该新手任务已经通过");
         }
+        requireNotExpired(assignment);
         String comment = normalize(request.comment());
         String exemptionReason = normalize(request.exemptionReason());
 
@@ -310,6 +322,17 @@ public class TaskService {
 
     // ---------- 视图 ----------
 
+    /**
+     * 到期即冻结管理侧结论：到期后既不能审核通过、也不能驳回。
+     * 冻结与结算同时发生在到期时点，因此这也是「结算后不能驳回」的落地口径。
+     */
+    private void requireNotExpired(TaskAssignmentEntity assignment) {
+        if (TaskTiming.isExpired(assignment, LocalDate.now(LAB_TIME_ZONE))) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "任务已截止，不能再审核或驳回；如需继续请联系管理员延长截止日期");
+        }
+    }
+
     private TaskAssignmentEntity requireAssignment(UUID taskId, UUID assignmentId) {
         TaskAssignmentEntity assignment = assignments.findById(assignmentId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "任务对象不存在"));
@@ -351,6 +374,7 @@ public class TaskService {
         LocalDate today = LocalDate.now(LAB_TIME_ZONE);
         AccountEntity reviewer = assignment.getReviewedBy();
         LocalDate dueDate = dueDateOf(assignment);
+        AccountEntity extender = assignment.getDueDateExtendedBy();
         return new TaskModels.OnboardingRowView(
                 assignment.getId(),
                 task.getId(),
@@ -370,7 +394,10 @@ public class TaskService {
                 assignment.getConvertedProfileId(),
                 assignment.issuedOn(),
                 dueDate,
-                isOverdue(assignment, today)
+                isOverdue(assignment, today),
+                assignment.getDueDateExtendedAt(),
+                extender == null ? null : extender.getUsername(),
+                assignment.getDueDateExtensionReason()
         );
     }
 
@@ -397,18 +424,29 @@ public class TaskService {
 
     /**
      * 对象的截止日期：新手任务用「本人发放当天 + 大任务时长」记录在对象上的 due_date；
-     * 普通任务继续使用任务级的结束日期。
+     * 普通任务与悬赏继续使用任务级的结束日期。统一由 {@link TaskTiming#deadlineOf} 计算。
      */
     static LocalDate dueDateOf(TaskAssignmentEntity assignment) {
-        return assignment.getDueDate() != null ? assignment.getDueDate() : assignment.getTask().getEndDate();
+        return TaskTiming.deadlineOf(assignment);
     }
 
-    /** 逾期只是按截止日期的显示层派生，不写库、不改状态、不自动处理。 */
+    /**
+     * 逾期标记：到期日期已过且对象未通过。到期本身是硬边界（成员不可写、管理员不可下结论），
+     * 这里只负责界面上的显示层派生，不写库、不改状态、不自动处理。
+     */
     static boolean isOverdue(TaskAssignmentEntity assignment, LocalDate today) {
         LocalDate dueDate = dueDateOf(assignment);
         return dueDate != null
                 && assignment.getStatus() != TaskAssignmentStatus.APPROVED
                 && dueDate.isBefore(today);
+    }
+
+    /** 新手任务的阶段条件：仍停留在技能测试阶段（试用期仅为历史兼容）才能写与下结论。 */
+    private static boolean onboardingStageOpen(TaskAssignmentEntity assignment) {
+        RecruitmentApplicationEntity application = assignment.getRecruitmentApplication();
+        return application != null
+                && (application.getStage() == RecruitmentStage.SKILL_TEST
+                || application.getStage() == RecruitmentStage.PROBATION);
     }
 
     private MemberProfileEntity requireOwnProfile(AccountEntity account) {
@@ -464,8 +502,14 @@ public class TaskService {
         boolean published = task.getStatus() == TaskStatus.PUBLISHED;
         if (published) {
             // 发布时绑定积分：已发布任务的条件、对象与积分值锁定，只能改内容与时间。
+            LocalDate previousEndDate = task.getEndDate();
             task.updateContentOnly(request.title().trim(), contentHtml, request.startDate(), request.endDate());
             replaceSubtasksForPublished(task, normalizeSubtasks(request.subtasks()));
+            // 延长截止日期后，已结算的任务要重新进入待结算队列：否则延长期内新完成的人永远拿不到积分。
+            // 已发过的对象靠来源编号幂等跳过，因此重新结算是安全的。
+            if (isDeadlineExtended(previousEndDate, task.getEndDate()) && task.isPointsSettled()) {
+                task.resetPointsSettlement();
+            }
         } else {
             task.updateDetails(request.title().trim(), contentHtml, request.startDate(), request.endDate(),
                     request.points());
@@ -477,6 +521,16 @@ public class TaskService {
         }
         tasks.save(task);
         return toTaskView(requireTask(taskId));
+    }
+
+    /**
+     * 截止日期是否被延长（新值晚于旧值；旧值为空视为延长到有期限）。
+     *
+     * <p>用于已结算任务的「重新进入待结算」判断。缩短或不改动不影响幂等，因此不需要处理。</p>
+     */
+    private static boolean isDeadlineExtended(LocalDate previous, LocalDate current) {
+        if (current == null) return false;
+        return previous == null || current.isAfter(previous);
     }
 
     /** 已发布任务的子任务可以增删；按 id 同步，删除会一并移除对应勾选记录（勾选记录先删，绕开外键）。 */
@@ -532,7 +586,10 @@ public class TaskService {
         }
         task.markClosed();
         tasks.save(task);
-        return toTaskView(task);
+        tasks.flush();
+        // 结束即到期：同步结算一次，不必等下一个调度周期。CLOSED 是终局（不能再审核或驳回）。
+        taskSettlementService.settle(taskId);
+        return toTaskView(requireTask(taskId));
     }
 
     @PreAuthorize("hasAuthority('TASK_MANAGE')")
@@ -622,6 +679,7 @@ public class TaskService {
         if (assignment.getStatus() == TaskAssignmentStatus.APPROVED) {
             throw new ApiException(HttpStatus.CONFLICT, "该任务对象已经通过");
         }
+        requireNotExpired(assignment);
         TaskEntity task = assignment.getTask();
         String comment = normalize(request.comment());
 
@@ -639,33 +697,15 @@ public class TaskService {
         if (!assignment.isReviewable()) {
             throw new ApiException(HttpStatus.CONFLICT, "该对象尚未提交完成说明，不能确认通过");
         }
+        // 审核通过只改状态：积分统一等到期结算，由 TaskSettlementService 发放。
         assignment.approve(operator, comment);
-        if (task.getPoints() > 0) {
-            PointService.TaskGrantResult result = pointService.grantForTask(
-                    authentication,
-                    task.getId(),
-                    assignment.getMemberProfile().getId(),
-                    task.getPoints(),
-                    task.getTitle(),
-                    LocalDate.now(LAB_TIME_ZONE),
-                    evidenceFor(assignment, request.evidenceUrl()),
-                    grantDescription(task, comment),
-                    "完成「" + task.getTitle() + "」并通过人工确认"
-            );
-            if (result.granted()) {
-                assignment.recordPointsGrant(result.grantId(), result.creditedPoints());
-            } else {
-                assignment.recordPointsSkipped(result.skippedReason());
-            }
-        }
         assignments.save(assignment);
-        String summary = task.getPoints() > 0 && assignment.getAwardedPoints() != null
-                ? "已确认通过，+" + assignment.getAwardedPoints() + " 积分"
-                : task.getPoints() > 0
-                        ? "已确认通过；本次未计分：" + assignment.getPointsSkippedReason()
-                        : "已确认通过";
         notifications.send(assignment.getMemberProfile().getAccount(), "TASK_APPROVED",
-                "任务已确认通过", task.getTitle() + "：" + summary, "/tasks/" + assignment.getId());
+                "任务已确认通过",
+                task.getTitle() + (task.getPoints() > 0
+                        ? "：已确认通过，" + task.getPoints() + " 积分将在任务到期后统一结算"
+                        : "：已确认通过"),
+                "/tasks/" + assignment.getId());
         return assignment;
     }
 
@@ -690,26 +730,6 @@ public class TaskService {
                 isOverdue(assignment, today),
                 subtaskViews(task, assignment)
         );
-    }
-
-    private String evidenceFor(TaskAssignmentEntity assignment, String provided) {
-        String normalized = normalize(provided);
-        return normalized != null ? normalized : "/tasks/" + assignment.getId();
-    }
-
-    private static String grantDescription(TaskEntity task, String comment) {
-        StringBuilder builder = new StringBuilder();
-        if (task.getStartDate() != null || task.getEndDate() != null) {
-            builder.append("任务周期：")
-                    .append(task.getStartDate() == null ? "未设置" : task.getStartDate())
-                    .append(" 至 ")
-                    .append(task.getEndDate() == null ? "未设置" : task.getEndDate());
-        }
-        if (comment != null) {
-            if (builder.length() > 0) builder.append("；");
-            builder.append("审核意见：").append(comment);
-        }
-        return builder.length() == 0 ? null : builder.toString();
     }
 
     // ---------- 管理端：列表、详情与完成情况 ----------
@@ -788,9 +808,14 @@ public class TaskService {
     public List<TaskModels.MyTaskView> myTasks(Authentication authentication) {
         MemberProfileEntity profile = requireOwnProfile(authService.requireAccount(authentication));
         LocalDate today = LocalDate.now(LAB_TIME_ZONE);
-        return assignments.findByMemberProfile_IdOrderByTask_CreatedAtDesc(profile.getId()).stream()
+        List<TaskAssignmentEntity> rows = assignments.findByMemberProfile_IdOrderByTask_CreatedAtDesc(profile.getId()).stream()
                 .filter(assignment -> assignment.getTask().getStatus() != TaskStatus.DRAFT)
-                .map(assignment -> toMyTaskView(assignment, today))
+                .toList();
+        Map<UUID, BountyPrizeFulfillmentEntity> fulfillmentByAssignment = prizeFulfillments
+                .findByAssignment_IdIn(rows.stream().map(TaskAssignmentEntity::getId).toList()).stream()
+                .collect(Collectors.toMap(item -> item.getAssignment().getId(), item -> item));
+        return rows.stream()
+                .map(assignment -> toMyTaskView(assignment, today, fulfillmentByAssignment.get(assignment.getId())))
                 .toList();
     }
 
@@ -800,7 +825,19 @@ public class TaskService {
         MemberProfileEntity profile = requireOwnProfile(authService.requireAccount(authentication));
         TaskAssignmentEntity assignment = assignments.findByIdAndMemberProfile_Id(assignmentId, profile.getId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "任务不存在"));
-        return toMyTaskDetail(assignment, LocalDate.now(LAB_TIME_ZONE));
+        return toMyTaskDetail(assignment, LocalDate.now(LAB_TIME_ZONE), prizeFulfillment(assignment));
+    }
+
+    @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")
+    @Transactional
+    public TaskModels.MyTaskDetailView confirmBountyPrizeReceived(Authentication authentication, UUID assignmentId) {
+        MemberProfileEntity profile = requireOwnProfile(authService.requireAccount(authentication));
+        TaskAssignmentEntity assignment = requireOwnAssignment(assignmentId, profile);
+        if (!assignment.getTask().isBounty()) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "悬赏任务不存在");
+        }
+        bountyService.confirmPrizeReceived(profile, assignmentId);
+        return toMyTaskDetail(assignment, LocalDate.now(LAB_TIME_ZONE), prizeFulfillment(assignment));
     }
 
     @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")
@@ -816,7 +853,8 @@ public class TaskService {
         requireStandardEditable(assignment);
         TaskSubtaskEntity subtask = requireSubtask(assignment.getTask(), subtaskId);
         assignment.submitSubtaskProgress(subtask, TaskContentSanitizer.cleanSubmissionContent(contentHtml));
-        return toMyTaskDetail(assignments.save(assignment), LocalDate.now(LAB_TIME_ZONE));
+        assignment = assignments.save(assignment);
+        return toMyTaskDetail(assignment, LocalDate.now(LAB_TIME_ZONE), prizeFulfillment(assignment));
     }
 
     @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")
@@ -824,9 +862,15 @@ public class TaskService {
     public TaskModels.MyTaskDetailView submitMyTask(Authentication authentication, UUID assignmentId, String note) {
         MemberProfileEntity profile = requireOwnProfile(authService.requireAccount(authentication));
         TaskAssignmentEntity assignment = requireOwnAssignment(assignmentId, profile);
+        if (assignment.getTask().isBounty()) {
+            // 悬赏是「提交即完成」：直接进入已通过并锁定完成名次，没有「待确认」环节；积分仍等到期结算。
+            TaskAssignmentEntity completed = bountyService.complete(assignment, note.trim());
+            return toMyTaskDetail(completed, LocalDate.now(LAB_TIME_ZONE), prizeFulfillment(completed));
+        }
         requireStandardEditable(assignment);
         assignment.submit(note.trim());
-        return toMyTaskDetail(assignments.save(assignment), LocalDate.now(LAB_TIME_ZONE));
+        assignment = assignments.save(assignment);
+        return toMyTaskDetail(assignment, LocalDate.now(LAB_TIME_ZONE), prizeFulfillment(assignment));
     }
 
     /** 成员打开某个子任务：返回该子任务的富文本正文、本人完成状态与大任务上下文。 */
@@ -916,16 +960,10 @@ public class TaskService {
         return rows;
     }
 
-    /** 成员侧是否还能改：普通任务需已发布且未通过；新手任务需仍在技能测试阶段且未通过。 */
+    /** 成员侧是否还能改：到期即冻结（见 {@link TaskTiming}），新手任务另需仍在技能测试阶段。 */
     private boolean isMemberEditable(TaskAssignmentEntity assignment) {
-        if (assignment.getStatus() == TaskAssignmentStatus.APPROVED) return false;
-        if (assignment.isOnboarding()) {
-            RecruitmentApplicationEntity application = assignment.getRecruitmentApplication();
-            return application != null
-                    && (application.getStage() == RecruitmentStage.SKILL_TEST
-                    || application.getStage() == RecruitmentStage.PROBATION);
-        }
-        return assignment.getTask().getStatus() == TaskStatus.PUBLISHED;
+        return TaskTiming.isMemberEditable(
+                assignment, LocalDate.now(LAB_TIME_ZONE), onboardingStageOpen(assignment));
     }
 
     private TaskAssignmentEntity requireOwnAssignment(UUID assignmentId, MemberProfileEntity profile) {
@@ -939,6 +977,9 @@ public class TaskService {
         }
         if (assignment.getTask().getStatus() != TaskStatus.PUBLISHED) {
             throw new ApiException(HttpStatus.CONFLICT, "任务已结束，不能再修改");
+        }
+        if (TaskTiming.isExpired(assignment, LocalDate.now(LAB_TIME_ZONE))) {
+            throw new ApiException(HttpStatus.CONFLICT, "任务已截止，不能再提交；如需继续请联系管理员延长截止日期");
         }
     }
 
@@ -962,7 +1003,7 @@ public class TaskService {
         return rules;
     }
 
-    private void validateRuleValue(TaskAudienceDimension dimension, String value) {
+    static void validateRuleValue(TaskAudienceDimension dimension, String value) {
         switch (dimension) {
             case ROLE -> {
                 if (!List.of(Role.TEACHER.name(), Role.CORE_STUDENT.name(), Role.MEMBER.name()).contains(value)) {
@@ -1035,9 +1076,15 @@ public class TaskService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "任务不存在"));
     }
 
+    /**
+     * 只接受普通任务。
+     *
+     * <p>新手任务与悬赏都必须在这里被挡住：否则悬赏会混进「按等级条件发放」的列表、预览与补充发放，
+     * 而悬赏的对象只能由成员自主接取产生。</p>
+     */
     private TaskEntity requireStandardTask(UUID taskId) {
         TaskEntity task = requireTask(taskId);
-        if (task.isOnboarding()) {
+        if (task.getTaskType() != TaskType.STANDARD) {
             throw new ApiException(HttpStatus.NOT_FOUND, "任务不存在");
         }
         return task;
@@ -1162,6 +1209,8 @@ public class TaskService {
                 task.getStatus(),
                 task.getPublishedAt(),
                 task.getAssignments().size(),
+                task.getPointsSettledAt(),
+                TaskTiming.isTaskExpired(task, LocalDate.now(LAB_TIME_ZONE)),
                 subtasks,
                 rules
         );
@@ -1193,7 +1242,9 @@ public class TaskService {
                 approved,
                 submitted,
                 pending,
-                rejected
+                rejected,
+                task.getPointsSettledAt(),
+                TaskTiming.isTaskExpired(task, LocalDate.now(LAB_TIME_ZONE))
         );
     }
 
@@ -1228,7 +1279,8 @@ public class TaskService {
         );
     }
 
-    private TaskModels.MyTaskView toMyTaskView(TaskAssignmentEntity assignment, LocalDate today) {
+    private TaskModels.MyTaskView toMyTaskView(TaskAssignmentEntity assignment, LocalDate today,
+            BountyPrizeFulfillmentEntity fulfillment) {
         TaskEntity task = assignment.getTask();
         return new TaskModels.MyTaskView(
                 assignment.getId(),
@@ -1244,11 +1296,23 @@ public class TaskService {
                 assignment.getAwardedPoints(),
                 assignment.getPointsSkippedReason(),
                 assignment.getReviewComment(),
-                isOverdue(assignment, today)
+                isOverdue(assignment, today),
+                TaskTiming.isExpired(assignment, today),
+                isMemberEditable(assignment),
+                task.isPointsSettled(),
+                task.getTaskType(),
+                task.getPrizeDescription(),
+                task.getPrizeSlots(),
+                assignment.getCompletionRank(),
+                assignment.isPrizeAwarded(),
+                fulfillment == null ? null : fulfillment.getStatus(),
+                fulfillment == null ? null : fulfillment.getIssuedAt(),
+                fulfillment == null ? null : fulfillment.getReceivedAt()
         );
     }
 
-    private TaskModels.MyTaskDetailView toMyTaskDetail(TaskAssignmentEntity assignment, LocalDate today) {
+    private TaskModels.MyTaskDetailView toMyTaskDetail(TaskAssignmentEntity assignment, LocalDate today,
+            BountyPrizeFulfillmentEntity fulfillment) {
         TaskEntity task = assignment.getTask();
         return new TaskModels.MyTaskDetailView(
                 assignment.getId(),
@@ -1266,7 +1330,24 @@ public class TaskService {
                 assignment.getAwardedPoints(),
                 assignment.getPointsSkippedReason(),
                 isOverdue(assignment, today),
+                TaskTiming.isExpired(assignment, today),
+                isMemberEditable(assignment),
+                task.isPointsSettled(),
+                task.getTaskType(),
+                task.getPrizeDescription(),
+                task.getPrizeSlots(),
+                assignment.getCompletionRank(),
+                assignment.isPrizeAwarded(),
+                fulfillment == null ? null : fulfillment.getStatus(),
+                fulfillment == null ? null : fulfillment.getIssuedAt(),
+                fulfillment == null ? null : fulfillment.getReceivedAt(),
                 subtaskViews(task, assignment)
         );
+    }
+
+    private BountyPrizeFulfillmentEntity prizeFulfillment(TaskAssignmentEntity assignment) {
+        return assignment.getTask().isBounty()
+                ? prizeFulfillments.findByAssignment_Id(assignment.getId()).orElse(null)
+                : null;
     }
 }
