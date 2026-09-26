@@ -85,9 +85,12 @@ public final class RecruitmentModels {
 
     public record InterviewResultPendingRequest(@NotNull Boolean pending) { }
 
-    public record ConvertMemberRequest(
+    public record QualificationRequest(
             @NotBlank(message = "请输入学号或内部编号") @Size(max = 64) String memberCode,
-            @NotEmpty(message = "正式成员至少需要一个能力标签") List<@NotBlank @Size(max = 80) String> skillTags,
+            @NotEmpty(message = "至少填写一个能力标签") @Size(max = 12) List<@NotBlank @Size(max = 80) String> skillTags
+    ) { }
+
+    public record ConvertMemberRequest(
             @Size(max = 500, message = "豁免理由不能超过 500 个字符") String exemptionReason
     ) {
     }
@@ -142,7 +145,9 @@ public final class RecruitmentModels {
             UUID convertedMemberId,
             Instant createdAt,
             Instant updatedAt,
-            List<HistoryView> history
+            List<HistoryView> history,
+            String memberCode,
+            List<String> skillTags
     ) {
     }
 

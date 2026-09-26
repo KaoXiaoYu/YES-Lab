@@ -216,15 +216,17 @@ class TaskSettlementApiTests {
         assertThat(memberPoints(memberToken)).isEqualTo(memberBefore + 21);
     }
 
-    /** 截止日期已过（但任务仍是 PUBLISHED）时，成员与管理员都被冻结；延长截止日期后恢复。 */
+    /** 截止日期已过时阻止成员新提交，但保留审核与迟到计分。 */
     @Test
-    void expiredStandardTaskFreezesEveryoneUntilDeadlineIsExtended() throws Exception {
+    void expiredStandardTaskBlocksMemberSubmissionButAllowsReviewAndLatePoints() throws Exception {
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
         String memberToken = login("member", "YesLab-Member-2026!");
+        int before = memberPoints(memberToken);
 
         String taskId = createTask(teacherToken, "到期冻结任务", 12, LocalDate.now().plusDays(7),
                 List.of(memberProfileId(teacherToken, "S-001")));
         String assignmentId = assignmentFor(teacherToken, taskId, "S-001");
+        submit(memberToken, assignmentId, "截止前提交的内容");
 
         setDeadline(teacherToken, taskId, "到期冻结任务", LocalDate.now().minusDays(1));
 
@@ -234,24 +236,16 @@ class TaskSettlementApiTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"completionNote\":\"到期后提交\"}"))
                 .andExpect(status().isConflict());
-        // 到期后管理员既不能通过、也不能驳回。
+        // 任务到期时对象仍待审，第一次结算不计分；后续迟到审核通过应幂等补发。
+        assertThat(settlementService.settle(UUID.fromString(taskId)).notApprovedCount()).isEqualTo(1);
+        // 到期后仍可审核截止前的提交，迟到通过应照常计分。
         mvc.perform(put("/api/v1/admin/tasks/{taskId}/assignments/{assignmentId}/review", taskId, assignmentId)
                         .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"decision\":\"APPROVED\"}"))
-                .andExpect(status().isConflict());
-        mvc.perform(put("/api/v1/admin/tasks/{taskId}/assignments/{assignmentId}/review", taskId, assignmentId)
-                        .header("Authorization", bearer(teacherToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"decision\":\"REJECTED\",\"comment\":\"不达标\"}"))
-                .andExpect(status().isConflict());
-
-        // 延长截止日期（补救动作）之后恢复可提交、可审核，并可正常结算。
-        setDeadline(teacherToken, taskId, "到期冻结任务", LocalDate.now().plusDays(7));
-        submit(memberToken, assignmentId, "延长后完成");
-        review(teacherToken, taskId, assignmentId, "APPROVED");
-        setDeadline(teacherToken, taskId, "到期冻结任务", LocalDate.now().minusDays(1));
-        assertThat(settlementService.settle(UUID.fromString(taskId)).grantedCount()).isEqualTo(1);
+                .andExpect(status().isOk());
+        assertThat(memberPoints(memberToken)).isEqualTo(before + 12);
+        assertThat(settlementService.settle(UUID.fromString(taskId)).grantedCount()).isZero();
     }
 
     /** 不设截止日期 = 永不到期：不会结算，成员随时可以提交。 */

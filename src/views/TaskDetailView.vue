@@ -34,7 +34,7 @@ const statusLabel = computed(() => {
     ? bountyStatusLabels[task.value.status] || task.value.status
     : statusLabels[task.value.status] || task.value.status
 })
-// 可写性由后端裁定（到期即冻结是业务规则，前端不重复实现），避免界面能点、接口却返回 409。
+// 可写性由后端裁定（截止与个人补交窗口规则不在前端复制），避免界面能点、接口却返回 409。
 const readOnly = computed(() => !task.value || !task.value.editable)
 const readOnlyReason = computed(() => {
   if (!task.value) return ''
@@ -48,10 +48,10 @@ const readOnlyReason = computed(() => {
       return '任务已被管理员结束，不能再提交。'
     }
     if (task.value.status === 'SUBMITTED') {
-      // 到期即结算、结算只认已通过的：这次提交未被及时审核，不会计分。必须讲清楚，否则成员会一直等。
-      return task.value.points > 0
-        ? '任务已截止，你的提交未能在截止前完成审核，本次不会获得积分；如确需补救，请联系管理员延长截止日期。'
-        : '任务已截止，你的提交未能在截止前完成审核；如确需继续，请联系管理员延长截止日期。'
+      return '任务已截止，不能再修改提交；管理员仍可审核这份内容，截止后通过也会按规则计入积分。'
+    }
+    if (task.value.status === 'REJECTED' && task.value.resubmissionDeadlineAt) {
+      return `已超过本次驳回后的 24 小时补交期限（${new Date(task.value.resubmissionDeadlineAt).toLocaleString('zh-CN')}），如需继续请联系管理员。`
     }
     return '任务已截止，不能再提交；如确需继续，请联系管理员延长截止日期。'
   }
@@ -237,7 +237,10 @@ async function confirmPrizeReceived() {
               required
             ></textarea>
             <small v-if="isBounty">悬赏是「提交即完成」：提交后立即锁定完成名次，管理员只做事后复核。</small>
-            <small v-else>提交后管理员会人工确认；驳回时可以修改说明并重新提交。积分在任务到期后统一结算。</small>
+            <small v-else
+              >提交后管理员会人工确认；驳回后从打回时起有 24
+              小时补交。截止后管理员仍可审核，截止后通过也会计入积分。</small
+            >
           </label>
           <button class="portal-primary" type="submit" :disabled="working || !note.trim()">
             {{

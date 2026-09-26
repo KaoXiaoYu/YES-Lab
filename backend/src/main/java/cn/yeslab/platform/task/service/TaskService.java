@@ -142,7 +142,11 @@ public class TaskService {
         AccountEntity account = authService.requireAccount(authentication);
         TaskAssignmentEntity assignment = requireOwnAssignment(account);
         requireEditable(assignment);
+        RecruitmentApplicationEntity application = assignment.getRecruitmentApplication();
         requireAllSubtasksCompleted(assignment);
+        if (application == null || application.getMemberCode() == null || application.getSkillTags().isEmpty()) {
+            throw new ApiException(HttpStatus.CONFLICT, "请先在“我的报名”填写学号/内部编号和能力标签");
+        }
         assignment.submit(completionNote.trim());
         return toOnboardingView(assignments.save(assignment));
     }
@@ -196,8 +200,9 @@ public class TaskService {
                 missing++;
                 rows.add(new TaskModels.OnboardingRowView(
                         null, null, application.getId(), application.getName(), application.getApplicant().getUsername(),
-                        application.getStage(), null, 0, 0, null, null, null, null, null, null, null,
-                        null, null, false, null, null, null));
+                        application.getMemberCode(), application.getSkillTags(), application.getStage(), null,
+                        0, 0, null, null, null, null, null, null, null,
+                        null, null, false, null, null, null, null));
                 continue;
             }
             rows.add(toOnboardingRow(assignment));
@@ -255,7 +260,7 @@ public class TaskService {
         if (assignment.getStatus() == TaskAssignmentStatus.APPROVED) {
             throw new ApiException(HttpStatus.CONFLICT, "该新手任务已经通过");
         }
-        requireNotExpired(assignment);
+        requireTaskNotClosed(assignment);
         String comment = normalize(request.comment());
         String exemptionReason = normalize(request.exemptionReason());
 
@@ -263,10 +268,10 @@ public class TaskService {
             if (comment == null) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "驳回必须填写审核意见");
             }
-            assignment.reject(operator, comment);
+            assignment.reject(operator, comment, java.time.Instant.now());
             TaskAssignmentEntity saved = assignments.save(assignment);
             notifyApplicant(saved, "TASK_REJECTED", "新手任务需要补充",
-                    comment, "/application");
+                    comment + "（从打回时起有 24 小时补交时间）", "/application");
             return saved;
         }
 
@@ -278,15 +283,6 @@ public class TaskService {
             // 转正门槛：大任务下的子任务必须全部勾选，豁免路径不受此限制。
             requireAllSubtasksCompleted(assignment);
         }
-        String memberCode = normalize(request.memberCode());
-        List<String> skillTags = request.skillTags() == null ? List.of() : request.skillTags().stream()
-                .map(String::trim).filter(value -> !value.isBlank()).distinct().toList();
-        if (memberCode == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "转为正式成员需要填写学号或内部编号");
-        }
-        if (skillTags.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "转为正式成员至少需要一个能力标签");
-        }
         assignment.approve(operator, comment == null ? "新手任务审核通过" : comment);
         assignments.save(assignment);
 
@@ -295,7 +291,7 @@ public class TaskService {
             throw new ApiException(HttpStatus.CONFLICT, "新手任务没有关联的报名记录");
         }
         recruitmentService.convertApplicantToMember(
-                application, memberCode, skillTags, operator, exemptionReason,
+                application, operator, exemptionReason,
                 "新手任务审核通过，通过技能测试直接转为正式成员");
 
         assignments.flush();
@@ -322,14 +318,10 @@ public class TaskService {
 
     // ---------- 视图 ----------
 
-    /**
-     * 到期即冻结管理侧结论：到期后既不能审核通过、也不能驳回。
-     * 冻结与结算同时发生在到期时点，因此这也是「结算后不能驳回」的落地口径。
-     */
-    private void requireNotExpired(TaskAssignmentEntity assignment) {
-        if (TaskTiming.isExpired(assignment, LocalDate.now(LAB_TIME_ZONE))) {
-            throw new ApiException(HttpStatus.CONFLICT,
-                    "任务已截止，不能再审核或驳回；如需继续请联系管理员延长截止日期");
+    /** 截止日后仍可审核待审对象；管理员手动结束任务则仍是终态。 */
+    private void requireTaskNotClosed(TaskAssignmentEntity assignment) {
+        if (assignment.getTask().getStatus() == TaskStatus.CLOSED) {
+            throw new ApiException(HttpStatus.CONFLICT, "任务已被管理员结束，不能再审核或驳回");
         }
     }
 
@@ -353,6 +345,7 @@ public class TaskService {
                 task.getContentHtml(),
                 assignment.issuedOn(),
                 dueDate,
+                assignment.getResubmissionDeadlineAt(),
                 daysRemaining(dueDate, today),
                 isOverdue(assignment, today),
                 assignment.getStatus(),
@@ -364,6 +357,7 @@ public class TaskService {
                 assignment.submittedSubtaskCount(),
                 task.getSubtasks().size(),
                 assignment.hasSubmittedAllSubtasks(),
+                TaskTiming.isMemberEditable(assignment, today, true),
                 subtaskViews(task, assignment)
         );
     }
@@ -381,6 +375,8 @@ public class TaskService {
                 application == null ? null : application.getId(),
                 application == null ? null : application.getName(),
                 application == null ? null : application.getApplicant().getUsername(),
+                application == null ? null : application.getMemberCode(),
+                application == null ? List.of() : application.getSkillTags(),
                 application == null ? null : application.getStage(),
                 assignment.getStatus(),
                 assignment.submittedSubtaskCount(),
@@ -395,6 +391,7 @@ public class TaskService {
                 assignment.issuedOn(),
                 dueDate,
                 isOverdue(assignment, today),
+                assignment.getResubmissionDeadlineAt(),
                 assignment.getDueDateExtendedAt(),
                 extender == null ? null : extender.getUsername(),
                 assignment.getDueDateExtensionReason()
@@ -679,7 +676,7 @@ public class TaskService {
         if (assignment.getStatus() == TaskAssignmentStatus.APPROVED) {
             throw new ApiException(HttpStatus.CONFLICT, "该任务对象已经通过");
         }
-        requireNotExpired(assignment);
+        requireTaskNotClosed(assignment);
         TaskEntity task = assignment.getTask();
         String comment = normalize(request.comment());
 
@@ -687,23 +684,30 @@ public class TaskService {
             if (comment == null) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "驳回必须填写审核意见");
             }
-            assignment.reject(operator, comment);
+            assignment.reject(operator, comment, java.time.Instant.now());
             assignments.save(assignment);
             notifications.send(assignment.getMemberProfile().getAccount(), "TASK_REJECTED",
-                    "任务需要补充", task.getTitle() + "：" + comment, "/tasks/" + assignment.getId());
+                    "任务需要补充", task.getTitle() + "：" + comment + "（从打回时起有 24 小时补交时间）",
+                    "/tasks/" + assignment.getId());
             return assignment;
         }
 
         if (!assignment.isReviewable()) {
             throw new ApiException(HttpStatus.CONFLICT, "该对象尚未提交完成说明，不能确认通过");
         }
-        // 审核通过只改状态：积分统一等到期结算，由 TaskSettlementService 发放。
+        boolean lateApproval = TaskTiming.isExpired(assignment, LocalDate.now(LAB_TIME_ZONE));
         assignment.approve(operator, comment);
         assignments.save(assignment);
+        if (lateApproval && task.getPoints() > 0) {
+            taskSettlementService.settleLateApproval(task.getId(), assignment.getId());
+            assignment = assignments.findWithMemberAndTaskById(assignment.getId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "任务对象不存在"));
+        }
         notifications.send(assignment.getMemberProfile().getAccount(), "TASK_APPROVED",
                 "任务已确认通过",
                 task.getTitle() + (task.getPoints() > 0
-                        ? "：已确认通过，" + task.getPoints() + " 积分将在任务到期后统一结算"
+                        ? lateApproval ? "：截止后审核通过，积分已计入或记录了跳过原因"
+                                : "：已确认通过，" + task.getPoints() + " 积分将在任务到期后统一结算"
                         : "：已确认通过"),
                 "/tasks/" + assignment.getId());
         return assignment;
@@ -728,6 +732,7 @@ public class TaskService {
                 dueDateOf(assignment),
                 daysRemaining(dueDateOf(assignment), today),
                 isOverdue(assignment, today),
+                assignment.getResubmissionDeadlineAt(),
                 subtaskViews(task, assignment)
         );
     }
@@ -1299,6 +1304,7 @@ public class TaskService {
                 isOverdue(assignment, today),
                 TaskTiming.isExpired(assignment, today),
                 isMemberEditable(assignment),
+                assignment.getResubmissionDeadlineAt(),
                 task.isPointsSettled(),
                 task.getTaskType(),
                 task.getPrizeDescription(),
@@ -1332,6 +1338,7 @@ public class TaskService {
                 isOverdue(assignment, today),
                 TaskTiming.isExpired(assignment, today),
                 isMemberEditable(assignment),
+                assignment.getResubmissionDeadlineAt(),
                 task.isPointsSettled(),
                 task.getTaskType(),
                 task.getPrizeDescription(),

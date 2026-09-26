@@ -288,7 +288,7 @@ async function runAction(action, task, confirmText) {
         <label>开始日期<input v-model="form.startDate" type="date" /></label>
         <label
           >截止日期<input v-model="form.endDate" type="date" />
-          <small>到期后成员不能再提交、管理员也不能再审核或驳回，并触发积分结算；留空表示不设截止。</small></label
+          <small>到期后成员不能再提交；管理员仍可审核已提交内容。截止时触发积分结算；留空表示不设截止。</small></label
         >
         <label
           >每个通过对象可得积分
@@ -380,9 +380,12 @@ async function runAction(action, task, confirmText) {
         <p v-if="task.points > 0" class="task-card-settle">
           {{ task.pointsSettledAt ? `积分已结算（${task.pointsSettledAt.slice(0, 10)}）` : '积分待结算' }}
         </p>
-        <p v-if="task.expired" class="task-skip">任务已截止：不能再审核或驳回。</p>
+        <p v-if="task.status === 'CLOSED'" class="task-skip">
+          任务已由管理员结束：成员不能再提交，管理员也不能再审核或驳回。
+        </p>
+        <p v-else-if="task.expired" class="task-skip">任务已截止：成员不能再提交，管理员仍可审核已提交内容。</p>
         <p v-else-if="task.submittedCount > 0" class="task-skip">
-          还有 {{ task.submittedCount }} 人待审核，到期后将无法审核。
+          还有 {{ task.submittedCount }} 人待审核；截止后仍可审核，驳回后本人有 24 小时补交。
         </p>
         <div class="task-card-actions">
           <button type="button" :disabled="working" @click="openEdit(task)">
@@ -404,7 +407,7 @@ async function runAction(action, task, confirmText) {
               runAction(
                 closeTask,
                 task,
-                `确认结束「${task.title}」？结束后到期即结算，成员不能再提交、管理员也不能再审核或驳回，且不可撤销。`,
+                `确认结束「${task.title}」？结束后成员不能再提交，管理员也不能再审核或驳回，且不可撤销。`,
               )
             "
           >

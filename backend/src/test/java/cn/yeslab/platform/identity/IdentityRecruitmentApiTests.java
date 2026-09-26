@@ -138,6 +138,13 @@ class IdentityRecruitmentApiTests {
         String assignmentId = JsonPath.read(onboardingResponse, "$.data.assignmentId");
         String onboardingTaskId = JsonPath.read(onboardingResponse, "$.data.taskId");
 
+        mvc.perform(put("/api/v1/recruitment/me/qualification")
+                        .header("Authorization", bearer(visitorToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memberCode\":\"S-FLOW-001\",\"skillTags\":[\"无人机系统\",\"工程实现\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memberCode").value("S-FLOW-001"));
+
         // 转正门槛：必须先为全部子任务提交内容，提交才会被接受。
         for (String subtaskId : JsonPath.<List<String>>read(onboardingResponse, "$.data.subtasks[*].id")) {
             mvc.perform(post("/api/v1/recruitment/me/onboarding-task/subtasks/{id}/submission", subtaskId)
@@ -157,10 +164,7 @@ class IdentityRecruitmentApiTests {
                         onboardingTaskId, assignmentId)
                         .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"decision":"APPROVED","comment":"新手任务完成，同意转正",
-                                 "memberCode":"S-FLOW-001","skillTags":["无人机系统","工程实现"]}
-                                """))
+                        .content("{\"decision\":\"APPROVED\",\"comment\":\"新手任务完成，同意转正\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("APPROVED"))
                 .andExpect(jsonPath("$.data.convertedProfileId").isNotEmpty());
@@ -394,9 +398,7 @@ class IdentityRecruitmentApiTests {
         mvc.perform(post("/api/v1/admin/recruitment/applications/{id}/convert", applicant.applicationId())
                         .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"memberCode":"S-RETIRED-001","skillTags":["无人机系统"]}
-                                """))
+                        .content("{}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("只有技能测试阶段的人员可以转为正式成员"));
 

@@ -265,6 +265,10 @@ export function saveOwnApplication(payload) {
   return apiRequest('/api/v1/recruitment/me', { method: 'PUT', body: payload })
 }
 
+export function saveOwnQualification(payload) {
+  return apiRequest('/api/v1/recruitment/me/qualification', { method: 'PUT', body: payload })
+}
+
 export function uploadRecruitmentPortfolioImages(images) {
   const form = new FormData()
   images.forEach((image) => form.append('images', image))

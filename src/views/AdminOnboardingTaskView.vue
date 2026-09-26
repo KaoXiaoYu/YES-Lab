@@ -36,7 +36,7 @@ const task = reactive({
   durationDays: 7,
   subtasks: [],
 })
-const review = reactive({ decision: 'APPROVED', comment: '', memberCode: '', skillTagsText: '', exemptionReason: '' })
+const review = reactive({ decision: 'APPROVED', comment: '', exemptionReason: '' })
 
 const statusLabels = {
   PENDING: '待完成',
@@ -146,8 +146,6 @@ function openReview(row) {
   activeAssignmentId.value = row.assignmentId
   review.decision = 'APPROVED'
   review.comment = ''
-  review.memberCode = ''
-  review.skillTagsText = ''
   review.exemptionReason = ''
 }
 
@@ -187,17 +185,14 @@ async function submitReview(row) {
   try {
     const payload = { decision: review.decision, comment: review.comment || null }
     if (review.decision === 'APPROVED') {
-      payload.memberCode = review.memberCode.trim()
-      payload.skillTags = review.skillTagsText
-        .split(/[、,，]/)
-        .map((item) => item.trim())
-        .filter(Boolean)
       payload.exemptionReason = review.exemptionReason || null
     }
     await reviewTaskAssignment(row.taskId, row.assignmentId, payload)
     activeAssignmentId.value = ''
     successMessage.value =
-      review.decision === 'APPROVED' ? `${row.applicantName} 已转为正式成员。` : '已驳回，报名者可修改后重新提交。'
+      review.decision === 'APPROVED'
+        ? `${row.applicantName} 已转为正式成员。`
+        : '已驳回，报名者从打回时起有 24 小时修改并重新提交。'
     await load()
   } catch (error) {
     errorMessage.value = error.message
@@ -299,9 +294,22 @@ async function submitReview(row) {
               <span v-if="row.startDate || row.endDate">
                 · {{ row.startDate || '未设置' }} — {{ row.endDate || '未设置' }}</span
               >
-              <span v-if="row.overdue" class="overdue">已逾期，无法审核</span>
+              <span v-if="row.overdue" class="overdue">已过提交截止，仍可审核</span>
             </span>
           </div>
+          <p v-if="row.resubmissionDeadlineAt && row.status === 'REJECTED'" class="task-row-note" role="status">
+            报名者本次补交截止：{{ new Date(row.resubmissionDeadlineAt).toLocaleString('zh-CN') }}
+          </p>
+          <dl class="qualification-readonly">
+            <div>
+              <dt>学号 / 内部编号</dt>
+              <dd>{{ row.memberCode || '报名者尚未填写' }}</dd>
+            </div>
+            <div>
+              <dt>能力标签</dt>
+              <dd>{{ row.skillTags?.join('、') || '报名者尚未填写' }}</dd>
+            </div>
+          </dl>
           <p v-if="row.dueDateExtendedAt" class="task-row-note">
             最近一次延长：{{ row.dueDateExtendedBy }} 于 {{ row.dueDateExtendedAt.slice(0, 10) }} 延长至 {{ row.endDate
             }}<template v-if="row.dueDateExtensionReason"> · 理由：{{ row.dueDateExtensionReason }}</template>
@@ -314,8 +322,7 @@ async function submitReview(row) {
             <button
               v-if="row.assignmentId && row.status !== 'APPROVED'"
               type="button"
-              :disabled="working || row.overdue"
-              :title="row.overdue ? '已逾期，无法审核；请先延长截止日期' : ''"
+              :disabled="working"
               @click="openReview(row)"
             >
               <CheckCheck :size="15" aria-hidden="true" />审核
@@ -372,11 +379,19 @@ async function submitReview(row) {
             <label class="full">审核意见<input v-model.trim="review.comment" maxlength="1000" /></label>
             <template v-if="review.decision === 'APPROVED'">
               <p class="task-locked-note" role="status">
-                通过后将直接转为正式成员（不再经过试用期），需要同时填写学号/内部编号与能力标签；该报名者必须已提交全部
+                通过后将直接转为正式成员（不再经过试用期）。学号/内部编号与能力标签由报名者本人填写，此处仅供查看；该报名者必须已提交全部
                 {{ sharedTask.subtasks.length }} 项子任务，否则会被拒绝。
               </p>
-              <label>学号 / 内部编号<input v-model.trim="review.memberCode" maxlength="64" required /></label>
-              <label>能力标签（至少一项，用、分隔）<input v-model.trim="review.skillTagsText" required /></label>
+              <dl class="qualification-readonly">
+                <div>
+                  <dt>学号 / 内部编号</dt>
+                  <dd>{{ row.memberCode || '报名者尚未填写' }}</dd>
+                </div>
+                <div>
+                  <dt>能力标签</dt>
+                  <dd>{{ row.skillTags?.join('、') || '报名者尚未填写' }}</dd>
+                </div>
+              </dl>
               <label class="full"
                 >豁免理由（可选）<input
                   v-model.trim="review.exemptionReason"
@@ -384,7 +399,7 @@ async function submitReview(row) {
                   placeholder="仅在确认免修时填写"
               /></label>
             </template>
-            <p v-else class="task-skip">驳回必须填写审核意见。</p>
+            <p v-else class="task-skip">驳回必须填写审核意见；报名者从打回时起有 24 小时补交时间。</p>
             <div class="task-form-actions">
               <button
                 class="portal-primary"
@@ -392,7 +407,7 @@ async function submitReview(row) {
                 :disabled="
                   working ||
                   (review.decision === 'REJECTED' && !review.comment) ||
-                  (review.decision === 'APPROVED' && (!review.memberCode || !review.skillTagsText))
+                  (review.decision === 'APPROVED' && (!row.memberCode || !row.skillTags?.length))
                 "
               >
                 {{ working ? '提交中…' : '提交审核结果' }}

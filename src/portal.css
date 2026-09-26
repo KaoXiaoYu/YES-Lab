@@ -2198,6 +2198,116 @@ textarea {
 .application-card {
   padding: 32px;
 }
+.qualification-card {
+  margin-bottom: 20px;
+  padding: 24px 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+.qualification-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.qualification-card > header p {
+  margin: 0 0 4px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.qualification-card > header h2 {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: 22px;
+}
+.qualification-card > header > span {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+.qualification-card > p {
+  max-width: 72ch;
+  margin: 0 0 16px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+.qualification-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+.qualification-form label {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  color: var(--color-text-strong);
+  font-size: 13px;
+  font-weight: 650;
+}
+.qualification-form input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text-strong);
+  font-size: 15px;
+}
+.qualification-form input:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-primary) 28%, transparent);
+  outline-offset: 2px;
+}
+.qualification-form small {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.qualification-form .save-message,
+.qualification-form .portal-state,
+.qualification-form button {
+  grid-column: 1 / -1;
+}
+.qualification-form button {
+  justify-self: start;
+  min-height: 44px;
+}
+.qualification-readonly {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  margin: 12px 0;
+}
+.qualification-readonly > div {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-soft);
+}
+.qualification-readonly dt {
+  margin-bottom: 4px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.qualification-readonly dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--color-text-strong);
+  font-size: 14px;
+  font-weight: 650;
+}
 .application-fields fieldset,
 .admin-form-grid fieldset {
   margin: 0;
@@ -6031,17 +6141,25 @@ body.submission-feedback-open {
     grid-template-columns: 1fr;
   }
   .profile-edit-card,
-  .application-card {
+  .application-card,
+  .qualification-card {
     padding: 24px 18px;
   }
   .profile-edit-card > header,
   .application-card > header,
+  .qualification-card > header,
   .profile-showcase-editor > header {
     align-items: flex-start;
     flex-direction: column;
   }
   .avatar-editor,
   .managed-avatar-editor {
+    grid-template-columns: 1fr;
+  }
+  .qualification-form {
+    grid-template-columns: 1fr;
+  }
+  .qualification-readonly {
     grid-template-columns: 1fr;
   }
   .avatar-editor-preview {

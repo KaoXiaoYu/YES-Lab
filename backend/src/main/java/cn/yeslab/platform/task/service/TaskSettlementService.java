@@ -154,6 +154,53 @@ public class TaskSettlementService {
         return TaskSettlementSummary.settled(taskId, granted, reused, skipped, notApproved, settledAt);
     }
 
+    /**
+     * 处理截止后才通过的普通任务对象：先触发/复用任务级结算，再对结算时尚未通过的对象补发。
+     * 共享同一来源编号，因此和调度器竞态时不会重复计分。
+     */
+    @Transactional
+    public void settleLateApproval(UUID taskId, UUID assignmentId) {
+        TaskEntity task = tasks.findById(taskId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "任务不存在"));
+        if (task.getTaskType() != TaskType.STANDARD || task.getPoints() <= 0) return;
+
+        TaskAssignmentEntity approved = assignments.findById(assignmentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "任务对象不存在"));
+        UUID memberProfileId = approved.getMemberProfile() == null
+                ? null : approved.getMemberProfile().getId();
+
+        settle(taskId);
+        TaskAssignmentEntity assignment = assignments.findById(assignmentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "任务对象不存在"));
+        if (!assignment.getTask().getId().equals(taskId)
+                || assignment.getStatus() != TaskAssignmentStatus.APPROVED
+                || memberProfileId == null
+                || assignment.getPointGrantId() != null
+                || assignment.getPointsSkippedReason() != null) {
+            return;
+        }
+
+        PointService.TaskGrantResult result = pointService.grantForTaskSettlement(
+                taskId,
+                memberProfileId,
+                task.getPoints(),
+                task.getCreatedBy(),
+                STANDARD_SOURCE_PREFIX,
+                task.getTitle(),
+                LocalDate.now(LAB_TIME_ZONE),
+                "/tasks/" + assignment.getId(),
+                settlementDescription(task),
+                "完成「" + task.getTitle() + "」并在截止后通过人工确认"
+        );
+        if (result.granted()) {
+            assignment.recordPointsGrant(result.grantId(), result.creditedPoints());
+            assignments.save(assignment);
+        } else if (result.skippedReason() != null) {
+            assignment.recordPointsSkipped(result.skippedReason());
+            assignments.save(assignment);
+        }
+    }
+
     private static String settlementDescription(TaskEntity task) {
         StringBuilder builder = new StringBuilder(task.getTitle()).append(" 到期结算");
         if (task.getStartDate() != null || task.getEndDate() != null) {

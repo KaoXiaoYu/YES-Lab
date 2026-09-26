@@ -1,6 +1,7 @@
 package cn.yeslab.platform.task.model;
 
 import java.time.LocalDate;
+import java.time.Instant;
 
 /**
  * 任务的有效截止时间与「到期」判定，三类任务共用一条代码路径。
@@ -10,8 +11,8 @@ import java.time.LocalDate;
  * 普通任务与悬赏用<b>任务级</b>的 {@code end_date}。这正是不能只写任务级判定、
  * 也不能只写对象级判定的原因。</p>
  *
- * <p>到期是<b>硬边界</b>：到期后成员不能再提交，管理员不能再审核通过或驳回，
- * 并由结算服务统一发放积分（见 {@code docs/task-settlement-design.md}）。
+     * <p>基准截止时间限制成员提交。新手/普通对象被驳回后，个人重交截止精确重置为驳回时刻后 24 小时；
+     * 悬赏仍按原有硬截止冻结接取与管理结论。普通任务积分由结算服务发放（见 {@code docs/task-settlement-design.md}）。
  * 到期的两种情形是「截止时间已过」与「任务被结束为 {@link TaskStatus#CLOSED}」；
  * 截止时间为 {@code null} 表示不限、永不到期。</p>
  */
@@ -39,6 +40,11 @@ public final class TaskTiming {
     public static boolean isExpired(TaskAssignmentEntity assignment, LocalDate today) {
         if (assignment.getTask().getStatus() == TaskStatus.CLOSED) {
             return true;
+        }
+        if (!assignment.getTask().isBounty()
+                && assignment.getStatus() == TaskAssignmentStatus.REJECTED
+                && assignment.getResubmissionDeadlineAt() != null) {
+            return !Instant.now().isBefore(assignment.getResubmissionDeadlineAt());
         }
         LocalDate deadline = deadlineOf(assignment);
         return deadline != null && deadline.isBefore(today);

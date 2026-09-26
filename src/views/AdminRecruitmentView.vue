@@ -45,7 +45,7 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const query = ref('')
 const stageFilter = ref('ALL')
-const convertForm = reactive({ memberCode: '', skillTags: '', exemptionReason: '' })
+const convertForm = reactive({ exemptionReason: '' })
 const decisionForm = reactive({ interviewerNames: '', score: '', evaluation: '', suggestedTags: '', opinion: '' })
 const passwordWorking = ref(false)
 
@@ -91,10 +91,7 @@ function selectApplication(application) {
   selected.value = application || null
   successMessage.value = ''
   errorMessage.value = ''
-  convertForm.memberCode = ''
   convertForm.exemptionReason = ''
-  convertForm.skillTags =
-    application?.interview?.suggestedTags?.join('、') || application?.intendedTags?.join('、') || ''
   decisionForm.interviewerNames = application?.interview?.decisionInterviewerNames?.join('、') || ''
   decisionForm.score = application?.interview?.score ?? ''
   decisionForm.evaluation = application?.interview?.evaluation || ''
@@ -268,8 +265,6 @@ async function convertMember() {
   const succeeded = await runAction(
     () =>
       convertRecruitmentToMember(selected.value.id, {
-        memberCode: convertForm.memberCode.trim(),
-        skillTags: splitTags(convertForm.skillTags),
         exemptionReason: convertForm.exemptionReason.trim() || null,
       }),
     '',
@@ -706,10 +701,18 @@ function splitTags(value) {
             <RouterLink to="/admin/tasks/onboarding">任务管理 · 新手任务</RouterLink>
             中处理；此处用于在没有新手任务或需要豁免时手动转正。
           </p>
+          <dl class="qualification-readonly">
+            <div>
+              <dt>学号 / 内部编号</dt>
+              <dd>{{ selected.memberCode || '报名者尚未填写' }}</dd>
+            </div>
+            <div>
+              <dt>能力标签</dt>
+              <dd>{{ selected.skillTags?.join('、') || '报名者尚未填写' }}</dd>
+            </div>
+          </dl>
           <div class="admin-form-grid">
-            <label>学号 / 内部编号<input v-model.trim="convertForm.memberCode" required /></label
-            ><label>能力标签（至少一项）<input v-model="convertForm.skillTags" required /></label
-            ><label class="full"
+            <label class="full"
               >豁免理由（可选）
               <input
                 v-model.trim="convertForm.exemptionReason"
@@ -721,7 +724,7 @@ function splitTags(value) {
           <button
             class="portal-primary"
             type="button"
-            :disabled="working || !convertForm.memberCode || !splitTags(convertForm.skillTags).length"
+            :disabled="working || !selected.memberCode || !selected.skillTags?.length"
             @click="convertMember"
           >
             <UserPlus :size="18" aria-hidden="true" />确认转为正式成员

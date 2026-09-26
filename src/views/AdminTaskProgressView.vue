@@ -23,7 +23,7 @@ const submissionsAssignmentId = ref('')
 function toggleSubmissions(assignmentId) {
   submissionsAssignmentId.value = submissionsAssignmentId.value === assignmentId ? '' : assignmentId
 }
-const review = reactive({ decision: 'APPROVED', comment: '', memberCode: '', skillTagsText: '' })
+const review = reactive({ decision: 'APPROVED', comment: '' })
 const supplementTags = ref('')
 
 const statusLabels = {
@@ -53,8 +53,6 @@ function openReview(assignmentId) {
   activeAssignmentId.value = assignmentId
   review.decision = 'APPROVED'
   review.comment = ''
-  review.memberCode = ''
-  review.skillTagsText = ''
 }
 
 async function submitReview() {
@@ -166,13 +164,14 @@ async function removeAssignment(row) {
             <dd>{{ task.pointsSettledAt ? `已结算 ${task.pointsSettledAt.slice(0, 10)}` : '待结算' }}</dd>
           </div>
         </dl>
-        <p v-if="task.expired" class="task-skip" role="status">
-          任务已截止：不能再审核或驳回{{
-            task.pointsSettledAt ? '，积分已结算' : ''
-          }}。如仍需处理，请先延长截止日期（已结算的任务会重新进入待结算）。
+        <p v-if="task.status === 'CLOSED'" class="task-skip" role="status">
+          任务已由管理员结束，不能再提交、审核或驳回。
+        </p>
+        <p v-else-if="task.expired && progress.submittedCount > 0" class="task-skip" role="status">
+          任务已截止，成员不能再提交；已提交内容仍可审核，截止后通过的对象也会按规则计入积分。
         </p>
         <p v-else-if="progress.submittedCount > 0" class="task-skip" role="status">
-          还有 {{ progress.submittedCount }} 人待审核：到期后将无法审核或驳回，请在此之前完成。
+          还有 {{ progress.submittedCount }} 人待审核；截止后仍可继续审核，驳回后本人有 24 小时补交。
         </p>
       </section>
 
@@ -232,8 +231,8 @@ async function removeAssignment(row) {
             <button
               v-if="row.status === 'SUBMITTED'"
               type="button"
-              :disabled="working || task.expired"
-              :title="task.expired ? '任务已截止，不能再审核或驳回' : ''"
+              :disabled="working || task.status === 'CLOSED'"
+              :title="task.status === 'CLOSED' ? '任务已由管理员结束，不能再审核或驳回' : ''"
               @click="openReview(row.assignmentId)"
             >
               <CheckCheck :size="15" aria-hidden="true" />人工审核

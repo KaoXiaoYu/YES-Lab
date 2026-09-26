@@ -82,6 +82,7 @@ public final class TaskModels {
             String contentHtml,
             LocalDate startDate,
             LocalDate endDate,
+            Instant resubmissionDeadlineAt,
             long daysRemaining,
             boolean overdue,
             TaskAssignmentStatus status,
@@ -93,6 +94,7 @@ public final class TaskModels {
             int submittedSubtasks,
             int totalSubtasks,
             boolean allSubtasksSubmitted,
+            boolean editable,
             List<SubtaskView> subtasks
     ) {
     }
@@ -190,6 +192,8 @@ public final class TaskModels {
             UUID applicationId,
             String applicantName,
             String applicantUsername,
+            String memberCode,
+            List<String> skillTags,
             RecruitmentStage stage,
             TaskAssignmentStatus status,
             int submittedSubtasks,
@@ -204,6 +208,7 @@ public final class TaskModels {
             LocalDate startDate,
             LocalDate endDate,
             boolean overdue,
+            Instant resubmissionDeadlineAt,
             Instant dueDateExtendedAt,
             String dueDateExtendedBy,
             String dueDateExtensionReason
@@ -215,8 +220,6 @@ public final class TaskModels {
     public record ReviewRequest(
             @NotNull(message = "请选择审核结论") ReviewDecision decision,
             @Size(max = 1000, message = "审核意见不能超过 1000 个字符") String comment,
-            @Size(max = 64, message = "学号或内部编号不能超过 64 个字符") String memberCode,
-            @Size(max = 12, message = "能力标签不能超过 12 个") List<@NotBlank @Size(max = 80) String> skillTags,
             @Size(max = 1000, message = "凭证链接不能超过 1000 个字符") String evidenceUrl,
             @Size(max = 500, message = "豁免理由不能超过 500 个字符") String exemptionReason
     ) {
@@ -239,6 +242,7 @@ public final class TaskModels {
             LocalDate endDate,
             long daysRemaining,
             boolean overdue,
+            Instant resubmissionDeadlineAt,
             List<SubtaskView> subtasks
     ) {
     }
@@ -392,6 +396,7 @@ public final class TaskModels {
             boolean overdue,
             boolean expired,
             boolean editable,
+            Instant resubmissionDeadlineAt,
             boolean pointsSettled,
             TaskType taskType,
             String prizeDescription,
@@ -422,6 +427,7 @@ public final class TaskModels {
             boolean overdue,
             boolean expired,
             boolean editable,
+            Instant resubmissionDeadlineAt,
             boolean pointsSettled,
             TaskType taskType,
             String prizeDescription,

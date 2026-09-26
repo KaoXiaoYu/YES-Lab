@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface RecruitmentApplicationRepository extends JpaRepository<RecruitmentApplicationEntity, UUID> {
     Optional<RecruitmentApplicationEntity> findByApplicantId(UUID accountId);
+    boolean existsByMemberCodeIgnoreCaseAndIdNot(String memberCode, UUID applicationId);
 }

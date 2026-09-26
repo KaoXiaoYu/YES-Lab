@@ -64,7 +64,7 @@ public class AdminTaskController {
     /**
      * 按人延长新手任务的截止日期。
      *
-     * <p>到期（本人 {@code due_date} 已过）会冻结该报名者的提交与管理员审核，必须先把截止日期
+     * <p>到期（本人 {@code due_date} 已过）会冻结该报名者的新提交；已提交内容仍可审核，必须把截止日期
      * 推到未来才能继续；延长只影响这一位报名者，其他人不受影响。</p>
      */
     @PutMapping("/onboarding-assignments/{assignmentId}/due-date")

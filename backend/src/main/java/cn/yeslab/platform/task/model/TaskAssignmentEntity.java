@@ -65,6 +65,9 @@ public class TaskAssignmentEntity {
     /** 新手任务：本人截止日期 = 发放当天 + 大任务时长；普通任务使用任务级的起止日期。 */
     private LocalDate dueDate;
 
+    /** 新手/普通任务最近一次驳回后的个人补交截止时间（驳回时刻 + 24 小时）；悬赏不使用。 */
+    private Instant resubmissionDeadlineAt;
+
     /** 悬赏：完成名次（第几个完成，从 1 开始）。一经分配不再重算，作为历史留痕。 */
     private Integer completionRank;
 
@@ -147,6 +150,7 @@ public class TaskAssignmentEntity {
     public TaskAssignmentSource getSource() { return source; }
     public TaskAssignmentStatus getStatus() { return status; }
     public LocalDate getDueDate() { return dueDate; }
+    public Instant getResubmissionDeadlineAt() { return resubmissionDeadlineAt; }
     public Integer getCompletionRank() { return completionRank; }
     public boolean isPrizeAwarded() { return prizeAwarded; }
     public Instant getDueDateExtendedAt() { return dueDateExtendedAt; }
@@ -202,7 +206,7 @@ public class TaskAssignmentEntity {
     /**
      * 管理员按人延长截止日期。
      *
-     * <p>这是新手任务逾期后唯一的解锁动作：到期会冻结成员提交与管理层结论，把 {@code due_date}
+     * <p>这是新手任务逾期后恢复成员提交能力的动作：基准到期只冻结新提交，管理端仍可处理已提交结论；把 {@code due_date}
      * 推到未来之后，本人即可继续提交、管理员也才能审核转正。最近一次延长的时间、操作人与理由
      * 一并留痕。</p>
      */
@@ -259,10 +263,15 @@ public class TaskAssignmentEntity {
     }
 
     public void reject(AccountEntity reviewer, String comment) {
+        reject(reviewer, comment, Instant.now());
+    }
+
+    public void reject(AccountEntity reviewer, String comment, Instant reviewedAt) {
         this.status = TaskAssignmentStatus.REJECTED;
         this.reviewedBy = reviewer;
-        this.reviewedAt = Instant.now();
+        this.reviewedAt = reviewedAt;
         this.reviewComment = comment;
+        this.resubmissionDeadlineAt = reviewedAt.plus(java.time.Duration.ofHours(24));
         this.updatedAt = Instant.now();
     }
 

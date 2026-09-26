@@ -4,6 +4,7 @@ import cn.yeslab.platform.task.model.TaskAssignmentEntity;
 import cn.yeslab.platform.task.model.TaskAssignmentStatus;
 import cn.yeslab.platform.task.model.TaskType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 
 import java.util.Collection;
 import java.util.List;
@@ -11,6 +12,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface TaskAssignmentRepository extends JpaRepository<TaskAssignmentEntity, UUID> {
+
+    @EntityGraph(attributePaths = {"memberProfile.account", "task"})
+    Optional<TaskAssignmentEntity> findWithMemberAndTaskById(UUID id);
 
     List<TaskAssignmentEntity> findByTaskIdOrderByCreatedAtAsc(UUID taskId);
 

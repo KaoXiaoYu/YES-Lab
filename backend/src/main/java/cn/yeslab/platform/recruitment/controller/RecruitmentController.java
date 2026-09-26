@@ -53,6 +53,14 @@ public class RecruitmentController {
         return ApiResponse.ok(service.saveOwn(authentication, request));
     }
 
+    @PutMapping("/me/qualification")
+    public ApiResponse<RecruitmentModels.ApplicationView> saveOwnQualification(
+            Authentication authentication,
+            @Valid @RequestBody RecruitmentModels.QualificationRequest request
+    ) {
+        return ApiResponse.ok(service.saveOwnQualification(authentication, request));
+    }
+
     @PostMapping(value = "/me/portfolio-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ApiResponse<RecruitmentModels.ApplicationView> uploadPortfolio(Authentication authentication,
             @RequestPart("images") List<MultipartFile> images) {

@@ -115,6 +115,11 @@ class OnboardingTaskApiTests {
             submitSubtask(first.token(), subtaskId);
         }
         ownTask(first.token()).andExpect(jsonPath("$.data.allSubtasksSubmitted").value(true));
+        mvc.perform(put("/api/v1/recruitment/me/qualification")
+                        .header("Authorization", bearer(first.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memberCode\":\"S-ONB-001\",\"skillTags\":[\"机器人控制\",\"Python\"]}"))
+                .andExpect(status().isOk());
         mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
                         .header("Authorization", bearer(first.token()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -181,6 +186,12 @@ class OnboardingTaskApiTests {
         String taskId = JsonPath.read(view, "$.data.taskId");
         completeAllSubtasks(applicant.token(), view);
 
+        mvc.perform(put("/api/v1/recruitment/me/qualification")
+                        .header("Authorization", bearer(applicant.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memberCode\":\"S-ONB-002\",\"skillTags\":[\"机器人控制\"]}"))
+                .andExpect(status().isOk());
+
         mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
                         .header("Authorization", bearer(applicant.token()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -195,7 +206,14 @@ class OnboardingTaskApiTests {
                         "{\"decision\":\"REJECTED\",\"comment\":\"请补充仿真环境运行截图\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("REJECTED"))
-                .andExpect(jsonPath("$.data.reviewComment").value("请补充仿真环境运行截图"));
+                .andExpect(jsonPath("$.data.reviewComment").value("请补充仿真环境运行截图"))
+                .andExpect(jsonPath("$.data.resubmissionDeadlineAt").isNotEmpty());
+
+        // 即使原始 due_date 已过，驳回时起算的个人 24 小时仍覆盖基准截止。
+        cn.yeslab.platform.task.model.TaskAssignmentEntity rejected =
+                assignmentRepository.findById(UUID.fromString(assignmentId)).orElseThrow();
+        rejected.assignDueDate(LocalDate.now(LAB_TIME_ZONE).minusDays(1));
+        assignmentRepository.saveAndFlush(rejected);
 
         // 驳回后可以重新提交。
         mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
@@ -234,7 +252,7 @@ class OnboardingTaskApiTests {
     }
 
     @Test
-    void overdueApplicantIsFrozenUntilDueDateIsExtendedPerPerson() throws Exception {
+    void overdueApplicantCannotSubmitButAdminCanReviewExistingSubmission() throws Exception {
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
         String stamp = String.valueOf(System.nanoTime());
         String memberCode = "S-EXT-" + stamp;
@@ -245,6 +263,18 @@ class OnboardingTaskApiTests {
         String taskId = JsonPath.read(view, "$.data.taskId");
         String assignmentId = JsonPath.read(view, "$.data.assignmentId");
 
+        mvc.perform(put("/api/v1/recruitment/me/qualification")
+                        .header("Authorization", bearer(applicant.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memberCode\":\"" + memberCode + "\",\"skillTags\":[\"机器人\"]}"))
+                .andExpect(status().isOk());
+        completeAllSubtasks(applicant.token(), view);
+        mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
+                        .header("Authorization", bearer(applicant.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"completionNote\":\"截止前已完成\"}"))
+                .andExpect(status().isOk());
+
         // 把本人的 due_date 改到昨天：模拟「这个人已逾期」，其他人不受影响。
         cn.yeslab.platform.task.model.TaskAssignmentEntity assignment =
                 assignmentRepository.findById(UUID.fromString(assignmentId)).orElseThrow();
@@ -252,69 +282,14 @@ class OnboardingTaskApiTests {
         assignment.assignDueDate(overdueDate);
         assignmentRepository.saveAndFlush(assignment);
 
-        // 逾期后本人不能提交、管理员也不能审核（到期即冻结）。
+        // 逾期后本人不能提交，但管理员可以审核已有提交。
         mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
                         .header("Authorization", bearer(applicant.token()))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"completionNote\":\"逾期提交\"}"))
                 .andExpect(status().isConflict());
-        mvc.perform(review(teacherToken, taskId, assignmentId,
-                        "{\"decision\":\"APPROVED\",\"memberCode\":\"" + memberCode + "\",\"skillTags\":[\"机器人\"]}"))
-                .andExpect(status().isConflict());
-
-        // 按人延长截止日期：只影响这一位报名者，并留下操作人与理由。
-        LocalDate newDueDate = LocalDate.now(LAB_TIME_ZONE).plusDays(14);
-        mvc.perform(put("/api/v1/admin/tasks/onboarding-assignments/{id}/due-date", assignmentId)
-                        .header("Authorization", bearer(teacherToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"dueDate\":\"" + newDueDate + "\",\"reason\":\"课题冲突，同意延期\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.previousDueDate").value(overdueDate.toString()))
-                .andExpect(jsonPath("$.data.dueDate").value(newDueDate.toString()))
-                .andExpect(jsonPath("$.data.extendedBy").value("teacher"))
-                .andExpect(jsonPath("$.data.reason").value("课题冲突，同意延期"));
-
-        // 校验：新日期必须晚于今天，且晚于原日期。
-        mvc.perform(put("/api/v1/admin/tasks/onboarding-assignments/{id}/due-date", assignmentId)
-                        .header("Authorization", bearer(teacherToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"dueDate\":\"" + LocalDate.now(LAB_TIME_ZONE) + "\",\"reason\":\"今天\"}"))
-                .andExpect(status().isBadRequest());
-        mvc.perform(put("/api/v1/admin/tasks/onboarding-assignments/{id}/due-date", assignmentId)
-                        .header("Authorization", bearer(teacherToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"dueDate\":\"" + newDueDate + "\",\"reason\":\"同一天\"}"))
-                .andExpect(status().isBadRequest());
-
-        // 管理端总览能看到延长留痕。
-        mvc.perform(get("/api/v1/admin/tasks/onboarding-overview")
-                        .header("Authorization", bearer(teacherToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.rows[?(@.assignmentId=='" + assignmentId + "')].dueDateExtensionReason",
-                        hasItem("课题冲突，同意延期")))
-                .andExpect(jsonPath("$.data.rows[?(@.assignmentId=='" + assignmentId + "')].dueDateExtendedBy",
-                        hasItem("teacher")));
-
-        // 延长之后恢复可提交、可审核，并正常转正。
-        String refreshed = ownTask(applicant.token()).andReturn().getResponse().getContentAsString();
-        completeAllSubtasks(applicant.token(), refreshed);
-        mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
-                        .header("Authorization", bearer(applicant.token()))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"completionNote\":\"延期后按期完成\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
-        mvc.perform(review(teacherToken, taskId, assignmentId,
-                        "{\"decision\":\"APPROVED\",\"memberCode\":\"" + memberCode + "\",\"skillTags\":[\"机器人\"]}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("APPROVED"));
-
-        // 已通过之后再延长会被拒绝。
-        mvc.perform(put("/api/v1/admin/tasks/onboarding-assignments/{id}/due-date", assignmentId)
-                        .header("Authorization", bearer(teacherToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"dueDate\":\"" + newDueDate.plusDays(1) + "\",\"reason\":\"再延一次\"}"))
-                .andExpect(status().isConflict());
+        mvc.perform(review(teacherToken, taskId, assignmentId, "{\"decision\":\"APPROVED\"}"))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -343,6 +318,17 @@ class OnboardingTaskApiTests {
                                 {"memberCode":"S-ONB-003","skillTags":["机器人控制"],
                                  "exemptionReason":"该同学在入组前已完成同等训练，经指导老师确认免修"}
                                 """))
+                .andExpect(status().isConflict());
+
+        mvc.perform(put("/api/v1/recruitment/me/qualification")
+                        .header("Authorization", bearer(applicant.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memberCode\":\"S-ONB-003\",\"skillTags\":[\"机器人控制\"]}"))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/v1/admin/recruitment/applications/{id}/convert", applicationId)
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"exemptionReason\":\"该同学在入组前已完成同等训练，经指导老师确认免修\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.stage").value("FORMAL_MEMBER"))
                 .andExpect(jsonPath("$.data.convertedMemberId", notNullValue()))
@@ -409,6 +395,11 @@ class OnboardingTaskApiTests {
         String refreshed = ownTask(applicant.token()).andReturn().getResponse().getContentAsString();
         String assignmentId = JsonPath.read(refreshed, "$.data.assignmentId");
         completeAllSubtasks(applicant.token(), refreshed);
+        mvc.perform(put("/api/v1/recruitment/me/qualification")
+                        .header("Authorization", bearer(applicant.token()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memberCode\":\"S-ONB-004\",\"skillTags\":[\"机器人控制\"]}"))
+                .andExpect(status().isOk());
         mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
                         .header("Authorization", bearer(applicant.token()))
                         .contentType(MediaType.APPLICATION_JSON)

@@ -30,11 +30,23 @@ const allCompleted = computed(
 const progressPercent = computed(() =>
   totalCount.value ? Math.round((submittedCount.value / totalCount.value) * 100) : 0,
 )
-const canSubmit = computed(() => props.editable && props.task && props.task.status !== 'APPROVED')
+const canSubmit = computed(() => props.editable && props.task?.editable && props.task.status !== 'APPROVED')
 /** 每个子任务是独立页面；不可编辑（未登录或已通过）时只展示状态，不给入口。 */
-const canOpenSubtasks = computed(() => props.editable && props.task && props.task.status !== 'APPROVED')
+const canOpenSubtasks = computed(() => props.editable && props.task?.editable && props.task.status !== 'APPROVED')
+const readOnlyReason = computed(() => {
+  if (!props.task) return ''
+  if (props.task.status === 'SUBMITTED') return '完成说明已提交，管理员仍可审核。'
+  if (props.task.status === 'REJECTED' && props.task.resubmissionDeadlineAt) {
+    return `本次驳回后的 24 小时补交期限已过（${new Date(props.task.resubmissionDeadlineAt).toLocaleString('zh-CN')}），如需继续请联系管理员。`
+  }
+  if (props.task.overdue) return '已过提交截止时间，不能再提交；管理员仍可审核已提交内容。'
+  return '当前不能提交，请联系管理员确认。'
+})
 
 function daysLabel(task) {
+  if (task.status === 'REJECTED' && task.resubmissionDeadlineAt) {
+    return `补交截止 ${new Date(task.resubmissionDeadlineAt).toLocaleString('zh-CN')}`
+  }
   if (!task.endDate) return '未设置截止日期'
   if (task.status === 'APPROVED') return `截止日期 ${task.endDate}`
   if (task.overdue) return `已逾期（截止 ${task.endDate}）`
@@ -145,12 +157,14 @@ async function submit() {
             placeholder="简要说明你完成了哪些内容，方便管理员确认。"
             required
           ></textarea>
-          <small>提交后管理员会人工确认；驳回时可以修改说明并重新提交。</small>
+          <small>提交后管理员会人工确认；驳回后从打回时起有 24 小时补交。</small>
         </label>
         <button class="portal-primary" type="submit" :disabled="working || !note.trim() || !allCompleted">
           {{ working ? '提交中…' : task.status === 'SUBMITTED' ? '更新完成说明' : '提交完成说明' }}
         </button>
       </form>
+
+      <p v-else-if="task.status !== 'APPROVED'" class="task-skip" role="status">{{ readOnlyReason }}</p>
 
       <p v-if="actionError" class="portal-state error inline" role="alert">{{ actionError }}</p>
     </template>

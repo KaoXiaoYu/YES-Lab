@@ -27,6 +27,7 @@ import {
   getOwnApplication,
   getRecruitmentQuestions,
   saveOwnApplication,
+  saveOwnQualification,
   uploadRecruitmentPortfolioImages,
 } from '../services/authApi'
 import { showSubmissionFeedback } from '../services/submissionFeedback'
@@ -55,6 +56,10 @@ const onboardingTask = ref(null)
 const onboardingLoading = ref(false)
 const onboardingError = ref('')
 const interviewLoading = ref(false)
+const savingQualification = ref(false)
+const qualificationMessage = ref('')
+const qualificationError = ref('')
+const qualification = reactive({ memberCode: '', skillTagsText: '' })
 let interviewPollTimer
 const form = reactive({
   name: '',
@@ -114,13 +119,39 @@ async function refreshOnboardingTask() {
   }
 }
 
+function fillQualification(applicationData) {
+  qualification.memberCode = applicationData?.memberCode || ''
+  qualification.skillTagsText = (applicationData?.skillTags || []).join('、')
+}
+
+async function saveQualification() {
+  savingQualification.value = true
+  qualificationMessage.value = ''
+  qualificationError.value = ''
+  try {
+    const skillTags = qualification.skillTagsText
+      .split(/[、,，]/)
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+    application.value = await saveOwnQualification({ memberCode: qualification.memberCode.trim(), skillTags })
+    fillQualification(application.value)
+    qualificationMessage.value = '转正资料已保存。'
+  } catch (error) {
+    qualificationError.value = error.message
+  } finally {
+    savingQualification.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     const [ownApplication, assignedQuestions] = await Promise.all([getOwnApplication(), getRecruitmentQuestions()])
     questions.value = assignedQuestions || []
     application.value = ownApplication
-    if (ownApplication) fillForm(ownApplication)
-    else if (authState.account?.role === 'VISITOR') {
+    if (ownApplication) {
+      fillForm(ownApplication)
+      fillQualification(ownApplication)
+    } else if (authState.account?.role === 'VISITOR') {
       const username = authState.account.username || ''
       if (username.includes('@')) form.email = username
       else if (/^\+?\d+$/.test(username)) form.phone = username
@@ -150,6 +181,7 @@ async function refreshInterviewSchedule() {
       if (latestApplication) {
         application.value = latestApplication
         fillForm(latestApplication)
+        fillQualification(latestApplication)
       }
     }
   } catch (error) {
@@ -432,6 +464,52 @@ async function deleteExistingImage(imageId) {
             梅琳娜已经提醒指导老师和核心成员发布新的面试场次。
           </div>
         </template>
+      </section>
+
+      <section
+        v-if="application?.stage === 'SKILL_TEST'"
+        class="qualification-card"
+        aria-labelledby="qualification-title"
+      >
+        <header>
+          <div>
+            <p>MEMBER INFORMATION</p>
+            <h2 id="qualification-title">转正资料</h2>
+          </div>
+          <span>由本人填写</span>
+        </header>
+        <p>
+          请填写学号/内部编号和能力标签。管理员审核新手任务时只查看，不会替你填写；转为正式成员后，管理员仍可在成员管理中维护。
+        </p>
+        <form class="qualification-form" @submit.prevent="saveQualification">
+          <label>
+            学号 / 内部编号
+            <input
+              v-model.trim="qualification.memberCode"
+              autocomplete="off"
+              maxlength="64"
+              required
+              aria-describedby="qualification-member-code-help"
+            />
+            <small id="qualification-member-code-help">该编号需全站唯一，保存时会校验。</small>
+          </label>
+          <label>
+            能力标签（至少一项）
+            <input
+              v-model="qualification.skillTagsText"
+              maxlength="1000"
+              required
+              placeholder="例如：Python、计算机视觉、嵌入式"
+              aria-describedby="qualification-skills-help"
+            />
+            <small id="qualification-skills-help">多个标签请用顿号或逗号分隔。</small>
+          </label>
+          <p v-if="qualificationMessage" class="save-message" role="status">{{ qualificationMessage }}</p>
+          <p v-if="qualificationError" class="portal-state error" role="alert">{{ qualificationError }}</p>
+          <button class="portal-primary" type="submit" :disabled="savingQualification">
+            {{ savingQualification ? '保存中…' : '保存转正资料' }}
+          </button>
+        </form>
       </section>
 
       <OnboardingTaskPanel

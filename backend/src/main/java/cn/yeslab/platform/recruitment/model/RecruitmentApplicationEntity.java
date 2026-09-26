@@ -45,6 +45,14 @@ public class RecruitmentApplicationEntity {
     @Column(length = 30)
     private String grade;
 
+    @Column(name = "member_code", length = 64, unique = true)
+    private String memberCode;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "recruitment_member_skill_tags", joinColumns = @JoinColumn(name = "application_id"))
+    @Column(name = "tag", nullable = false, length = 80)
+    private List<String> skillTags = new ArrayList<>();
+
     @Column(nullable = false, length = 200)
     private String contact;
 
@@ -166,6 +174,8 @@ public class RecruitmentApplicationEntity {
     public String getMajor() { return major; }
     public String getClassName() { return className; }
     public String getGrade() { return grade; }
+    public String getMemberCode() { return memberCode; }
+    public List<String> getSkillTags() { return List.copyOf(skillTags); }
     public String getContact() { return contact; }
     public String getEmail() { return email; }
     public String getPhone() { return phone; }
@@ -226,6 +236,12 @@ public class RecruitmentApplicationEntity {
         this.existingSkills = new ArrayList<>(existingSkills);
         this.experience = experience;
         this.intendedTags = new ArrayList<>(intendedTags);
+        this.updatedAt = Instant.now();
+    }
+
+    public void updateQualification(String memberCode, List<String> skillTags) {
+        this.memberCode = memberCode;
+        this.skillTags = new ArrayList<>(skillTags);
         this.updatedAt = Instant.now();
     }
 

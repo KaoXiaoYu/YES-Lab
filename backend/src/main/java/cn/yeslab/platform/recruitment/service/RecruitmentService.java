@@ -128,6 +128,34 @@ public class RecruitmentService {
 
     @PreAuthorize("hasAuthority('RECRUITMENT_SELF_EDIT')")
     @Transactional
+    public RecruitmentModels.ApplicationView saveOwnQualification(
+            Authentication authentication,
+            RecruitmentModels.QualificationRequest request
+    ) {
+        AccountEntity account = authService.requireAccount(authentication);
+        RecruitmentApplicationEntity application = applications.findByApplicantId(account.getId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "报名记录不存在"));
+        if (application.getStage() != RecruitmentStage.SKILL_TEST) {
+            throw new ApiException(HttpStatus.CONFLICT, "只有面试通过并进入技能测试阶段后才能填写转正资料");
+        }
+        String memberCode = normalize(request.memberCode());
+        if (memberCode == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "请输入学号或内部编号");
+        }
+        List<String> skillTags = request.skillTags() == null ? List.of() : cleanList(request.skillTags());
+        if (skillTags.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "至少填写一个能力标签");
+        }
+        if (profiles.existsByMemberCodeIgnoreCase(memberCode)
+                || applications.existsByMemberCodeIgnoreCaseAndIdNot(memberCode, application.getId())) {
+            throw new ApiException(HttpStatus.CONFLICT, "学号或内部编号已被使用");
+        }
+        application.updateQualification(memberCode, skillTags);
+        return toView(applications.save(application));
+    }
+
+    @PreAuthorize("hasAuthority('RECRUITMENT_SELF_EDIT')")
+    @Transactional
     public RecruitmentModels.ApplicationView saveOwn(
             Authentication authentication,
             RecruitmentModels.ApplicationRequest request
@@ -442,8 +470,6 @@ public class RecruitmentService {
         RecruitmentApplicationEntity application = requireApplication(applicationId);
         return convertApplicantToMember(
                 application,
-                request.memberCode(),
-                request.skillTags(),
                 operator,
                 normalize(request.exemptionReason()),
                 "转为正式成员账号"
@@ -459,8 +485,6 @@ public class RecruitmentService {
     @Transactional
     public RecruitmentModels.ApplicationView convertApplicantToMember(
             RecruitmentApplicationEntity application,
-            String memberCode,
-            List<String> skillTags,
             AccountEntity operator,
             String exemptionReason,
             String historyNote
@@ -472,9 +496,19 @@ public class RecruitmentService {
         if (gate == OnboardingTaskGate.State.IN_PROGRESS && exemptionReason == null) {
             throw new ApiException(HttpStatus.CONFLICT, "请先完成并通过新手任务；如确认免修，请填写豁免理由后再转正");
         }
-        String cleanedMemberCode = memberCode.trim();
+        String cleanedMemberCode = normalize(application.getMemberCode());
+        List<String> skillTags = cleanList(application.getSkillTags());
+        if (cleanedMemberCode == null) {
+            throw new ApiException(HttpStatus.CONFLICT, "请让报名者先填写学号或内部编号");
+        }
+        if (skillTags.isEmpty()) {
+            throw new ApiException(HttpStatus.CONFLICT, "请让报名者先填写至少一个能力标签");
+        }
         if (profiles.existsByMemberCodeIgnoreCase(cleanedMemberCode)) {
             throw new ApiException(HttpStatus.CONFLICT, "学号或内部编号已存在");
+        }
+        if (applications.existsByMemberCodeIgnoreCaseAndIdNot(cleanedMemberCode, application.getId())) {
+            throw new ApiException(HttpStatus.CONFLICT, "学号或内部编号已被其他报名者使用");
         }
         if (profiles.findByAccountId(application.getApplicant().getId()).isPresent()) {
             throw new ApiException(HttpStatus.CONFLICT, "该账号已经关联成员资料");
@@ -600,7 +634,7 @@ public class RecruitmentService {
                 readJson(application.getTechnicalAnswersJson(), new TypeReference<List<RecruitmentModels.TechnicalAnswerRequest>>() {}, List.of()),
                 images, application.getStage(), interview,
                 application.getLinkedQuizId(), application.getConvertedMemberId(), application.getCreatedAt(),
-                application.getUpdatedAt(), history
+                application.getUpdatedAt(), history, application.getMemberCode(), application.getSkillTags()
         );
     }
 

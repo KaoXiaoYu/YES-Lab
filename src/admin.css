@@ -1209,6 +1209,20 @@
 }
 
 @media (max-width: 960px) {
+  .portal-page--admin .admin-form-grid > *,
+  .portal-page--admin .task-editor-field,
+  .portal-page--admin
+    .task-editor-field
+    :is(.discussion-editor-shell, .discussion-editor-toolbar, .discussion-editor-content) {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .portal-page--admin .task-editor-field .discussion-editor-toolbar {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
   .admin-shell-sidebar {
     width: min(86vw, 288px);
     transform: translateX(-100%);
