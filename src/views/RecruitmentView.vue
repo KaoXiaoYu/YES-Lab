@@ -479,7 +479,7 @@ async function deleteExistingImage(imageId) {
           <span>由本人填写</span>
         </header>
         <p>
-          请填写学号/内部编号和能力标签。管理员审核新手任务时只查看，不会替你填写；转为正式成员后，管理员仍可在成员管理中维护。
+          可在技能测试阶段提前保存学号/内部编号和能力标签；尚未填写不影响管理员审核通过。转为正式成员后，首次进入成员系统前仍须补齐资料。
         </p>
         <form class="qualification-form" @submit.prevent="saveQualification">
           <label>

@@ -115,11 +115,6 @@ class OnboardingTaskApiTests {
             submitSubtask(first.token(), subtaskId);
         }
         ownTask(first.token()).andExpect(jsonPath("$.data.allSubtasksSubmitted").value(true));
-        mvc.perform(put("/api/v1/recruitment/me/qualification")
-                        .header("Authorization", bearer(first.token()))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"memberCode\":\"S-ONB-001\",\"skillTags\":[\"机器人控制\",\"Python\"]}"))
-                .andExpect(status().isOk());
         mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
                         .header("Authorization", bearer(first.token()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -154,8 +149,7 @@ class OnboardingTaskApiTests {
         // 审核通过即转正。
         mvc.perform(review(teacherToken, taskId, firstAssignmentId,
                         """
-                        {"decision":"APPROVED","comment":"新手任务全部完成，同意转正",
-                         "memberCode":"S-ONB-001","skillTags":["机器人控制","Python"]}
+                        {"decision":"APPROVED","comment":"新手任务全部完成，同意转正"}
                         """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("APPROVED"))
@@ -164,8 +158,16 @@ class OnboardingTaskApiTests {
         String memberAccessToken = login("onboarding-pass@example.com", "Onboarding1");
         mvc.perform(get("/api/v1/member/profile").header("Authorization", bearer(memberAccessToken)))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memberCode").doesNotExist())
+                .andExpect(jsonPath("$.data.qualificationComplete").value(false));
+        mvc.perform(put("/api/v1/member/profile/qualification")
+                        .header("Authorization", bearer(memberAccessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memberCode\":\"S-ONB-001\",\"skillTags\":[\"机器人控制\",\"Python\"]}"))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.memberCode").value("S-ONB-001"))
-                .andExpect(jsonPath("$.data.skillTags", hasItem("Python")));
+                .andExpect(jsonPath("$.data.skillTags", hasItem("Python")))
+                .andExpect(jsonPath("$.data.qualificationComplete").value(true));
 
         // 已通过的新手任务不能再修改。
         mvc.perform(post("/api/v1/recruitment/me/onboarding-task/submission")
@@ -293,7 +295,8 @@ class OnboardingTaskApiTests {
     }
 
     @Test
-    void conversionGuardBlocksUnfinishedOnboardingTaskAndExemptionClosesIt() throws Exception {        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+    void conversionGuardBlocksUnfinishedOnboardingTaskAndExemptionClosesIt() throws Exception {
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
         Applicant applicant = registerApplicant("onboarding-guard@example.com", "Onboarding3", "新手任务豁免同学");
         reachSkillTest(applicant, teacherToken);
 
@@ -310,30 +313,33 @@ class OnboardingTaskApiTests {
                                 """))
                 .andExpect(status().isConflict());
 
-        // 填写豁免理由后可以转正。
+        // 豁免理由满足任务门槛；资料缺失不再阻止直接转正。
         mvc.perform(post("/api/v1/admin/recruitment/applications/{id}/convert", applicationId)
                         .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"memberCode":"S-ONB-003","skillTags":["机器人控制"],
-                                 "exemptionReason":"该同学在入组前已完成同等训练，经指导老师确认免修"}
+                                {"exemptionReason":"该同学在入组前已完成同等训练，经指导老师确认免修"}
                                 """))
-                .andExpect(status().isConflict());
-
-        mvc.perform(put("/api/v1/recruitment/me/qualification")
-                        .header("Authorization", bearer(applicant.token()))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"memberCode\":\"S-ONB-003\",\"skillTags\":[\"机器人控制\"]}"))
-                .andExpect(status().isOk());
-        mvc.perform(post("/api/v1/admin/recruitment/applications/{id}/convert", applicationId)
-                        .header("Authorization", bearer(teacherToken))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"exemptionReason\":\"该同学在入组前已完成同等训练，经指导老师确认免修\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.stage").value("FORMAL_MEMBER"))
                 .andExpect(jsonPath("$.data.convertedMemberId", notNullValue()))
                 .andExpect(jsonPath("$.data.history[*].note",
                         hasItem(org.hamcrest.Matchers.containsString("豁免并转正"))));
+        String memberToken = login("onboarding-guard@example.com", "Onboarding3");
+        mvc.perform(get("/api/v1/member/profile").header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.qualificationComplete").value(false));
+        mvc.perform(put("/api/v1/member/profile/qualification")
+                        .header("Authorization", bearer(memberToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memberCode\":\"S-001\",\"skillTags\":[\"机器人控制\"]}"))
+                .andExpect(status().isConflict());
+        mvc.perform(put("/api/v1/member/profile/qualification")
+                        .header("Authorization", bearer(memberToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memberCode\":\"S-ONB-003\",\"skillTags\":[\"机器人控制\"]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.qualificationComplete").value(true));
     }
 
     @Test

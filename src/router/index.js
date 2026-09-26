@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { authState, restoreSession } from '../services/authApi'
+import { authState, getOwnProfile, restoreSession } from '../services/authApi'
 import PublicHomeView from '../views/PublicHomeView.vue'
 
 const routes = [
@@ -23,6 +23,12 @@ const routes = [
     name: 'profile-edit',
     component: () => import('../views/ProfileEditView.vue'),
     meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
+  },
+  {
+    path: '/complete-profile',
+    name: 'complete-profile',
+    component: () => import('../views/ProfileCompletionView.vue'),
+    meta: { roles: ['MEMBER'], allowIncompleteQualification: true },
   },
   {
     path: '/points',
@@ -190,8 +196,30 @@ router.beforeEach(async (to) => {
   if (to.meta.guest && authState.account) return role === 'VISITOR' ? '/application' : '/profile'
   if (to.meta.roles && !authState.account) return { path: '/login', query: { redirect: to.fullPath } }
   if (to.meta.roles && !to.meta.roles.includes(role)) return role === 'VISITOR' ? '/application' : '/profile'
+
+  if (role === 'MEMBER' && to.meta.roles?.includes('MEMBER')) {
+    if (authState.memberQualificationComplete !== true && to.name !== 'complete-profile') {
+      try {
+        await getOwnProfile()
+      } catch {
+        return { name: 'complete-profile', query: { redirect: to.fullPath, retry: '1' } }
+      }
+      if (!authState.memberQualificationComplete) {
+        return { name: 'complete-profile', query: { redirect: to.fullPath } }
+      }
+    }
+    if (to.name === 'complete-profile' && authState.memberQualificationComplete === true) {
+      return safeMemberRedirect(to.query.redirect) || '/profile'
+    }
+  }
   return true
 })
+
+function safeMemberRedirect(candidate) {
+  if (typeof candidate !== 'string' || !candidate.startsWith('/') || candidate.startsWith('//')) return null
+  if (candidate.startsWith('/complete-profile')) return null
+  return candidate
+}
 
 const chunkRecoveryKey = 'yeslab-route-chunk-recovery'
 const chunkLoadFailure =

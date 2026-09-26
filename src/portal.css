@@ -6,6 +6,136 @@
   font-family: 'Noto Sans SC', sans-serif;
 }
 
+.profile-completion-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: clamp(20px, 5vw, 72px);
+  color: var(--color-foreground);
+  background: var(--color-surface-soft);
+  font-family: 'Noto Sans SC', sans-serif;
+}
+
+.profile-completion-card {
+  width: min(100%, 640px);
+  padding: clamp(24px, 5vw, 48px);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-card);
+  box-shadow: var(--shadow-md);
+}
+
+.profile-completion-heading {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.profile-completion-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 14px;
+  color: var(--color-primary);
+  background: var(--color-surface-soft);
+}
+
+.profile-completion-heading p {
+  margin: 0 0 4px;
+  color: var(--color-muted-foreground);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.profile-completion-heading h1 {
+  margin: 0;
+  font-size: clamp(24px, 5vw, 32px);
+}
+
+.profile-completion-intro {
+  margin: 24px 0;
+  color: var(--color-muted-foreground);
+  line-height: 1.7;
+}
+
+.profile-completion-form {
+  display: grid;
+  gap: 10px;
+}
+
+.profile-completion-form label {
+  margin-top: 12px;
+  font-weight: 650;
+}
+
+.profile-completion-form label span {
+  color: var(--color-danger, #b42318);
+}
+
+.profile-completion-form input,
+.profile-completion-form textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  color: var(--color-foreground);
+  background: var(--color-card);
+  font: inherit;
+}
+
+.profile-completion-form textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.profile-completion-form input:focus-visible,
+.profile-completion-form textarea:focus-visible,
+.profile-completion-actions button:focus-visible {
+  outline: 3px solid var(--color-focus, var(--color-primary));
+  outline-offset: 2px;
+}
+
+.profile-completion-form small {
+  color: var(--color-muted-foreground);
+  line-height: 1.5;
+}
+
+.profile-completion-form .field-error,
+.profile-completion-error {
+  color: var(--color-danger, #b42318);
+}
+
+.profile-completion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.profile-completion-actions button {
+  min-height: 48px;
+}
+
+@media (max-width: 480px) {
+  .profile-completion-page {
+    padding: 16px;
+    align-items: start;
+  }
+
+  .profile-completion-card {
+    margin-top: 5vh;
+  }
+
+  .profile-completion-actions > button {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
 .portal-topbar {
   position: sticky;
   z-index: 50;
@@ -2203,7 +2333,7 @@ textarea {
   padding: 24px 28px;
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  background: var(--color-surface);
+  background: var(--color-card);
 }
 .qualification-card > header {
   display: flex;

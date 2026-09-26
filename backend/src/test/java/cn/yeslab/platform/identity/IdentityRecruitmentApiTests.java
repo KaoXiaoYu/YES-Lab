@@ -274,6 +274,13 @@ class IdentityRecruitmentApiTests {
                 .andExpect(jsonPath("$.data.profileHtml", containsString("安全内容")))
                 .andExpect(jsonPath("$.data.profileHtml", not(containsString("script"))))
                 .andExpect(jsonPath("$.data.profileHtml", not(containsString("javascript:"))));
+
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        mvc.perform(put("/api/v1/member/profile/qualification")
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"memberCode\":\"TEACHER-CODE\",\"skillTags\":[\"指导\"]}"))
+                .andExpect(status().isForbidden());
     }
 
     @Test

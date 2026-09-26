@@ -379,7 +379,7 @@ async function submitReview(row) {
             <label class="full">审核意见<input v-model.trim="review.comment" maxlength="1000" /></label>
             <template v-if="review.decision === 'APPROVED'">
               <p class="task-locked-note" role="status">
-                通过后将直接转为正式成员（不再经过试用期）。学号/内部编号与能力标签由报名者本人填写，此处仅供查看；该报名者必须已提交全部
+                通过后将直接转为正式成员（不再经过试用期）。学号/内部编号与能力标签由报名者本人填写，此处仅供查看；未填资料不影响通过，成员首次进入系统时会被要求补齐。该报名者必须已提交全部
                 {{ sharedTask.subtasks.length }} 项子任务，否则会被拒绝。
               </p>
               <dl class="qualification-readonly">
@@ -404,11 +404,7 @@ async function submitReview(row) {
               <button
                 class="portal-primary"
                 type="submit"
-                :disabled="
-                  working ||
-                  (review.decision === 'REJECTED' && !review.comment) ||
-                  (review.decision === 'APPROVED' && (!row.memberCode || !row.skillTags?.length))
-                "
+                :disabled="working || (review.decision === 'REJECTED' && !review.comment)"
               >
                 {{ working ? '提交中…' : '提交审核结果' }}
               </button>

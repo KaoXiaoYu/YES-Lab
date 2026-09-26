@@ -7,6 +7,7 @@ export const authState = reactive({
   token: null,
   account: null,
   ready: false,
+  memberQualificationComplete: null,
 })
 
 let restorePromise
@@ -61,8 +62,18 @@ export function changeOwnPassword(payload) {
   return apiRequest('/api/v1/auth/password', { method: 'PUT', body: payload })
 }
 
-export function getOwnProfile() {
-  return apiRequest('/api/v1/member/profile')
+export async function getOwnProfile() {
+  const profile = await apiRequest('/api/v1/member/profile')
+  if (authState.account?.role === 'MEMBER') {
+    authState.memberQualificationComplete = Boolean(profile?.qualificationComplete)
+  }
+  return profile
+}
+
+export async function completeOwnQualification(payload) {
+  const profile = await apiRequest('/api/v1/member/profile/qualification', { method: 'PUT', body: payload })
+  authState.memberQualificationComplete = Boolean(profile?.qualificationComplete)
+  return profile
 }
 
 export function getOwnShowcase() {
@@ -468,6 +479,7 @@ async function formRequest(path, options) {
 }
 
 function setSession(response) {
+  if (authState.account?.id !== response.account?.id) authState.memberQualificationComplete = null
   authState.token = response.accessToken
   authState.account = response.account
   authState.ready = true
@@ -483,6 +495,7 @@ function clearSession() {
   sessionStorage.removeItem(legacyTokenKey)
   authState.token = null
   authState.account = null
+  authState.memberQualificationComplete = null
   authState.ready = true
   restorePromise = null
 }

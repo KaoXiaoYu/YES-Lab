@@ -38,6 +38,14 @@ public class MemberProfileController {
         return ApiResponse.ok(service.updateOwnProfile(authentication, request));
     }
 
+    @PutMapping("/qualification")
+    public ApiResponse<MemberProfileModels.ProfileView> completeQualification(
+            Authentication authentication,
+            @Valid @RequestBody MemberProfileModels.CompleteQualificationRequest request
+    ) {
+        return ApiResponse.ok(service.completeOwnQualification(authentication, request));
+    }
+
     @GetMapping("/showcase")
     public ApiResponse<MemberProfileModels.ShowcaseSettings> showcase(Authentication authentication) {
         return ApiResponse.ok(service.getOwnShowcase(authentication));

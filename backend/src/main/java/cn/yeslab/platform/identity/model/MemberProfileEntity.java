@@ -36,7 +36,7 @@ public class MemberProfileEntity {
     @Column(nullable = false, length = 80)
     private String name;
 
-    @Column(nullable = false, unique = true, length = 64)
+    @Column(unique = true, length = 64)
     private String memberCode;
 
     @Column(length = 100)
@@ -178,6 +178,12 @@ public class MemberProfileEntity {
         this.internalContact = internalContact;
         this.headline = headline;
         this.profileHtml = profileHtml;
+        this.updatedAt = Instant.now();
+    }
+
+    public void completeQualification(String memberCode, List<String> skillTags) {
+        this.memberCode = memberCode;
+        this.skillTags = new ArrayList<>(skillTags);
         this.updatedAt = Instant.now();
     }
 

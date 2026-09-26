@@ -142,11 +142,7 @@ public class TaskService {
         AccountEntity account = authService.requireAccount(authentication);
         TaskAssignmentEntity assignment = requireOwnAssignment(account);
         requireEditable(assignment);
-        RecruitmentApplicationEntity application = assignment.getRecruitmentApplication();
         requireAllSubtasksCompleted(assignment);
-        if (application == null || application.getMemberCode() == null || application.getSkillTags().isEmpty()) {
-            throw new ApiException(HttpStatus.CONFLICT, "请先在“我的报名”填写学号/内部编号和能力标签");
-        }
         assignment.submit(completionNote.trim());
         return toOnboardingView(assignments.save(assignment));
     }

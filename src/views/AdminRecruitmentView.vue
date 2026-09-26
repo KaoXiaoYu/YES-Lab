@@ -694,7 +694,7 @@ function splitTags(value) {
             </div>
           </header>
           <p>
-            完成并通过新手任务后即可转正；转换会保留当前报名与面试历史，并为账号创建规范成员资料。若新手任务尚未通过，转正会被拒绝，可按需填写豁免理由。
+            完成并通过新手任务后即可转正；转换会保留当前报名与面试历史，并为账号创建成员资料。缺少学号/内部编号或能力标签不影响通过，成员首次进入系统时会被要求补齐。若新手任务尚未通过，转正会被拒绝，可按需填写豁免理由。
           </p>
           <p class="task-locked-note" role="status">
             新手任务的完成情况与审核（通过即自动转正）在
@@ -721,12 +721,7 @@ function splitTags(value) {
               /><small>填写后将跳过新手任务门槛，并在状态历史中留痕。</small></label
             >
           </div>
-          <button
-            class="portal-primary"
-            type="button"
-            :disabled="working || !selected.memberCode || !selected.skillTags?.length"
-            @click="convertMember"
-          >
+          <button class="portal-primary" type="button" :disabled="working" @click="convertMember">
             <UserPlus :size="18" aria-hidden="true" />确认转为正式成员
           </button>
         </section>

@@ -93,6 +93,31 @@ public class MemberProfileService {
 
     @PreAuthorize("hasAuthority('PROFILE_SELF_EDIT')")
     @Transactional
+    public MemberProfileModels.ProfileView completeOwnQualification(
+            Authentication authentication,
+            MemberProfileModels.CompleteQualificationRequest request
+    ) {
+        AccountEntity account = authService.requireAccount(authentication);
+        if (account.getRole() != Role.MEMBER) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "仅正式成员需要通过此表单补全转正资料");
+        }
+        MemberProfileEntity profile = requireProfile(account);
+        String memberCode = request.memberCode().trim();
+        profiles.findByMemberCodeIgnoreCase(memberCode)
+                .filter(existing -> !existing.getId().equals(profile.getId()))
+                .ifPresent(existing -> {
+                    throw new ApiException(HttpStatus.CONFLICT, "该学号或内部编号已被使用，请核对后重新填写");
+                });
+        List<String> skillTags = normalizeTags(request.skillTags());
+        if (skillTags.size() > 12) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "能力标签不能超过 12 个");
+        }
+        profile.completeQualification(memberCode, skillTags);
+        return toView(profiles.save(profile));
+    }
+
+    @PreAuthorize("hasAuthority('PROFILE_SELF_EDIT')")
+    @Transactional
     public MemberProfileModels.ProfileView updateOwnProfile(
             Authentication authentication,
             MemberProfileModels.UpdateProfileRequest request
@@ -361,6 +386,8 @@ public class MemberProfileService {
                 List.of(),
                 projectRecords(profile),
                 achievementRecords(profile),
+                profile.getMemberCode() != null && profile.getMemberCode().matches("[A-Za-z0-9._-]{2,64}")
+                        && !profile.getSkillTags().isEmpty(),
                 profile.getUpdatedAt()
         );
     }

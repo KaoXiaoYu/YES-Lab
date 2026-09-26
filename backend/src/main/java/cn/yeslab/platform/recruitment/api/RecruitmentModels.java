@@ -86,7 +86,9 @@ public final class RecruitmentModels {
     public record InterviewResultPendingRequest(@NotNull Boolean pending) { }
 
     public record QualificationRequest(
-            @NotBlank(message = "请输入学号或内部编号") @Size(max = 64) String memberCode,
+            @NotBlank(message = "请输入学号或内部编号")
+            @Pattern(regexp = "[A-Za-z0-9._-]{2,64}", message = "编号仅支持 2—64 位字母、数字、点、下划线和短横线")
+            String memberCode,
             @NotEmpty(message = "至少填写一个能力标签") @Size(max = 12) List<@NotBlank @Size(max = 80) String> skillTags
     ) { }
 

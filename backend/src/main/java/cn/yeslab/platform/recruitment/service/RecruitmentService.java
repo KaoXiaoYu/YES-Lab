@@ -498,18 +498,10 @@ public class RecruitmentService {
         }
         String cleanedMemberCode = normalize(application.getMemberCode());
         List<String> skillTags = cleanList(application.getSkillTags());
-        if (cleanedMemberCode == null) {
-            throw new ApiException(HttpStatus.CONFLICT, "请让报名者先填写学号或内部编号");
-        }
-        if (skillTags.isEmpty()) {
-            throw new ApiException(HttpStatus.CONFLICT, "请让报名者先填写至少一个能力标签");
-        }
-        if (profiles.existsByMemberCodeIgnoreCase(cleanedMemberCode)) {
-            throw new ApiException(HttpStatus.CONFLICT, "学号或内部编号已存在");
-        }
-        if (applications.existsByMemberCodeIgnoreCaseAndIdNot(cleanedMemberCode, application.getId())) {
-            throw new ApiException(HttpStatus.CONFLICT, "学号或内部编号已被其他报名者使用");
-        }
+        boolean memberCodeAvailable = cleanedMemberCode != null
+                && cleanedMemberCode.matches("[A-Za-z0-9._-]{2,64}")
+                && !profiles.existsByMemberCodeIgnoreCase(cleanedMemberCode)
+                && !applications.existsByMemberCodeIgnoreCaseAndIdNot(cleanedMemberCode, application.getId());
         if (profiles.findByAccountId(application.getApplicant().getId()).isPresent()) {
             throw new ApiException(HttpStatus.CONFLICT, "该账号已经关联成员资料");
         }
@@ -520,7 +512,7 @@ public class RecruitmentService {
         MemberProfileEntity profile = profiles.save(new MemberProfileEntity(
                 account,
                 application.getName(),
-                cleanedMemberCode,
+                memberCodeAvailable ? cleanedMemberCode : null,
                 application.getMajor(),
                 application.getClassName(),
                 application.getGrade(),

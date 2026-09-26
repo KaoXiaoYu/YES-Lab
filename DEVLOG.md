@@ -1431,3 +1431,20 @@
 - `npm run check`（lint、格式与生产构建）通过，只有既有大 chunk 提示；Java 21 下完整后端套件 **75 项通过，0 失败/错误/跳过**；`git diff --check` 通过。
 - `V17` 尚未在 MySQL 预生产/生产演练；上线前备份并演练迁移，部署后核对学号唯一索引、能力标签表、个人重交截止列及对应行为。H2/自动化测试不覆盖 MySQL DDL；未触碰业务数据库。
 - 本次临时 H2 后端、Vite 与 Chrome 已关停；没有跨会话保留进程。
+
+## 2026-09-26：改为转正后首次进入成员系统补全资料
+
+### 完成内容
+
+- 用户确认将资料补全时点改至审核通过后。新手任务通过或管理员豁免可在资料未填时直接转正；技能测试阶段仍可选填并沿用已有值。管理员审核始终只读。
+- 成员首次访问受保护路由时读取本人档案；编号/标签未完整则强制到 `/complete-profile`，保留原页面地址，补全并保存后返回；退出登录保留可用。教师、核心成员与资料完整账号不受门禁影响。
+- 新增本人补全 API，服务端验证编号格式及全局唯一性、能力标签 1—12 项，并只修改自己的编号/标签。移除新手任务提交前的旧资料必填门槛。
+- 新增 `V18__member_profile_code_nullable.sql`，只将 `member_profiles.member_code` 改为可空并保留唯一索引；不修改 `V1` 或 `V17`。需求 §A3/§8 和设计 §16/§17 已同步，旧规则明确标为历史口径。
+- UI 采用现有 YES Lab 设计系统；按 `ui-ux-pro-max` 查询 `mandatory profile completion onboarding form accessibility` 与 `form validation focus management --stack vue`，采用明确标签、就地校验、保存反馈及重试路径。
+
+### 验证与待办
+
+- Java 21 后端完整测试 **75 项通过，0 失败/错误/跳过**；`npm run check` 通过；`git diff --check` 通过。Maven `clean test` 因本机 `~/.m2` 权限失败，改以非 clean 完整 `test` 通过。
+- 本机隔离内存 H2 + Chrome 端到端验收：无资料审核通过 → 登录被导到补全页 → 保存后返回原 `/profile`；桌面 1440、手机 375，亮/暗主题均无横向溢出。截图位于 `.codex-run/ui-review/profile-completion-*.png` 与 `admin-onboarding-review-missing-profile-desktop.png`。
+- `V18` 未在 MySQL 执行。上线前备份并在预生产演练脚本，确认编号列可空且唯一索引保留；部署后验证允许未补资料成员转正、补全后解除门禁。自动化/H2 不替代 MySQL DDL 验收。
+- 临时 H2、Vite、Chrome 验收进程关闭；新建的 Chrome 测试 profile（158 MB）已清理；没有保留后台进程或触碰业务数据库。
