@@ -23,6 +23,8 @@ const successMessage = ref('')
 const showForm = ref(false)
 const editingId = ref('')
 const fieldErrors = ref({})
+const listFilter = ref('ALL')
+const searchQuery = ref('')
 /** 字段名 -> DOM 元素：把焦点移到第一个出错的字段（就近提示 + 可键盘定位）。 */
 const fieldRefs = {}
 
@@ -64,6 +66,25 @@ function buildRules() {
 }
 
 const published = computed(() => bounties.value.find((item) => item.id === editingId.value)?.status === 'PUBLISHED')
+const bountyFilters = [
+  { id: 'ALL', label: '全部' },
+  { id: 'DRAFT', label: '草稿' },
+  { id: 'PUBLISHED', label: '进行中' },
+  { id: 'CLOSED', label: '已结束' },
+]
+const bountyCounts = computed(() => ({
+  ALL: bounties.value.length,
+  DRAFT: bounties.value.filter((item) => item.status === 'DRAFT').length,
+  PUBLISHED: bounties.value.filter((item) => item.status === 'PUBLISHED').length,
+  CLOSED: bounties.value.filter((item) => item.status === 'CLOSED').length,
+}))
+const filteredBounties = computed(() => {
+  const query = searchQuery.value.trim().toLocaleLowerCase()
+  return bounties.value.filter((item) => {
+    if (listFilter.value !== 'ALL' && item.status !== listFilter.value) return false
+    return !query || item.title.toLocaleLowerCase().includes(query)
+  })
+})
 
 /** 数值输入框可能是空串（清空）或非数字字符串，统一按后端约束判断。 */
 function asInteger(value) {
@@ -330,15 +351,9 @@ function loadSubtaskContent(subtaskId) {
 </script>
 
 <template>
-  <PortalShell
-    eyebrow="ADMIN / BOUNTY"
-    title="悬赏管理"
-    description="成员自主接取、先到先得；最先完成的 m 人获得奖金。积分在悬赏到期后统一结算，只发给到期时已完成的对象。"
-  >
+  <PortalShell eyebrow="ADMIN / BOUNTY" title="悬赏管理" description="创建悬赏，管理接取、完成与奖金发放。">
     <section class="task-toolbar" aria-label="悬赏操作">
-      <div>
-        <span class="task-toolbar-note">奖金在线下发放；系统记录统一说明、逐人发放与领取状态。</span>
-      </div>
+      <p class="task-toolbar-note">奖金线下发放；系统记录发放与领取状态。</p>
       <div class="task-toolbar-actions">
         <button class="portal-primary" type="button" @click="openCreate">
           <Plus :size="17" aria-hidden="true" />创建悬赏
@@ -349,205 +364,230 @@ function loadSubtaskContent(subtaskId) {
     <p v-if="errorMessage" class="portal-state inline error" role="alert">{{ errorMessage }}</p>
     <p v-if="successMessage" class="portal-state success" role="status">{{ successMessage }}</p>
 
-    <section v-if="showForm" class="admin-form-card" aria-labelledby="bounty-form-title">
-      <header>
-        <Gift :size="22" aria-hidden="true" />
-        <div>
-          <p>{{ editingId ? 'EDIT BOUNTY' : 'NEW BOUNTY' }}</p>
-          <h3 id="bounty-form-title">{{ editingId ? '编辑悬赏' : '创建悬赏' }}</h3>
-        </div>
-      </header>
-      <p v-if="published" class="task-locked-note" role="status">
-        该悬赏已发布：接取条件与奖励口径锁定；接取人数上限与奖金份数只能上调，截止日期只能延长（延长已结算的悬赏会重新进入待结算）。
-      </p>
+    <Transition name="task-reveal">
+      <section v-if="showForm" class="admin-form-card" aria-labelledby="bounty-form-title">
+        <header>
+          <Gift :size="22" aria-hidden="true" />
+          <div>
+            <p>{{ editingId ? 'EDIT BOUNTY' : 'NEW BOUNTY' }}</p>
+            <h3 id="bounty-form-title">{{ editingId ? '编辑悬赏' : '创建悬赏' }}</h3>
+          </div>
+        </header>
+        <p v-if="published" class="task-locked-note" role="status">
+          已发布：资格、奖励与积分已锁定；人数上限和奖金份数只可增加，截止日只可延长。延长已结算悬赏会重新待结算。
+        </p>
 
-      <div class="admin-form-grid">
-        <label class="full"
-          >悬赏标题<input
-            id="bounty-field-title"
-            :ref="setFieldRef('title')"
-            v-model.trim="form.title"
-            required
-            maxlength="160"
-            :aria-invalid="Boolean(fieldErrors.title)"
-            :aria-describedby="fieldErrors.title ? 'bounty-field-title-error' : undefined"
-            @input="clearFieldError('title')"
-          /><small v-if="fieldErrors.title" id="bounty-field-title-error" class="field-error">{{
-            fieldErrors.title
-          }}</small></label
-        >
-        <div class="full task-editor-field">
-          <span class="task-editor-label">悬赏说明</span>
-          <DiscussionRichTextEditor v-model="form.contentHtml" label="悬赏说明" :max-length="20000" />
-          <small v-if="fieldErrors.contentHtml" id="bounty-field-contentHtml-error" class="field-error">{{
-            fieldErrors.contentHtml
-          }}</small>
-        </div>
-        <label
-          >开始日期<input
-            id="bounty-field-startDate"
-            :ref="setFieldRef('startDate')"
-            v-model="form.startDate"
-            type="date"
-            @input="clearFieldError('startDate')"
-        /></label>
-        <label
-          >截止日期<input
-            id="bounty-field-endDate"
-            :ref="setFieldRef('endDate')"
-            v-model="form.endDate"
-            type="date"
-            :aria-invalid="Boolean(fieldErrors.endDate)"
-            :aria-describedby="fieldErrors.endDate ? 'bounty-field-endDate-error' : undefined"
-            @input="clearFieldError('endDate')"
-          /><small v-if="fieldErrors.endDate" id="bounty-field-endDate-error" class="field-error">{{
-            fieldErrors.endDate
-          }}</small></label
-        >
+        <div class="admin-form-grid">
+          <label class="full"
+            >悬赏标题<input
+              id="bounty-field-title"
+              :ref="setFieldRef('title')"
+              v-model.trim="form.title"
+              required
+              maxlength="160"
+              :aria-invalid="Boolean(fieldErrors.title)"
+              :aria-describedby="fieldErrors.title ? 'bounty-field-title-error' : undefined"
+              @input="clearFieldError('title')"
+            /><small v-if="fieldErrors.title" id="bounty-field-title-error" class="field-error">{{
+              fieldErrors.title
+            }}</small></label
+          >
+          <div class="full task-editor-field">
+            <span class="task-editor-label">悬赏说明</span>
+            <DiscussionRichTextEditor v-model="form.contentHtml" label="悬赏说明" :max-length="20000" />
+            <small v-if="fieldErrors.contentHtml" id="bounty-field-contentHtml-error" class="field-error">{{
+              fieldErrors.contentHtml
+            }}</small>
+          </div>
+          <label
+            >开始日期<input
+              id="bounty-field-startDate"
+              :ref="setFieldRef('startDate')"
+              v-model="form.startDate"
+              type="date"
+              @input="clearFieldError('startDate')"
+          /></label>
+          <label
+            >截止日期<input
+              id="bounty-field-endDate"
+              :ref="setFieldRef('endDate')"
+              v-model="form.endDate"
+              type="date"
+              :aria-invalid="Boolean(fieldErrors.endDate)"
+              :aria-describedby="fieldErrors.endDate ? 'bounty-field-endDate-error' : undefined"
+              @input="clearFieldError('endDate')"
+            /><small v-if="fieldErrors.endDate" id="bounty-field-endDate-error" class="field-error">{{
+              fieldErrors.endDate
+            }}</small></label
+          >
 
-        <label
-          >接取人数上限
-          <span class="bounty-inline-choice">
-            <label class="bounty-inline-radio"
-              ><input
-                v-model="form.unlimitedHeadcount"
-                type="radio"
-                :value="true"
-                @change="onHeadcountModeChange"
-              />不限人数</label
-            >
-            <label class="bounty-inline-radio"
-              ><input
-                v-model="form.unlimitedHeadcount"
-                type="radio"
-                :value="false"
-                @change="onHeadcountModeChange"
-              />限制人数</label
-            >
+          <label
+            >接取名额
+            <span class="bounty-inline-choice">
+              <label class="bounty-inline-radio"
+                ><input
+                  v-model="form.unlimitedHeadcount"
+                  type="radio"
+                  :value="true"
+                  @change="onHeadcountModeChange"
+                />不限人数</label
+              >
+              <label class="bounty-inline-radio"
+                ><input
+                  v-model="form.unlimitedHeadcount"
+                  type="radio"
+                  :value="false"
+                  @change="onHeadcountModeChange"
+                />限制人数</label
+              >
+              <input
+                v-if="!form.unlimitedHeadcount"
+                id="bounty-field-headcountLimit"
+                :ref="setFieldRef('headcountLimit')"
+                v-model.number="form.headcountLimit"
+                type="number"
+                min="1"
+                max="1000"
+                :disabled="published"
+                aria-label="接取人数上限"
+                :aria-invalid="Boolean(fieldErrors.headcountLimit)"
+                :aria-describedby="fieldErrors.headcountLimit ? 'bounty-field-headcountLimit-error' : undefined"
+                @input="clearFieldError('headcountLimit')"
+              />
+            </span>
+            <small v-if="fieldErrors.headcountLimit" id="bounty-field-headcountLimit-error" class="field-error">{{
+              fieldErrors.headcountLimit
+            }}</small>
+            <small v-if="!fieldErrors.headcountLimit">只控制接取人数，不等同奖金份数。</small></label
+          >
+
+          <label
+            >奖金份数
             <input
-              v-if="!form.unlimitedHeadcount"
-              id="bounty-field-headcountLimit"
-              :ref="setFieldRef('headcountLimit')"
-              v-model.number="form.headcountLimit"
+              id="bounty-field-prizeSlots"
+              :ref="setFieldRef('prizeSlots')"
+              v-model.number="form.prizeSlots"
               type="number"
               min="1"
-              max="1000"
+              max="100"
               :disabled="published"
-              aria-label="接取人数上限"
-              :aria-invalid="Boolean(fieldErrors.headcountLimit)"
-              :aria-describedby="fieldErrors.headcountLimit ? 'bounty-field-headcountLimit-error' : undefined"
-              @input="clearFieldError('headcountLimit')"
+              :aria-invalid="Boolean(fieldErrors.prizeSlots)"
+              :aria-describedby="fieldErrors.prizeSlots ? 'bounty-field-prizeSlots-error' : undefined"
+              @input="clearFieldError('prizeSlots')"
             />
-          </span>
-          <small v-if="fieldErrors.headcountLimit" id="bounty-field-headcountLimit-error" class="field-error">{{
-            fieldErrors.headcountLimit
-          }}</small>
-          <small v-if="!fieldErrors.headcountLimit"
-            >接取上限只控制参与规模，与奖金份数无关；先到先得、接满即止。</small
-          ></label
-        >
+            <small v-if="fieldErrors.prizeSlots" id="bounty-field-prizeSlots-error" class="field-error">{{
+              fieldErrors.prizeSlots
+            }}</small>
+            <small v-else>前 N 名完成者获奖；留空表示不设奖金。</small></label
+          >
+          <label class="full"
+            >奖金说明
+            <input
+              id="bounty-field-prizeDescription"
+              :ref="setFieldRef('prizeDescription')"
+              v-model.trim="form.prizeDescription"
+              maxlength="500"
+              :disabled="published && !form.prizeSlots"
+              placeholder="例如：500 元现金 + 获奖证书"
+              :aria-invalid="Boolean(fieldErrors.prizeDescription)"
+              :aria-describedby="fieldErrors.prizeDescription ? 'bounty-field-prizeDescription-error' : undefined"
+              @input="clearFieldError('prizeDescription')"
+            />
+            <small v-if="fieldErrors.prizeDescription" id="bounty-field-prizeDescription-error" class="field-error">{{
+              fieldErrors.prizeDescription
+            }}</small>
+            <small v-else>统一说明，所有获奖者相同。</small></label
+          >
 
-        <label
-          >奖金份数
-          <input
-            id="bounty-field-prizeSlots"
-            :ref="setFieldRef('prizeSlots')"
-            v-model.number="form.prizeSlots"
-            type="number"
-            min="1"
-            max="100"
-            :disabled="published"
-            :aria-invalid="Boolean(fieldErrors.prizeSlots)"
-            :aria-describedby="fieldErrors.prizeSlots ? 'bounty-field-prizeSlots-error' : undefined"
-            @input="clearFieldError('prizeSlots')"
-          />
-          <small v-if="fieldErrors.prizeSlots" id="bounty-field-prizeSlots-error" class="field-error">{{
-            fieldErrors.prizeSlots
-          }}</small>
-          <small v-else>最先完成的 m 人获得奖金（1—100 份）；留空表示不设奖金。</small></label
-        >
-        <label class="full"
-          >奖金说明
-          <input
-            id="bounty-field-prizeDescription"
-            :ref="setFieldRef('prizeDescription')"
-            v-model.trim="form.prizeDescription"
-            maxlength="500"
-            :disabled="published && !form.prizeSlots"
-            placeholder="例如：500 元现金 + 获奖证书"
-            :aria-invalid="Boolean(fieldErrors.prizeDescription)"
-            :aria-describedby="fieldErrors.prizeDescription ? 'bounty-field-prizeDescription-error' : undefined"
-            @input="clearFieldError('prizeDescription')"
-          />
-          <small v-if="fieldErrors.prizeDescription" id="bounty-field-prizeDescription-error" class="field-error">{{
-            fieldErrors.prizeDescription
-          }}</small>
-          <small v-else>一段统一说明，所有份数内容相同；不逐人区分金额。</small></label
-        >
+          <label
+            >完成积分
+            <input
+              id="bounty-field-points"
+              :ref="setFieldRef('points')"
+              v-model.number="form.points"
+              type="number"
+              min="0"
+              max="100000"
+              :disabled="published"
+              :aria-invalid="Boolean(fieldErrors.points)"
+              :aria-describedby="fieldErrors.points ? 'bounty-field-points-error' : undefined"
+              @input="clearFieldError('points')"
+            />
+            <small v-if="fieldErrors.points" id="bounty-field-points-error" class="field-error">{{
+              fieldErrors.points
+            }}</small>
+            <small v-else>0 表示不计分；悬赏到期后统一结算。</small></label
+          >
 
-        <label
-          >每个完成对象可得积分
-          <input
-            id="bounty-field-points"
-            :ref="setFieldRef('points')"
-            v-model.number="form.points"
-            type="number"
-            min="0"
-            max="100000"
-            :disabled="published"
-            :aria-invalid="Boolean(fieldErrors.points)"
-            :aria-describedby="fieldErrors.points ? 'bounty-field-points-error' : undefined"
-            @input="clearFieldError('points')"
-          />
-          <small v-if="fieldErrors.points" id="bounty-field-points-error" class="field-error">{{
-            fieldErrors.points
-          }}</small>
-          <small v-else>0 表示不绑积分。积分在悬赏到期后统一结算，只发给结算时已完成的对象。</small></label
-        >
-
-        <fieldset class="task-rule-fieldset full" :disabled="published">
-          <legend>接取资格（同一维度取「或」，不同维度取「且」；全不选表示全体成员可接）</legend>
-          <div class="task-rule-grid">
-            <div>
-              <span>角色</span>
-              <label v-for="(label, value) in roleLabels" :key="value" class="task-check"
-                ><input v-model="form.roles" type="checkbox" :value="value" />{{ label }}</label
-              >
+          <fieldset class="task-rule-fieldset full" :disabled="published">
+            <legend>接取资格（同类条件满足一项、不同类都须满足；留空不限）</legend>
+            <div class="task-rule-grid">
+              <div>
+                <span>角色</span>
+                <label v-for="(label, value) in roleLabels" :key="value" class="task-check"
+                  ><input v-model="form.roles" type="checkbox" :value="value" />{{ label }}</label
+                >
+              </div>
+              <div>
+                <span>成员状态</span>
+                <label class="task-check"><input v-model="form.statuses" type="checkbox" value="TRIAL" />试用</label>
+                <label class="task-check"><input v-model="form.statuses" type="checkbox" value="OFFICIAL" />正式</label>
+              </div>
+              <label>年级<input v-model.trim="form.gradesText" placeholder="用顿号分隔" /></label>
+              <label>能力标签<input v-model.trim="form.tagsText" placeholder="用顿号分隔" /></label>
             </div>
-            <div>
-              <span>成员状态</span>
-              <label class="task-check"><input v-model="form.statuses" type="checkbox" value="TRIAL" />试用</label>
-              <label class="task-check"><input v-model="form.statuses" type="checkbox" value="OFFICIAL" />正式</label>
-            </div>
-            <label>年级（用、分隔）<input v-model.trim="form.gradesText" placeholder="24级、大二" /></label>
-            <label>能力标签（用、分隔）<input v-model.trim="form.tagsText" placeholder="无人机、视觉" /></label>
-          </div>
-        </fieldset>
+          </fieldset>
 
-        <TaskSubtaskEditor
-          v-model="form.subtasks"
-          class="full"
-          label="子任务"
-          hint="子任务可以不设——不设时成员直接提交完成说明。悬赏不强制勾完全部子任务。"
-          :load-content="loadSubtaskContent"
-        />
-      </div>
+          <TaskSubtaskEditor
+            v-model="form.subtasks"
+            class="full"
+            label="子任务"
+            hint="可选；未设置时直接提交完成说明。"
+            :load-content="loadSubtaskContent"
+          />
+        </div>
 
-      <div class="task-form-actions">
-        <button class="portal-primary" type="button" :disabled="working" @click="save">
-          {{ working ? '保存中…' : '保存悬赏' }}
-        </button>
-        <button class="portal-secondary" type="button" @click="showForm = false">取消</button>
-      </div>
-    </section>
+        <div class="task-form-actions">
+          <button class="portal-primary" type="button" :disabled="working" @click="save">
+            {{ working ? '保存中…' : '保存悬赏' }}
+          </button>
+          <button class="portal-secondary" type="button" @click="showForm = false">取消</button>
+        </div>
+      </section>
+    </Transition>
 
     <div v-if="loading" class="portal-state">正在读取悬赏…</div>
     <div v-else-if="!bounties.length" class="portal-state project-empty">
       <Gift :size="28" aria-hidden="true" /><strong>还没有悬赏</strong><span>创建悬赏并发布后，成员即可接取。</span>
     </div>
 
-    <section v-else class="task-card-grid" aria-label="悬赏列表">
-      <article v-for="item in bounties" :key="item.id" class="task-card bounty-card">
+    <section v-else class="bounty-admin-tools" aria-label="搜索和筛选悬赏">
+      <label class="bounty-search">
+        搜索悬赏
+        <input v-model.trim="searchQuery" type="search" placeholder="输入标题" />
+      </label>
+      <nav class="bounty-filters" aria-label="悬赏状态">
+        <button
+          v-for="item in bountyFilters"
+          :key="item.id"
+          type="button"
+          :aria-pressed="listFilter === item.id"
+          @click="listFilter = item.id"
+        >
+          {{ item.label }} <span>{{ bountyCounts[item.id] }}</span>
+        </button>
+      </nav>
+    </section>
+    <p v-if="bounties.length && !filteredBounties.length" class="empty-note">没有匹配的悬赏，试试其他筛选或搜索词。</p>
+
+    <TransitionGroup
+      v-if="filteredBounties.length"
+      tag="section"
+      name="task-list"
+      class="task-card-grid"
+      aria-label="悬赏列表"
+    >
+      <article v-for="item in filteredBounties" :key="item.id" class="task-card bounty-card">
         <header>
           <span :data-status="item.status">{{ statusLabels[item.status] }}</span>
           <b>{{ item.points > 0 ? `+${item.points} 积分` : '不计积分' }}</b>
@@ -580,7 +620,7 @@ function loadSubtaskContent(subtaskId) {
         <p v-if="item.points > 0" class="task-card-settle">
           {{ item.pointsSettledAt ? `积分已结算（${item.pointsSettledAt.slice(0, 10)}）` : '积分待结算' }}
         </p>
-        <p v-if="item.expired" class="task-skip">已截止：不能再接取或驳回，管理员仍可移除接取者与延长截止日期。</p>
+        <p v-if="item.expired" class="task-skip">已截止：不可接取或驳回；仍可移除接取、延长截止日。</p>
 
         <div class="task-card-actions">
           <RouterLink class="portal-secondary" :to="`/admin/bounties/${item.id}/claims`">接取名单</RouterLink>
@@ -620,6 +660,6 @@ function loadSubtaskContent(subtaskId) {
           </button>
         </div>
       </article>
-    </section>
+    </TransitionGroup>
   </PortalShell>
 </template>

@@ -186,6 +186,12 @@ class OnboardingTaskApiTests {
         String view = ownTask(applicant.token()).andReturn().getResponse().getContentAsString();
         String assignmentId = JsonPath.read(view, "$.data.assignmentId");
         String taskId = JsonPath.read(view, "$.data.taskId");
+
+        // 未提交的进行中对象不能被驳回；驳回只针对报名者已提交的内容。
+        mvc.perform(review(teacherToken, taskId, assignmentId,
+                        "{\"decision\":\"REJECTED\",\"comment\":\"请补充材料\"}"))
+                .andExpect(status().isConflict());
+
         completeAllSubtasks(applicant.token(), view);
 
         mvc.perform(put("/api/v1/recruitment/me/qualification")

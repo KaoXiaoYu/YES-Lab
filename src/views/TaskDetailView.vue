@@ -109,7 +109,7 @@ async function confirmPrizeReceived() {
     title="任务详情"
     :description="
       isBounty
-        ? '查看悬赏完成名次、奖金履约与截止情况。'
+        ? '查看完成名次、奖金状态与截止时间。'
         : '查看任务说明，逐个子任务提交完成内容后填写总完成说明，等待管理员人工确认。'
     "
   >
@@ -236,7 +236,7 @@ async function confirmPrizeReceived() {
               placeholder="说明完成情况、产出或遇到的问题。"
               required
             ></textarea>
-            <small v-if="isBounty">悬赏是「提交即完成」：提交后立即锁定完成名次，管理员只做事后复核。</small>
+            <small v-if="isBounty">提交即完成并锁定名次，管理员事后复核。</small>
             <small v-else
               >提交后管理员会人工确认；驳回后从打回时起有 24
               小时补交。截止后管理员仍可审核，截止后通过也会计入积分。</small

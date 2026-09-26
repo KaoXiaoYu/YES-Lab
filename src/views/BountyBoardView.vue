@@ -13,6 +13,21 @@ const actionStatus = ref('')
 /** 同时只对一条悬赏做接取确认，避免多处弹确认框。 */
 const confirmingId = ref('')
 const filter = ref('ALL')
+const searchQuery = ref('')
+
+const filters = [
+  { id: 'ALL', label: '全部' },
+  { id: 'OPEN', label: '可接取' },
+  { id: 'MINE', label: '我已接取' },
+  { id: 'CLOSED', label: '暂不可接' },
+]
+
+const filterCounts = computed(() => ({
+  ALL: items.value.length,
+  OPEN: items.value.filter((item) => item.claimable).length,
+  MINE: items.value.filter((item) => item.myAssignmentId).length,
+  CLOSED: items.value.filter((item) => !item.claimable && !item.myAssignmentId).length,
+}))
 
 const myStatusLabels = {
   PENDING: '进行中',
@@ -21,15 +36,15 @@ const myStatusLabels = {
   ABANDONED: '已放弃',
 }
 
-const filtered = computed(() =>
-  items.value.filter((item) => {
-    if (filter.value === 'ALL') return true
-    if (filter.value === 'OPEN') return item.claimable
-    if (filter.value === 'MINE') return Boolean(item.myAssignmentId)
-    if (filter.value === 'CLOSED') return !item.windowOpen
-    return true
-  }),
-)
+const filtered = computed(() => {
+  const query = searchQuery.value.trim().toLocaleLowerCase()
+  return items.value.filter((item) => {
+    if (filter.value === 'OPEN' && !item.claimable) return false
+    if (filter.value === 'MINE' && !item.myAssignmentId) return false
+    if (filter.value === 'CLOSED' && (item.claimable || item.myAssignmentId)) return false
+    return !query || item.title.toLocaleLowerCase().includes(query)
+  })
+})
 
 function prizeText(item) {
   const prize = item.prize
@@ -84,17 +99,24 @@ async function confirmClaim(item) {
   <PortalShell
     eyebrow="COLLABORATION / BOUNTY"
     title="悬赏榜"
-    description="成员自主接取，先到先得；最先完成的 m 人获得奖金（线下发放），绑定的积分在悬赏到期后统一结算。"
+    description="浏览悬赏、查看名额与奖励；接取后按要求提交即可完成。"
   >
-    <section class="task-toolbar" aria-label="悬赏筛选">
-      <label
-        >悬赏状态<select v-model="filter">
-          <option value="ALL">全部</option>
-          <option value="OPEN">可接取</option>
-          <option value="MINE">我已接取</option>
-          <option value="CLOSED">已满员或已截止</option>
-        </select></label
-      >
+    <section class="bounty-list-tools" aria-label="悬赏筛选与搜索">
+      <label class="bounty-search">
+        搜索悬赏
+        <input v-model.trim="searchQuery" type="search" placeholder="输入标题" />
+      </label>
+      <nav class="bounty-filters" aria-label="悬赏状态">
+        <button
+          v-for="item in filters"
+          :key="item.id"
+          type="button"
+          :aria-pressed="filter === item.id"
+          @click="filter = item.id"
+        >
+          {{ item.label }} <span>{{ filterCounts[item.id] }}</span>
+        </button>
+      </nav>
     </section>
 
     <p v-if="actionError" class="portal-state error inline" role="alert">{{ actionError }}</p>
@@ -105,10 +127,10 @@ async function confirmClaim(item) {
     <div v-if="loading" class="portal-state">正在读取悬赏…</div>
     <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <div v-else-if="!filtered.length" class="portal-state project-empty">
-      <Gift :size="28" aria-hidden="true" /><strong>暂无可显示的悬赏</strong><span>管理员发布悬赏后会出现在这里。</span>
+      <Gift :size="28" aria-hidden="true" /><strong>没有匹配的悬赏</strong><span>换个筛选条件或搜索词试试。</span>
     </div>
 
-    <section v-else class="task-card-grid" aria-label="悬赏列表">
+    <TransitionGroup v-else tag="section" name="task-list" class="task-card-grid" aria-label="悬赏列表">
       <article v-for="item in filtered" :key="item.taskId" class="task-card bounty-card">
         <header>
           <span :data-status="item.myStatus || (item.claimable ? 'OPEN' : 'CLOSED')">
@@ -145,7 +167,7 @@ async function confirmClaim(item) {
         </p>
         <p v-if="item.prize.prizeDescription" class="bounty-prize">
           {{ item.prize.prizeDescription }}
-          <small>（奖金在线下发放，系统记录逐人发放与领取状态）</small>
+          <small>线下发放 · 可查领取状态</small>
         </p>
 
         <p v-if="item.myAssignmentId" class="bounty-mine" role="status">
@@ -172,19 +194,21 @@ async function confirmClaim(item) {
             >
               <Gift :size="15" aria-hidden="true" />立即接取
             </button>
-            <div v-else class="bounty-confirm" role="group" aria-label="确认接取">
-              <p>
-                <TriangleAlert :size="15" aria-hidden="true" />
-                接取后名额即被占用，且你只能接取这条悬赏一次；放弃后无法再次接取。
-              </p>
-              <button class="portal-primary" type="button" :disabled="working" @click="confirmClaim(item)">
-                {{ working ? '接取中…' : '确认接取' }}
-              </button>
-              <button class="portal-secondary" type="button" @click="confirmingId = ''">取消</button>
-            </div>
+            <Transition name="task-reveal">
+              <div v-if="confirmingId === item.taskId" class="bounty-confirm" role="group" aria-label="确认接取">
+                <p>
+                  <TriangleAlert :size="15" aria-hidden="true" />
+                  接取会占用名额；放弃后不能再次接取。
+                </p>
+                <button class="portal-primary" type="button" :disabled="working" @click="confirmClaim(item)">
+                  {{ working ? '接取中…' : '确认接取' }}
+                </button>
+                <button class="portal-secondary" type="button" @click="confirmingId = ''">取消</button>
+              </div>
+            </Transition>
           </template>
         </div>
       </article>
-    </section>
+    </TransitionGroup>
   </PortalShell>
 </template>

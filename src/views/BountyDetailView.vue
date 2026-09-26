@@ -85,11 +85,7 @@ async function abandon() {
 </script>
 
 <template>
-  <PortalShell
-    eyebrow="COLLABORATION / BOUNTY"
-    title="悬赏详情"
-    description="接取后进入我的任务提交完成说明；提交即完成，最先完成的 m 人获得奖金，积分在悬赏到期后统一结算。"
-  >
+  <PortalShell eyebrow="COLLABORATION / BOUNTY" title="悬赏详情" description="查看奖励与名额；接取后提交即完成。">
     <RouterLink class="task-back" to="/bounties"><ArrowLeft :size="16" aria-hidden="true" />返回悬赏榜</RouterLink>
 
     <div v-if="loading" class="portal-state">正在读取悬赏…</div>
@@ -174,16 +170,18 @@ async function abandon() {
             >
               <Gift :size="15" aria-hidden="true" />立即接取
             </button>
-            <div v-else class="bounty-confirm" role="group" aria-label="确认接取">
-              <p>
-                <TriangleAlert :size="15" aria-hidden="true" />
-                接取后名额即被占用，且你只能接取这条悬赏一次；放弃后无法再次接取。
-              </p>
-              <button class="portal-primary" type="button" :disabled="working" @click="claim">
-                {{ working ? '接取中…' : '确认接取' }}
-              </button>
-              <button class="portal-secondary" type="button" @click="confirmingClaim = false">取消</button>
-            </div>
+            <Transition name="task-reveal">
+              <div v-if="confirmingClaim" class="bounty-confirm" role="group" aria-label="确认接取">
+                <p>
+                  <TriangleAlert :size="15" aria-hidden="true" />
+                  接取会占用名额；放弃后不能再次接取。
+                </p>
+                <button class="portal-primary" type="button" :disabled="working" @click="claim">
+                  {{ working ? '接取中…' : '确认接取' }}
+                </button>
+                <button class="portal-secondary" type="button" @click="confirmingClaim = false">取消</button>
+              </div>
+            </Transition>
           </template>
         </div>
 

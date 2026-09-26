@@ -261,6 +261,9 @@ public class TaskService {
         String exemptionReason = normalize(request.exemptionReason());
 
         if (request.decision() == TaskModels.ReviewDecision.REJECTED) {
+            if (!assignment.isReviewable()) {
+                throw new ApiException(HttpStatus.CONFLICT, "该对象尚未提交完成说明，暂不能驳回");
+            }
             if (comment == null) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "驳回必须填写审核意见");
             }

@@ -13,6 +13,8 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const activeAssignmentId = ref('')
 const revokeComment = ref('')
+const listFilter = ref('ALL')
+const searchQuery = ref('')
 
 const statusLabels = {
   PENDING: '进行中',
@@ -30,6 +32,29 @@ const fulfillmentLabels = {
 }
 
 const task = computed(() => claims.value?.task || null)
+const claimFilters = [
+  { id: 'ALL', label: '全部' },
+  { id: 'PENDING', label: '进行中' },
+  { id: 'APPROVED', label: '已完成' },
+  { id: 'REJECTED', label: '已驳回' },
+  { id: 'ABANDONED', label: '已放弃' },
+]
+const claimCounts = computed(() =>
+  Object.fromEntries([
+    ['ALL', claims.value?.rows.length || 0],
+    ...['PENDING', 'APPROVED', 'REJECTED', 'ABANDONED'].map((status) => [
+      status,
+      claims.value?.rows.filter((row) => row.status === status).length || 0,
+    ]),
+  ]),
+)
+const filteredRows = computed(() => {
+  const query = searchQuery.value.trim().toLocaleLowerCase()
+  return (claims.value?.rows || []).filter((row) => {
+    if (listFilter.value !== 'ALL' && row.status !== listFilter.value) return false
+    return !query || `${row.name} ${row.memberCode || ''} ${row.grade || ''}`.toLocaleLowerCase().includes(query)
+  })
+})
 
 async function load() {
   loading.value = true
@@ -126,11 +151,7 @@ function prizeSummary() {
 </script>
 
 <template>
-  <PortalShell
-    eyebrow="ADMIN / BOUNTY CLAIMS"
-    title="悬赏接取名单"
-    description="接取名额、奖金发放/领取进度与逐人明细；登记线下实际发放后，由获奖成员本人确认领取。"
-  >
+  <PortalShell eyebrow="ADMIN / BOUNTY CLAIMS" title="悬赏接取名单" description="查看接取、完成与奖金履约记录。">
     <RouterLink class="task-back" to="/admin/bounties"
       ><ArrowLeft :size="16" aria-hidden="true" />返回悬赏管理</RouterLink
     >
@@ -183,106 +204,127 @@ function prizeSummary() {
             <dd>{{ task.pointsSettledAt ? `已结算 ${task.pointsSettledAt.slice(0, 10)}` : '待结算' }}</dd>
           </div>
         </dl>
-        <p v-if="task.expired" class="task-skip" role="status">
-          悬赏已截止：不能再接取或驳回；线下奖金发放与成员领取确认仍可补录。
-        </p>
-        <p v-else-if="claims.occupied > 0" class="task-skip" role="status">
-          驳回会立即把奖金顺延给名次最靠前的未获奖完成者；积分不随驳回回收。
-        </p>
+        <p v-if="task.expired" class="task-skip" role="status">已截止：不可接取或驳回；奖金发放与领取仍可补录。</p>
+        <p v-else-if="claims.occupied > 0" class="task-skip" role="status">驳回后奖金按名次顺延；积分不回收。</p>
       </section>
 
       <section class="task-rows" aria-labelledby="bounty-rows-title">
-        <h3 id="bounty-rows-title">逐人明细</h3>
-        <p v-if="!claims.rows.length" class="empty-note">还没有成员接取这条悬赏。</p>
-        <article v-for="row in claims.rows" :key="row.assignmentId" class="task-row">
-          <header>
-            <div>
-              <strong>{{ row.name }}</strong>
-              <span
-                >{{ row.memberCode }} · {{ roleLabels[row.role] }} ·
-                {{ memberStatusLabels[row.memberStatus] || row.memberStatus }} · {{ row.grade || '年级未填' }}</span
-              >
-            </div>
-            <b :data-status="row.status">{{ statusLabels[row.status] }}</b>
-          </header>
-          <p>
-            <template v-if="row.completionRank">完成名次第 {{ row.completionRank }} 名 · </template>
-            <template v-if="row.prizeAwarded">持有奖金</template>
-            <template v-else-if="claims.prizeSlots">未持有奖金</template>
-            <span v-if="row.overdue" class="overdue"> · 已截止</span>
-            <span v-if="row.awardedPoints != null"> · 已计 {{ row.awardedPoints }} 分</span>
-            <span v-else-if="row.pointsSkippedReason" class="task-skip"> · 未计分：{{ row.pointsSkippedReason }}</span>
-          </p>
-          <p v-if="row.completionNote" class="task-row-note">完成说明：{{ row.completionNote }}</p>
-          <p v-if="row.reviewComment" class="task-row-note">
-            驳回意见：{{ row.reviewComment }}（{{ row.reviewedBy }}，{{ row.reviewedAt?.slice(0, 10) }}）
-          </p>
-          <p v-if="row.prizeFulfillmentStatus" class="task-row-note" role="status" aria-atomic="true">
-            奖金履约：{{ fulfillmentLabels[row.prizeFulfillmentStatus] || '记录待核查' }}
-            <template v-if="row.prizeIssuedAt">
-              · {{ row.prizeIssuedAt.slice(0, 16).replace('T', ' ') }} 由 {{ row.prizeIssuedBy }} 登记发放</template
-            >
-            <template v-if="row.prizeReceivedAt">
-              · {{ row.prizeReceivedAt.slice(0, 16).replace('T', ' ') }} 由 {{ row.prizeReceivedBy }} 确认领取</template
-            >
-            <template v-if="row.prizeRevokedAt">
-              · {{ row.prizeRevokedAt.slice(0, 16).replace('T', ' ') }} 由 {{ row.prizeRevokedBy }} 撤销资格
-              <template v-if="row.prizeRevokedReason">：{{ row.prizeRevokedReason }}</template>
-            </template>
-          </p>
-
-          <div class="task-card-actions">
-            <button
-              v-if="row.status === 'APPROVED'"
-              type="button"
-              :disabled="working || row.overdue || ['ISSUED', 'RECEIVED'].includes(row.prizeFulfillmentStatus)"
-              :title="
-                row.overdue
-                  ? '悬赏已截止，不能再驳回'
-                  : ['ISSUED', 'RECEIVED'].includes(row.prizeFulfillmentStatus)
-                    ? '奖金已发放或领取，不能再驳回'
-                    : ''
-              "
-              @click="openRevoke(row.assignmentId)"
-            >
-              <Gift :size="15" aria-hidden="true" />驳回（顺延奖金）
-            </button>
-            <button
-              v-if="row.status === 'APPROVED' && row.prizeAwarded && row.prizeFulfillmentStatus === 'PENDING'"
-              type="button"
-              :disabled="working"
-              @click="issuePrize(row)"
-            >
-              <Gift :size="15" aria-hidden="true" />登记已线下发放
-            </button>
-            <button
-              v-if="row.status === 'PENDING'"
-              type="button"
-              class="danger"
-              :disabled="working"
-              @click="removeClaim(row)"
-            >
-              <UserMinus :size="15" aria-hidden="true" />移除接取
-            </button>
-          </div>
-
-          <form
-            v-if="activeAssignmentId === row.assignmentId"
-            class="task-review-form"
-            @submit.prevent="submitRevoke(row)"
+        <header class="bounty-claims-heading">
+          <h3 id="bounty-rows-title">接取成员</h3>
+          <label class="bounty-search">
+            搜索成员
+            <input v-model.trim="searchQuery" type="search" placeholder="姓名、编号或年级" />
+          </label>
+        </header>
+        <nav class="bounty-filters" aria-label="接取状态">
+          <button
+            v-for="item in claimFilters"
+            :key="item.id"
+            type="button"
+            :aria-pressed="listFilter === item.id"
+            @click="listFilter = item.id"
           >
-            <p class="task-skip full">驳回必填意见；积分不回收，奖金会立即顺延给下一位完成者。</p>
-            <label class="full">驳回意见<input v-model.trim="revokeComment" maxlength="1000" required /></label>
-            <div class="task-form-actions">
-              <button class="portal-primary" type="submit" :disabled="working || !revokeComment.trim()">
-                {{ working ? '提交中…' : '确认驳回' }}
+            {{ item.label }} <span>{{ claimCounts[item.id] }}</span>
+          </button>
+        </nav>
+        <p v-if="!claims.rows.length" class="empty-note">还没有成员接取这条悬赏。</p>
+        <p v-else-if="!filteredRows.length" class="empty-note">没有匹配的成员记录。</p>
+        <TransitionGroup v-else tag="div" name="task-list" class="bounty-claim-list">
+          <article v-for="row in filteredRows" :key="row.assignmentId" class="task-row">
+            <header>
+              <div>
+                <strong>{{ row.name }}</strong>
+                <span
+                  >{{ row.memberCode }} · {{ roleLabels[row.role] }} ·
+                  {{ memberStatusLabels[row.memberStatus] || row.memberStatus }} · {{ row.grade || '年级未填' }}</span
+                >
+              </div>
+              <b :data-status="row.status">{{ statusLabels[row.status] }}</b>
+            </header>
+            <p>
+              <template v-if="row.completionRank">完成名次第 {{ row.completionRank }} 名 · </template>
+              <template v-if="row.prizeAwarded">持有奖金</template>
+              <template v-else-if="claims.prizeSlots">未持有奖金</template>
+              <span v-if="row.overdue" class="overdue"> · 已截止</span>
+              <span v-if="row.awardedPoints != null"> · 已计 {{ row.awardedPoints }} 分</span>
+              <span v-else-if="row.pointsSkippedReason" class="task-skip">
+                · 未计分：{{ row.pointsSkippedReason }}</span
+              >
+            </p>
+            <p v-if="row.completionNote" class="task-row-note">完成说明：{{ row.completionNote }}</p>
+            <p v-if="row.reviewComment" class="task-row-note">
+              驳回意见：{{ row.reviewComment }}（{{ row.reviewedBy }}，{{ row.reviewedAt?.slice(0, 10) }}）
+            </p>
+            <p v-if="row.prizeFulfillmentStatus" class="task-row-note" role="status" aria-atomic="true">
+              奖金履约：{{ fulfillmentLabels[row.prizeFulfillmentStatus] || '记录待核查' }}
+              <template v-if="row.prizeIssuedAt">
+                · {{ row.prizeIssuedAt.slice(0, 16).replace('T', ' ') }} 由 {{ row.prizeIssuedBy }} 登记发放</template
+              >
+              <template v-if="row.prizeReceivedAt">
+                · {{ row.prizeReceivedAt.slice(0, 16).replace('T', ' ') }} 由
+                {{ row.prizeReceivedBy }} 确认领取</template
+              >
+              <template v-if="row.prizeRevokedAt">
+                · {{ row.prizeRevokedAt.slice(0, 16).replace('T', ' ') }} 由 {{ row.prizeRevokedBy }} 撤销资格
+                <template v-if="row.prizeRevokedReason">：{{ row.prizeRevokedReason }}</template>
+              </template>
+            </p>
+
+            <div class="task-card-actions">
+              <button
+                v-if="row.status === 'APPROVED'"
+                type="button"
+                :disabled="working || row.overdue || ['ISSUED', 'RECEIVED'].includes(row.prizeFulfillmentStatus)"
+                :title="
+                  row.overdue
+                    ? '悬赏已截止，不能再驳回'
+                    : ['ISSUED', 'RECEIVED'].includes(row.prizeFulfillmentStatus)
+                      ? '奖金已发放或领取，不能再驳回'
+                      : ''
+                "
+                @click="openRevoke(row.assignmentId)"
+              >
+                <Gift :size="15" aria-hidden="true" />驳回（顺延奖金）
               </button>
-              <button type="button" class="portal-secondary" @click="activeAssignmentId = ''">
-                <X :size="15" aria-hidden="true" />取消
+              <button
+                v-if="row.status === 'APPROVED' && row.prizeAwarded && row.prizeFulfillmentStatus === 'PENDING'"
+                type="button"
+                :disabled="working"
+                @click="issuePrize(row)"
+              >
+                <Gift :size="15" aria-hidden="true" />登记已线下发放
+              </button>
+              <button
+                v-if="row.status === 'PENDING'"
+                type="button"
+                class="danger"
+                :disabled="working"
+                @click="removeClaim(row)"
+              >
+                <UserMinus :size="15" aria-hidden="true" />移除接取
               </button>
             </div>
-          </form>
-        </article>
+
+            <Transition name="task-reveal">
+              <form
+                v-if="activeAssignmentId === row.assignmentId"
+                class="task-review-form"
+                @submit.prevent="submitRevoke(row)"
+              >
+                <p class="task-skip full">驳回后奖金按名次顺延，积分不回收。</p>
+                <label class="full">驳回意见<input v-model.trim="revokeComment" maxlength="1000" required /></label>
+                <div class="task-form-actions">
+                  <button class="portal-primary" type="submit" :disabled="working || !revokeComment.trim()">
+                    {{ working ? '提交中…' : '确认驳回' }}
+                  </button>
+                  <button type="button" class="portal-secondary" @click="activeAssignmentId = ''">
+                    <X :size="15" aria-hidden="true" />取消
+                  </button>
+                </div>
+              </form>
+            </Transition>
+          </article>
+        </TransitionGroup>
       </section>
     </template>
   </PortalShell>

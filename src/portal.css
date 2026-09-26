@@ -9911,6 +9911,13 @@ body.submission-feedback-open {
   color: inherit;
 }
 
+.task-card {
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
 .task-card header {
   display: flex;
   justify-content: space-between;
@@ -10176,12 +10183,121 @@ body.submission-feedback-open {
   gap: 1rem;
 }
 
+.onboarding-settings {
+  padding: 1rem 1.25rem;
+}
+
+.onboarding-settings > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  min-height: 44px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.onboarding-settings > summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: var(--color-primary);
+}
+
+.onboarding-settings > summary strong {
+  font-size: 1rem;
+}
+
+.onboarding-settings > summary small {
+  color: var(--color-text-secondary);
+}
+
+.onboarding-settings-content {
+  padding-top: 1rem;
+}
+
+.onboarding-settings-content > header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+  color: var(--color-primary);
+}
+
+.onboarding-review-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.onboarding-review-heading h3,
+.onboarding-review-heading p {
+  margin: 0;
+}
+
+.onboarding-review-heading p {
+  margin-top: 0.25rem;
+  color: var(--color-text-secondary);
+}
+
+.onboarding-search {
+  display: grid;
+  gap: 0.3rem;
+  min-width: min(100%, 250px);
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+
+.onboarding-status-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.onboarding-status-filters button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-foreground);
+  background: var(--color-card);
+  cursor: pointer;
+}
+
+.onboarding-status-filters button[aria-pressed='true'] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 9%, var(--color-card));
+  font-weight: 700;
+}
+
+.onboarding-status-filters button span {
+  min-width: 1.4rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: var(--color-background);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .task-row {
   display: grid;
   gap: 0.5rem;
   padding: 1.1rem;
   border: 1px solid var(--color-border);
   border-radius: 0.85rem;
+}
+
+.onboarding-review-list,
+.bounty-claim-list {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
 }
 
 .task-row header {
@@ -10193,6 +10309,12 @@ body.submission-feedback-open {
 .task-row header div {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.task-row header b {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .task-row header span {
@@ -10215,6 +10337,20 @@ body.submission-feedback-open {
 }
 
 @media (max-width: 640px) {
+  .onboarding-review-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .onboarding-search {
+    min-width: 0;
+  }
+
+  .onboarding-settings > summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .task-card-grid {
     grid-template-columns: 1fr;
   }
@@ -10384,6 +10520,13 @@ a.portal-secondary {
 
 .task-panel-submit .task-locked-note {
   margin: 0;
+}
+
+@media (max-width: 760px), (pointer: coarse) {
+  .task-card-actions button,
+  .task-card-actions a {
+    min-height: 44px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -10566,6 +10709,131 @@ a.portal-secondary {
 
 /* ---------- 悬赏任务 ---------- */
 
+/* 搜索与状态筛选共用一组简洁工具栏，窄屏自动上下排列。 */
+.bounty-list-tools,
+.bounty-admin-tools {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1.25rem;
+}
+
+.bounty-claims-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+
+.bounty-claims-heading h3 {
+  margin: 0;
+}
+
+.bounty-search {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.bounty-search input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+  color: var(--color-foreground);
+  background: var(--color-card);
+  font: inherit;
+}
+
+.bounty-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.bounty-filters button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 44px;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-foreground);
+  background: var(--color-card);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.bounty-filters button[aria-pressed='true'] {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 9%, var(--color-card));
+  font-weight: 700;
+}
+
+.bounty-filters button span {
+  min-width: 1.35rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 999px;
+  background: var(--color-background);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* 列表按 opacity/transform 进出；Vue move 只过渡 transform，不推挤重排。 */
+.task-list-enter-active {
+  transition:
+    opacity 220ms ease-out,
+    transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.task-list-leave-active {
+  transition:
+    opacity 150ms ease-in,
+    transform 150ms ease-in;
+}
+
+.task-list-move {
+  transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.task-list-enter-from {
+  opacity: 0;
+  transform: translateY(7px);
+}
+
+.task-list-leave-to {
+  opacity: 0;
+  transform: translateY(3px);
+}
+
+.task-reveal-enter-active,
+.task-reveal-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 180ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.task-reveal-enter-from,
+.task-reveal-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
 /* 接取上限与奖金份数是两个独立设置，用同一套「指标」版式并各自标注名称。 */
 .bounty-metrics {
   display: flex;
@@ -10668,4 +10936,84 @@ a.portal-secondary {
 
 .bounty-card .task-card-actions {
   flex-wrap: wrap;
+}
+
+.task-card-actions button,
+.task-card-actions a,
+.bounty-search input {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.bounty-search input:focus-visible,
+.bounty-filters button:focus-visible,
+.onboarding-status-filters button:focus-visible,
+.task-card-actions button:focus-visible,
+.task-card-actions a:focus-visible {
+  outline: 3px solid var(--color-focus, var(--color-primary));
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .task-card:hover {
+    border-color: var(--color-border-strong, #74849a);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.08));
+    transform: translateY(-2px);
+  }
+
+  .bounty-filters button:hover:not([aria-pressed='true']) {
+    border-color: var(--color-primary);
+    background: var(--color-surface-soft);
+  }
+}
+
+@media (max-width: 640px) {
+  .bounty-list-tools,
+  .bounty-admin-tools {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .bounty-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bounty-filters button {
+    justify-content: space-between;
+  }
+
+  .task-rows {
+    padding: 1rem;
+  }
+
+  .task-summary > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .task-row {
+    padding: 0.85rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .task-card,
+  .task-card-actions button,
+  .task-card-actions a,
+  .bounty-search input,
+  .bounty-filters button,
+  .task-list-enter-active,
+  .task-list-leave-active,
+  .task-list-move,
+  .task-reveal-enter-active,
+  .task-reveal-leave-active {
+    transition: none;
+  }
+
+  .task-card:hover {
+    transform: none;
+  }
 }

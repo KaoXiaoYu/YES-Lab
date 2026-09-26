@@ -23,6 +23,8 @@ const successMessage = ref('')
 const activeAssignmentId = ref('')
 const submissionsAssignmentId = ref('')
 const extendAssignmentId = ref('')
+const statusFilter = ref('SUBMITTED')
+const applicantQuery = ref('')
 const extendForm = reactive({ dueDate: '', reason: '' })
 
 function toggleSubmissions(assignmentId) {
@@ -40,11 +42,38 @@ const review = reactive({ decision: 'APPROVED', comment: '', exemptionReason: ''
 
 const statusLabels = {
   PENDING: '待完成',
-  SUBMITTED: '待确认',
-  APPROVED: '已通过',
-  REJECTED: '已驳回',
+  SUBMITTED: '待审核',
+  APPROVED: '已转正',
+  REJECTED: '待补交',
 }
+const statusFilters = [
+  { id: 'SUBMITTED', label: '待审核' },
+  { id: 'ACTIVE', label: '进行中 / 待补交' },
+  { id: 'APPROVED', label: '已转正' },
+  { id: 'ALL', label: '全部' },
+]
 const rows = computed(() => overview.value?.rows || [])
+const reviewableCount = computed(() => rows.value.filter((row) => row.status === 'SUBMITTED').length)
+const statusCounts = computed(() => ({
+  ALL: rows.value.length,
+  SUBMITTED: reviewableCount.value,
+  ACTIVE: rows.value.filter((row) => row.status === 'PENDING' || row.status === 'REJECTED').length,
+  APPROVED: rows.value.filter((row) => row.status === 'APPROVED').length,
+}))
+const filteredRows = computed(() => {
+  const query = applicantQuery.value.trim().toLocaleLowerCase()
+  return rows.value
+    .filter((row) => {
+      if (statusFilter.value === 'ACTIVE' && !['PENDING', 'REJECTED'].includes(row.status)) return false
+      if (statusFilter.value !== 'ALL' && statusFilter.value !== 'ACTIVE' && row.status !== statusFilter.value)
+        return false
+      return !query || `${row.applicantName} ${row.applicantUsername}`.toLocaleLowerCase().includes(query)
+    })
+    .sort((first, second) => {
+      const priority = { SUBMITTED: 0, REJECTED: 1, PENDING: 2, APPROVED: 3 }
+      return (priority[first.status] ?? 4) - (priority[second.status] ?? 4)
+    })
+})
 const sharedTask = computed(() => overview.value?.task || task)
 const validSubtasks = computed(() => task.subtasks.filter((item) => item.title.trim()))
 
@@ -203,11 +232,7 @@ async function submitReview(row) {
 </script>
 
 <template>
-  <PortalShell
-    eyebrow="ADMIN / ONBOARDING TASK"
-    title="新手任务"
-    description="全实验室共用一个新手任务大任务：在这里维护它的内容与子任务，改动对技能测试阶段的报名者即时生效；子任务全部完成后管理员审核通过即转为正式成员。"
-  >
+  <PortalShell eyebrow="ADMIN / ONBOARDING TASK" title="新手任务" description="维护共享子任务，并审核技能测试结果。">
     <RouterLink class="task-back" to="/admin/tasks"><ArrowLeft :size="16" aria-hidden="true" />返回任务管理</RouterLink>
 
     <p v-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</p>
@@ -216,210 +241,259 @@ async function submitReview(row) {
     <div v-if="loading" class="portal-state">正在读取新手任务…</div>
 
     <template v-else>
-      <section class="admin-form-card" aria-labelledby="onboarding-task-title">
-        <header>
-          <ListChecks :size="22" aria-hidden="true" />
-          <h3 id="onboarding-task-title">新手任务</h3>
-        </header>
-        <p>
-          这是一个大任务，所有进入技能测试阶段的报名者共享它：每人在其中看到并提交属于自己的进度，子任务
-          <strong>全部完成</strong>后才能提交，管理员审核通过即转为正式成员。
-        </p>
-        <p class="task-locked-note" role="status">
-          保存后立即生效：新增子任务会把「已提交待确认」的报名者退回「待完成」并发送站内消息；删除子任务会同时清掉对应的提交记录；修改时长会按每人各自的发放日期重算截止日期。
-        </p>
+      <details class="admin-form-card onboarding-settings">
+        <summary>
+          <span><ListChecks :size="22" aria-hidden="true" /><strong>新手任务设置</strong></span>
+          <small>编辑内容、调整时长或补发</small>
+        </summary>
+        <div class="onboarding-settings-content" aria-labelledby="onboarding-task-title">
+          <header>
+            <ListChecks :size="22" aria-hidden="true" />
+            <h3 id="onboarding-task-title">新手任务</h3>
+          </header>
+          <p>技能测试阶段共用此任务；报名者提交全部子任务后，可由管理员审核转正。</p>
+          <p class="task-locked-note" role="status">
+            保存后立即生效。新增子任务会退回已提交记录；删除子任务会清除对应提交；修改时长会重算截止日期。
+          </p>
 
-        <div class="admin-form-grid">
-          <label class="full">任务标题<input v-model.trim="task.title" maxlength="160" required /></label>
-          <div class="full task-editor-field">
-            <span class="task-editor-label">新手任务说明</span>
-            <DiscussionRichTextEditor v-model="task.contentHtml" label="新手任务说明" :max-length="20000" />
+          <div class="admin-form-grid">
+            <label class="full">任务标题<input v-model.trim="task.title" maxlength="160" required /></label>
+            <div class="full task-editor-field">
+              <span class="task-editor-label">新手任务说明</span>
+              <DiscussionRichTextEditor v-model="task.contentHtml" label="新手任务说明" :max-length="20000" />
+            </div>
+            <label
+              >时长（天）
+              <input v-model.number="task.durationDays" type="number" min="1" max="365" required />
+              <small>截止日按各自发放日计算。</small></label
+            >
           </div>
-          <label
-            >时长（天）
-            <input v-model.number="task.durationDays" type="number" min="1" max="365" required />
-            <small>每位报名者的截止日期 = 本人被分配到这个大任务当天 + 此处时长。</small></label
-          >
-        </div>
 
-        <TaskSubtaskEditor
-          v-model="task.subtasks"
-          label="子任务（从属于这个大任务）"
-          hint="至少需要一项：成员必须提交全部子任务的内容才能提交与转正。展开箭头可为每项写富文本说明，成员点子任务进入独立页面阅读并提交内容；改动保存后即时生效，改名不影响已提交的进度。"
-          :load-content="loadSubtaskContent"
-        />
+          <TaskSubtaskEditor
+            v-model="task.subtasks"
+            label="子任务（从属于这个大任务）"
+            hint="至少一项。成员需提交全部子任务；展开可编辑说明。改动即时生效，改名保留进度。"
+            :load-content="loadSubtaskContent"
+          />
 
-        <div class="task-form-actions">
-          <button
-            class="portal-primary"
-            type="button"
-            :disabled="working || !task.title || !validSubtasks.length"
-            @click="save"
-          >
-            <Save :size="16" aria-hidden="true" />保存新手任务
-          </button>
-          <button class="portal-secondary" type="button" :disabled="working" @click="backfill">
-            <RefreshCw :size="16" aria-hidden="true" />批量补发新手任务
-          </button>
+          <div class="task-form-actions">
+            <button
+              class="portal-primary"
+              type="button"
+              :disabled="working || !task.title || !validSubtasks.length"
+              @click="save"
+            >
+              <Save :size="16" aria-hidden="true" />保存新手任务
+            </button>
+            <button class="portal-secondary" type="button" :disabled="working" @click="backfill">
+              <RefreshCw :size="16" aria-hidden="true" />批量补发新手任务
+            </button>
+          </div>
+          <p v-if="overview && overview.missingTaskCount > 0" class="task-skip" role="status">
+            当前有
+            {{ overview.missingTaskCount }} 位技能测试阶段报名者还没有新手任务，点击「批量补发新手任务」即可发放。
+          </p>
         </div>
-        <p v-if="overview && overview.missingTaskCount > 0" class="task-skip" role="status">
-          当前有 {{ overview.missingTaskCount }} 位技能测试阶段报名者还没有新手任务，点击「批量补发新手任务」即可发放。
-        </p>
-      </section>
+      </details>
 
       <section class="task-rows" aria-labelledby="onboarding-rows-title">
-        <h3 id="onboarding-rows-title">技能测试阶段完成情况（{{ rows.length }} 人）</h3>
+        <header class="onboarding-review-heading">
+          <div>
+            <h3 id="onboarding-rows-title">新手任务审核</h3>
+            <p>{{ reviewableCount }} 位待审核 · 截止后仍可审核</p>
+          </div>
+          <label class="onboarding-search">
+            搜索报名者
+            <input v-model.trim="applicantQuery" type="search" placeholder="姓名或邮箱" />
+          </label>
+        </header>
+        <nav class="onboarding-status-filters" aria-label="按新手任务状态筛选">
+          <button
+            v-for="filter in statusFilters"
+            :key="filter.id"
+            type="button"
+            :aria-pressed="statusFilter === filter.id"
+            @click="statusFilter = filter.id"
+          >
+            {{ filter.label }} <span>{{ statusCounts[filter.id] }}</span>
+          </button>
+        </nav>
         <p v-if="!rows.length" class="empty-note">当前没有处于技能测试阶段的报名者。</p>
-        <article v-for="row in rows" :key="row.applicationId" class="task-row">
-          <header>
-            <div>
-              <strong>{{ row.applicantName }}</strong>
-              <span>{{ row.applicantUsername }} · {{ row.stage === 'PROBATION' ? '旧试用期记录' : '技能测试' }}</span>
-            </div>
-            <b :data-status="row.status">{{ row.status ? statusLabels[row.status] : '未发放' }}</b>
-          </header>
-          <div class="task-progress">
-            <div
-              class="task-progress-track"
-              role="progressbar"
-              aria-valuemin="0"
-              :aria-valuenow="row.submittedSubtasks"
-              :aria-valuemax="row.totalSubtasks"
-              :aria-label="`${row.applicantName} 的子任务完成进度`"
-            >
-              <span :style="{ width: `${progressPercent(row)}%` }"></span>
-            </div>
-            <span class="task-progress-label">
-              已提交 {{ row.submittedSubtasks }} / {{ row.totalSubtasks }}
-              <span v-if="row.startDate || row.endDate">
-                · {{ row.startDate || '未设置' }} — {{ row.endDate || '未设置' }}</span
+        <p v-else-if="!filteredRows.length" class="empty-note">没有符合此状态和搜索条件的报名者。</p>
+        <TransitionGroup v-else tag="div" name="task-list" class="onboarding-review-list">
+          <article v-for="row in filteredRows" :key="row.applicationId" class="task-row">
+            <header>
+              <div>
+                <strong>{{ row.applicantName }}</strong>
+                <span>{{ row.applicantUsername }} · {{ row.stage === 'PROBATION' ? '旧试用期记录' : '技能测试' }}</span>
+              </div>
+              <b :data-status="row.status">{{ row.status ? statusLabels[row.status] : '未发放' }}</b>
+            </header>
+            <div class="task-progress">
+              <div
+                class="task-progress-track"
+                role="progressbar"
+                aria-valuemin="0"
+                :aria-valuenow="row.submittedSubtasks"
+                :aria-valuemax="row.totalSubtasks"
+                :aria-label="`${row.applicantName} 的子任务完成进度`"
               >
-              <span v-if="row.overdue" class="overdue">已过提交截止，仍可审核</span>
-            </span>
-          </div>
-          <p v-if="row.resubmissionDeadlineAt && row.status === 'REJECTED'" class="task-row-note" role="status">
-            报名者本次补交截止：{{ new Date(row.resubmissionDeadlineAt).toLocaleString('zh-CN') }}
-          </p>
-          <dl class="qualification-readonly">
-            <div>
-              <dt>学号 / 内部编号</dt>
-              <dd>{{ row.memberCode || '报名者尚未填写' }}</dd>
+                <span :style="{ width: `${progressPercent(row)}%` }"></span>
+              </div>
+              <span class="task-progress-label">
+                已提交 {{ row.submittedSubtasks }} / {{ row.totalSubtasks }}
+                <span v-if="row.startDate || row.endDate">
+                  · {{ row.startDate || '未设置' }} — {{ row.endDate || '未设置' }}</span
+                >
+                <span v-if="row.overdue" class="overdue">已过提交截止，仍可审核</span>
+              </span>
             </div>
-            <div>
-              <dt>能力标签</dt>
-              <dd>{{ row.skillTags?.join('、') || '报名者尚未填写' }}</dd>
-            </div>
-          </dl>
-          <p v-if="row.dueDateExtendedAt" class="task-row-note">
-            最近一次延长：{{ row.dueDateExtendedBy }} 于 {{ row.dueDateExtendedAt.slice(0, 10) }} 延长至 {{ row.endDate
-            }}<template v-if="row.dueDateExtensionReason"> · 理由：{{ row.dueDateExtensionReason }}</template>
-          </p>
-          <p v-if="row.completionNote" class="task-row-note">完成说明：{{ row.completionNote }}</p>
-          <p v-if="row.exemptionReason" class="task-skip">已豁免：{{ row.exemptionReason }}</p>
-          <p v-if="row.reviewComment" class="task-row-note">审核意见：{{ row.reviewComment }}</p>
-
-          <div class="task-card-actions">
-            <button
-              v-if="row.assignmentId && row.status !== 'APPROVED'"
-              type="button"
-              :disabled="working"
-              @click="openReview(row)"
-            >
-              <CheckCheck :size="15" aria-hidden="true" />审核
-            </button>
-            <button
-              v-if="row.assignmentId && row.status !== 'APPROVED'"
-              type="button"
-              :aria-expanded="extendAssignmentId === row.assignmentId"
-              @click="extendAssignmentId === row.assignmentId ? (extendAssignmentId = '') : openExtend(row)"
-            >
-              <CalendarClock :size="15" aria-hidden="true" />延长截止日期
-            </button>
-            <button
-              v-if="row.assignmentId"
-              type="button"
-              :aria-expanded="submissionsAssignmentId === row.assignmentId"
-              @click="toggleSubmissions(row.assignmentId)"
-            >
-              <ListChecks :size="15" aria-hidden="true" />查看提交内容
-            </button>
-            <span v-if="row.convertedProfileId">已转为正式成员</span>
-          </div>
-
-          <form
-            v-if="extendAssignmentId === row.assignmentId"
-            class="task-review-form"
-            @submit.prevent="submitExtend(row)"
-            aria-label="延长该报名者的截止日期"
-          >
-            <p class="task-skip full">
-              延长只影响这一位报名者；新的截止日期必须晚于今天、且晚于原截止日期。延长后本人即可继续提交，你也可以审核。
+            <p v-if="row.resubmissionDeadlineAt && row.status === 'REJECTED'" class="task-row-note" role="status">
+              报名者本次补交截止：{{ new Date(row.resubmissionDeadlineAt).toLocaleString('zh-CN') }}
             </p>
-            <label>新的截止日期<input v-model="extendForm.dueDate" type="date" required /></label>
-            <label class="full">延长理由（可选）<input v-model.trim="extendForm.reason" maxlength="500" /></label>
-            <div class="task-form-actions">
-              <button class="portal-primary" type="submit" :disabled="working || !extendForm.dueDate">
-                {{ working ? '提交中…' : '确认延长' }}
-              </button>
-              <button type="button" class="portal-secondary" @click="extendAssignmentId = ''">取消</button>
-            </div>
-          </form>
+            <dl class="qualification-readonly">
+              <div>
+                <dt>学号 / 内部编号</dt>
+                <dd>{{ row.memberCode || '报名者尚未填写' }}</dd>
+              </div>
+              <div>
+                <dt>能力标签</dt>
+                <dd>{{ row.skillTags?.join('、') || '报名者尚未填写' }}</dd>
+              </div>
+            </dl>
+            <p v-if="row.dueDateExtendedAt" class="task-row-note">
+              最近一次延长：{{ row.dueDateExtendedBy }} 于 {{ row.dueDateExtendedAt.slice(0, 10) }} 延长至
+              {{ row.endDate
+              }}<template v-if="row.dueDateExtensionReason"> · 理由：{{ row.dueDateExtensionReason }}</template>
+            </p>
+            <p v-if="row.completionNote" class="task-row-note">完成说明：{{ row.completionNote }}</p>
+            <p v-if="row.exemptionReason" class="task-skip">已豁免：{{ row.exemptionReason }}</p>
+            <p v-if="row.reviewComment" class="task-row-note">审核意见：{{ row.reviewComment }}</p>
 
-          <form
-            v-if="activeAssignmentId === row.assignmentId"
-            class="task-review-form"
-            @submit.prevent="submitReview(row)"
-          >
-            <label
-              >审核结论<select v-model="review.decision">
-                <option value="APPROVED">通过并转为正式成员</option>
-                <option value="REJECTED">驳回（不转正）</option>
-              </select></label
-            >
-            <label class="full">审核意见<input v-model.trim="review.comment" maxlength="1000" /></label>
-            <template v-if="review.decision === 'APPROVED'">
-              <p class="task-locked-note" role="status">
-                通过后将直接转为正式成员（不再经过试用期）。学号/内部编号与能力标签由报名者本人填写，此处仅供查看；未填资料不影响通过，成员首次进入系统时会被要求补齐。该报名者必须已提交全部
-                {{ sharedTask.subtasks.length }} 项子任务，否则会被拒绝。
-              </p>
-              <dl class="qualification-readonly">
-                <div>
-                  <dt>学号 / 内部编号</dt>
-                  <dd>{{ row.memberCode || '报名者尚未填写' }}</dd>
-                </div>
-                <div>
-                  <dt>能力标签</dt>
-                  <dd>{{ row.skillTags?.join('、') || '报名者尚未填写' }}</dd>
-                </div>
-              </dl>
-              <label class="full"
-                >豁免理由（可选）<input
-                  v-model.trim="review.exemptionReason"
-                  maxlength="500"
-                  placeholder="仅在确认免修时填写"
-              /></label>
-            </template>
-            <p v-else class="task-skip">驳回必须填写审核意见；报名者从打回时起有 24 小时补交时间。</p>
-            <div class="task-form-actions">
+            <div class="task-card-actions">
               <button
-                class="portal-primary"
-                type="submit"
-                :disabled="working || (review.decision === 'REJECTED' && !review.comment)"
+                v-if="row.assignmentId && row.status !== 'APPROVED'"
+                type="button"
+                :disabled="working"
+                :aria-expanded="activeAssignmentId === row.assignmentId"
+                :aria-controls="`onboarding-review-form-${row.assignmentId}`"
+                @click="openReview(row)"
               >
-                {{ working ? '提交中…' : '提交审核结果' }}
+                <CheckCheck :size="15" aria-hidden="true" />{{ row.status === 'SUBMITTED' ? '审核提交' : '豁免转正' }}
               </button>
-              <button type="button" class="portal-secondary" @click="activeAssignmentId = ''">
-                <X :size="15" aria-hidden="true" />取消
+              <button
+                v-if="row.assignmentId && row.status !== 'APPROVED'"
+                type="button"
+                :aria-expanded="extendAssignmentId === row.assignmentId"
+                @click="extendAssignmentId === row.assignmentId ? (extendAssignmentId = '') : openExtend(row)"
+              >
+                <CalendarClock :size="15" aria-hidden="true" />延长截止日期
               </button>
+              <button
+                v-if="row.assignmentId"
+                type="button"
+                :aria-expanded="submissionsAssignmentId === row.assignmentId"
+                @click="toggleSubmissions(row.assignmentId)"
+              >
+                <ListChecks :size="15" aria-hidden="true" />查看提交内容
+              </button>
+              <span v-if="row.convertedProfileId">已转为正式成员</span>
             </div>
-          </form>
 
-          <SubtaskSubmissionsPanel
-            v-if="submissionsAssignmentId === row.assignmentId"
-            :task-id="row.taskId"
-            :assignment-id="row.assignmentId"
-          />
-        </article>
+            <Transition name="task-reveal">
+              <form
+                v-if="extendAssignmentId === row.assignmentId"
+                class="task-review-form"
+                @submit.prevent="submitExtend(row)"
+                aria-label="延长该报名者的截止日期"
+              >
+                <p class="task-skip full">
+                  延长只影响这一位报名者；新的截止日期必须晚于今天、且晚于原截止日期。延长后本人即可继续提交，你也可以审核。
+                </p>
+                <label>新的截止日期<input v-model="extendForm.dueDate" type="date" required /></label>
+                <label class="full">延长理由（可选）<input v-model.trim="extendForm.reason" maxlength="500" /></label>
+                <div class="task-form-actions">
+                  <button class="portal-primary" type="submit" :disabled="working || !extendForm.dueDate">
+                    {{ working ? '提交中…' : '确认延长' }}
+                  </button>
+                  <button type="button" class="portal-secondary" @click="extendAssignmentId = ''">取消</button>
+                </div>
+              </form>
+            </Transition>
+
+            <Transition name="task-reveal">
+              <form
+                v-if="activeAssignmentId === row.assignmentId"
+                :id="`onboarding-review-form-${row.assignmentId}`"
+                class="task-review-form"
+                @submit.prevent="submitReview(row)"
+              >
+                <label v-if="row.status === 'SUBMITTED'"
+                  >审核结论<select v-model="review.decision">
+                    <option value="APPROVED">通过并转为正式成员</option>
+                    <option value="REJECTED">驳回（不转正）</option>
+                  </select></label
+                >
+                <p v-else class="task-locked-note full" role="status">
+                  此记录尚无可审核的提交。若确认免修并转正，请填写豁免理由；未提交的记录不能驳回。
+                </p>
+                <label class="full">审核意见<input v-model.trim="review.comment" maxlength="1000" /></label>
+                <template v-if="review.decision === 'APPROVED'">
+                  <p class="task-locked-note" role="status">
+                    通过后转为正式成员。资料由报名者填写；未填不影响通过，首次登录时补齐。
+                    {{
+                      row.status === 'SUBMITTED'
+                        ? `需提交全部 ${sharedTask.subtasks.length} 项；免修请填写理由。`
+                        : '无有效提交，只能填写豁免理由后转正。'
+                    }}
+                  </p>
+                  <dl class="qualification-readonly">
+                    <div>
+                      <dt>学号 / 内部编号</dt>
+                      <dd>{{ row.memberCode || '报名者尚未填写' }}</dd>
+                    </div>
+                    <div>
+                      <dt>能力标签</dt>
+                      <dd>{{ row.skillTags?.join('、') || '报名者尚未填写' }}</dd>
+                    </div>
+                  </dl>
+                  <label class="full"
+                    >豁免理由{{ row.status === 'SUBMITTED' ? '（可选）' : '（必填）'
+                    }}<input
+                      v-model.trim="review.exemptionReason"
+                      maxlength="500"
+                      :placeholder="row.status === 'SUBMITTED' ? '免修时填写理由' : '必填：免修转正理由'"
+                  /></label>
+                </template>
+                <p v-if="review.decision === 'REJECTED'" class="task-skip">
+                  必填审核意见；报名者自驳回起 24 小时内补交。
+                </p>
+                <div class="task-form-actions">
+                  <button
+                    class="portal-primary"
+                    type="submit"
+                    :disabled="
+                      working ||
+                      (review.decision === 'REJECTED' && !review.comment) ||
+                      (row.status !== 'SUBMITTED' && !review.exemptionReason)
+                    "
+                  >
+                    {{ working ? '提交中…' : '提交审核结果' }}
+                  </button>
+                  <button type="button" class="portal-secondary" @click="activeAssignmentId = ''">
+                    <X :size="15" aria-hidden="true" />取消
+                  </button>
+                </div>
+              </form>
+            </Transition>
+
+            <SubtaskSubmissionsPanel
+              v-if="submissionsAssignmentId === row.assignmentId"
+              :task-id="row.taskId"
+              :assignment-id="row.assignmentId"
+            />
+          </article>
+        </TransitionGroup>
       </section>
     </template>
   </PortalShell>
