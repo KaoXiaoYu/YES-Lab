@@ -1,6 +1,7 @@
 package cn.yeslab.platform.notification.api;
 
 import cn.yeslab.platform.identity.model.Role;
+import cn.yeslab.platform.notification.model.NotificationMascot;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 
@@ -25,9 +26,9 @@ public final class NotificationModels {
             Instant updatedAt
     ) { }
 
-    public record InboxView(long unreadCount, List<NotificationView> messages) { }
+    public record InboxView(long unreadCount, List<NotificationView> messages, NotificationMascot mascot) { }
 
-    public record VisibilityView(boolean visible) { }
+    public record VisibilityView(boolean visible, NotificationMascot mascot) { }
 
     public record AccountVisibilityView(
             UUID accountId,
@@ -35,7 +36,8 @@ public final class NotificationModels {
             String displayName,
             Role role,
             Boolean overrideVisible,
-            boolean visible
+            boolean visible,
+            NotificationMascot mascot
     ) { }
 
     public record AdminVisibilityView(Set<Role> visibleRoles, List<AccountVisibilityView> accounts) { }
@@ -45,8 +47,11 @@ public final class NotificationModels {
             @NotNull Boolean visible
     ) { }
 
+    public record AccountMascotRequest(@NotNull UUID accountId, @NotNull NotificationMascot mascot) { }
+
     public record AdminVisibilityRequest(
             @NotNull Set<Role> visibleRoles,
-            @NotNull List<@Valid AccountVisibilityRequest> overrides
+            @NotNull List<@NotNull @Valid AccountVisibilityRequest> overrides,
+            List<@NotNull @Valid AccountMascotRequest> mascotOverrides
     ) { }
 }

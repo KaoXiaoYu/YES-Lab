@@ -461,7 +461,7 @@ async function deleteExistingImage(imageId) {
             </div>
           </div>
           <div v-if="!groupedInterviewSessions.length" class="empty-note">
-            梅琳娜已经提醒指导老师和核心成员发布新的面试场次。
+            已通过站内消息提醒指导老师和核心成员发布新的面试场次。
           </div>
         </template>
       </section>

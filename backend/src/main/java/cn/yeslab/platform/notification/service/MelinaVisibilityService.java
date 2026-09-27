@@ -9,6 +9,9 @@ import cn.yeslab.platform.identity.repository.MemberProfileRepository;
 import cn.yeslab.platform.identity.service.AuthService;
 import cn.yeslab.platform.notification.api.NotificationModels;
 import cn.yeslab.platform.notification.model.MelinaAccountVisibilityEntity;
+import cn.yeslab.platform.notification.model.NotificationMascot;
+import cn.yeslab.platform.notification.model.NotificationMascotPreferenceEntity;
+import cn.yeslab.platform.notification.repository.NotificationMascotPreferenceRepository;
 import cn.yeslab.platform.notification.model.MelinaRoleVisibilityEntity;
 import cn.yeslab.platform.notification.repository.MelinaAccountVisibilityRepository;
 import cn.yeslab.platform.notification.repository.MelinaRoleVisibilityRepository;
@@ -36,23 +39,25 @@ public class MelinaVisibilityService {
     private final AccountRepository accounts;
     private final MemberProfileRepository profiles;
     private final AuthService authService;
+    private final NotificationMascotPreferenceRepository mascotPreferences;
 
     public MelinaVisibilityService(MelinaRoleVisibilityRepository roleVisibility,
                                    MelinaAccountVisibilityRepository accountVisibility,
                                    AccountRepository accounts, MemberProfileRepository profiles,
-                                   AuthService authService) {
+                                   AuthService authService, NotificationMascotPreferenceRepository mascotPreferences) {
         this.roleVisibility = roleVisibility;
         this.accountVisibility = accountVisibility;
         this.accounts = accounts;
         this.profiles = profiles;
         this.authService = authService;
+        this.mascotPreferences = mascotPreferences;
     }
 
     @PreAuthorize("isAuthenticated()")
     @Transactional(readOnly = true)
     public NotificationModels.VisibilityView visibility(Authentication authentication) {
         AccountEntity account = authService.requireAccount(authentication);
-        return new NotificationModels.VisibilityView(isVisible(account));
+        return new NotificationModels.VisibilityView(isVisible(account), mascotFor(account.getId()));
     }
 
     @PreAuthorize("hasRole('TEACHER')")
@@ -67,7 +72,7 @@ public class MelinaVisibilityService {
         Set<Role> selectedRoles = request.visibleRoles().isEmpty()
                 ? EnumSet.noneOf(Role.class) : EnumSet.copyOf(request.visibleRoles());
         if (!Arrays.asList(Role.values()).containsAll(selectedRoles)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "梅琳娜展示角色无效");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "吉祥物展示角色无效");
         }
 
         Set<UUID> seen = new HashSet<>();
@@ -83,18 +88,42 @@ public class MelinaVisibilityService {
             return new MelinaAccountVisibilityEntity(item.accountId(), item.visible());
         }).toList();
 
+        List<NotificationMascotPreferenceEntity> selectedMascots = null;
+        if (request.mascotOverrides() != null) {
+            Set<UUID> mascotAccounts = new HashSet<>();
+            selectedMascots = request.mascotOverrides().stream().map(item -> {
+                if (!mascotAccounts.add(item.accountId())) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "同一账号不能重复设置吉祥物");
+                }
+                if (!enabledAccounts.containsKey(item.accountId())) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "吉祥物设置账号不存在或已停用");
+                }
+                return new NotificationMascotPreferenceEntity(item.accountId(), item.mascot());
+            }).filter(item -> item.getMascot() != NotificationMascot.MELINA).toList();
+        }
+
         roleVisibility.saveAll(Arrays.stream(Role.values())
                 .map(role -> new MelinaRoleVisibilityEntity(role, selectedRoles.contains(role))).toList());
         accountVisibility.deleteAllInBatch();
         accountVisibility.saveAll(overrides);
+        if (selectedMascots != null) {
+            Set<UUID> selectedIds = selectedMascots.stream().map(NotificationMascotPreferenceEntity::getAccountId)
+                    .collect(Collectors.toSet());
+            mascotPreferences.deleteAll(mascotPreferences.findAllById(enabledAccounts.keySet()).stream()
+                    .filter(item -> !selectedIds.contains(item.getAccountId())).toList());
+            mascotPreferences.saveAll(selectedMascots);
+        }
         return buildAdminView();
     }
 
     private NotificationModels.AdminVisibilityView buildAdminView() {
-        Set<Role> visibleRoles = roleVisibility.findAll().stream()
-                .filter(MelinaRoleVisibilityEntity::isVisible)
-                .map(MelinaRoleVisibilityEntity::getRole)
+        Map<Role, Boolean> roleDefaults = roleVisibility.findAll().stream()
+                .collect(Collectors.toMap(MelinaRoleVisibilityEntity::getRole, MelinaRoleVisibilityEntity::isVisible));
+        Set<Role> visibleRoles = Arrays.stream(Role.values()).filter(role -> roleDefaults.getOrDefault(role, true))
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(Role.class)));
+        Map<UUID, NotificationMascot> mascots = mascotPreferences.findAll().stream()
+                .collect(Collectors.toMap(NotificationMascotPreferenceEntity::getAccountId,
+                        NotificationMascotPreferenceEntity::getMascot));
         Map<UUID, Boolean> overrides = accountVisibility.findAll().stream()
                 .collect(Collectors.toMap(MelinaAccountVisibilityEntity::getAccountId,
                         MelinaAccountVisibilityEntity::isVisible));
@@ -102,9 +131,16 @@ public class MelinaVisibilityService {
                 .sorted(Comparator.comparing(this::displayName, String.CASE_INSENSITIVE_ORDER)
                         .thenComparing(AccountEntity::getUsername, String.CASE_INSENSITIVE_ORDER))
                 .map(account -> new NotificationModels.AccountVisibilityView(account.getId(), account.getUsername(),
-                        displayName(account), account.getRole(), overrides.get(account.getId()), isVisible(account)))
+                        displayName(account), account.getRole(), overrides.get(account.getId()), isVisible(account),
+                        mascots.getOrDefault(account.getId(), NotificationMascot.MELINA)))
                 .toList();
         return new NotificationModels.AdminVisibilityView(Set.copyOf(visibleRoles), accountViews);
+    }
+
+    @Transactional(readOnly = true)
+    public NotificationMascot mascotFor(UUID accountId) {
+        return mascotPreferences.findById(accountId).map(NotificationMascotPreferenceEntity::getMascot)
+                .orElse(NotificationMascot.MELINA);
     }
 
     private boolean isVisible(AccountEntity account) {

@@ -109,7 +109,7 @@ async function refresh() {
 async function submitPost() {
   if (!requireParticipation()) return
   if (!validRichContent(form.content, form.length, 5000)) return
-  if (form.announcement && !window.confirm('公告发布后不能修改，并会由梅琳娜推送给所有站内账号。确认发布吗？')) return
+  if (form.announcement && !window.confirm('公告发布后不能修改，并会向所有站内账号发送通知。确认发布吗？')) return
   await run(async () => {
     const created = await createDiscussion({
       title: form.title.trim(),
@@ -122,7 +122,7 @@ async function submitPost() {
     form.content = ''
     form.announcement = false
     form.length = { text: 0, html: 0 }
-    successMessage.value = created.announcement ? '公告已发布，梅琳娜正在向站内账号发送通知。' : '讨论已发布。'
+    successMessage.value = created.announcement ? '公告已发布，正在向站内账号发送通知。' : '讨论已发布。'
   })
 }
 
@@ -328,7 +328,7 @@ function plainText(value) {
         <label class="discussion-announcement-option"
           ><input v-model="form.announcement" type="checkbox" /><span
             ><strong><Megaphone :size="17" aria-hidden="true" />作为公告发布</strong
-            ><small>梅琳娜会向所有站内账号推送；公告发布后正文和标题均不可修改。</small></span
+            ><small>将向所有站内账号发送站内通知；公告发布后正文和标题均不可修改。</small></span
           ></label
         >
         <div>

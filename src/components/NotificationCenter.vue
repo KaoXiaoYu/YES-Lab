@@ -9,7 +9,8 @@ import {
   markNotificationRead,
 } from '../services/authApi'
 import { useDismissibleLayer } from '../composables/useDismissibleLayer'
-import MelinaMascot from './MelinaMascot.vue'
+import NotificationMascot from './NotificationMascot.vue'
+import { getNotificationMascot } from '../services/notificationMascots'
 
 const router = useRouter()
 const route = useRoute()
@@ -18,10 +19,14 @@ const open = ref(false)
 const toast = ref(null)
 const initialized = ref(false)
 const visible = ref(false)
+const mascot = ref('MELINA')
+const mascotCopy = computed(() => getNotificationMascot(mascot.value))
 const notificationRoot = ref(null)
 const anchorStyle = ref({})
 let pollTimer
 let toastTimer
+let refreshing = false
+let disposed = false
 
 const unread = computed(() => inbox.value.messages.filter((message) => !message.read))
 
@@ -33,36 +38,58 @@ watch(
 )
 
 onMounted(async () => {
-  try {
-    visible.value = (await getNotificationVisibility())?.visible !== false
-  } catch {
-    // Keep the message center available while upgrading an older backend.
-    visible.value = true
-  }
-  if (!visible.value) return
-  await nextTick()
-  updatePosition()
   await refresh(true)
-  pollTimer = window.setInterval(() => refresh(false), 15000)
+  if (disposed) return
+  pollTimer = window.setInterval(() => {
+    if (document.visibilityState === 'visible') refresh(false)
+  }, 15000)
   document.addEventListener('visibilitychange', handleVisibility)
   window.addEventListener('resize', updatePosition)
   window.addEventListener('yeslab:notifications-updated', handleNotificationUpdate)
+  window.addEventListener('yeslab:notification-settings-updated', handleNotificationUpdate)
 })
 
 onBeforeUnmount(() => {
+  disposed = true
   window.clearInterval(pollTimer)
   window.clearTimeout(toastTimer)
   document.removeEventListener('visibilitychange', handleVisibility)
   window.removeEventListener('resize', updatePosition)
   window.removeEventListener('yeslab:notifications-updated', handleNotificationUpdate)
+  window.removeEventListener('yeslab:notification-settings-updated', handleNotificationUpdate)
 })
 
 async function refresh(firstLoad) {
+  if (refreshing) return
+  refreshing = true
   try {
+    try {
+      const settings = await getNotificationVisibility()
+      if (disposed) return
+      visible.value = settings?.visible !== false
+      const previousMascot = mascot.value
+      mascot.value = settings?.mascot === 'NAILONG' ? 'NAILONG' : 'MELINA'
+      if (mascot.value !== previousMascot) {
+        window.dispatchEvent(new CustomEvent('yeslab:notification-appearance-changed'))
+      }
+    } catch {
+      // Retain the previous setting on transient failures; support older backends on first load.
+      if (!initialized.value) visible.value = true
+    }
+    if (!visible.value) {
+      open.value = false
+      toast.value = null
+      window.clearTimeout(toastTimer)
+      initialized.value = true
+      return
+    }
+    await nextTick()
+    updatePosition()
     const previousUnread = new Map(
       unread.value.map((message) => [message.id, `${message.aggregationCount}:${message.updatedAt}`]),
     )
     const next = await getNotifications()
+    if (disposed) return
     inbox.value = next || { unreadCount: 0, messages: [] }
     const fresh = inbox.value.messages.filter(
       (message) =>
@@ -74,6 +101,8 @@ async function refresh(firstLoad) {
     initialized.value = true
   } catch {
     initialized.value = true
+  } finally {
+    refreshing = false
   }
 }
 
@@ -83,7 +112,7 @@ function showToast(messages) {
   toast.value =
     messages.length === 1
       ? { title: messages[0].title, summary: messages[0].summary }
-      : { title: `你有 ${messages.length} 条新消息`, summary: '打开消息中心查看梅琳娜发来的通知。' }
+      : { title: `你有 ${messages.length} 条新消息`, batch: true }
   toastTimer = window.setTimeout(() => {
     toast.value = null
   }, 5000)
@@ -154,16 +183,19 @@ useDismissibleLayer(notificationRoot, {
     <section v-if="open" id="notification-panel" class="notification-panel" aria-label="站内消息">
       <header>
         <div>
-          <span><strong>梅琳娜</strong><small>站内消息</small></span>
+          <span
+            ><strong>{{ mascotCopy.name }}</strong
+            ><small>站内消息</small></span
+          >
         </div>
         <button v-if="inbox.unreadCount" type="button" @click="readAll"><CheckCheck :size="16" />全部已读</button>
       </header>
       <div class="notification-list">
         <div class="notification-companion">
-          <MelinaMascot />
+          <NotificationMascot :mascot="mascot" />
           <div>
-            <strong>{{ unread.length ? '有新的信，我替你收好了。' : '未读消息已经处理完啦。' }}</strong>
-            <p>完整记录会一直留在站内信箱。</p>
+            <strong>{{ unread.length ? mascotCopy.unread : mascotCopy.allRead }}</strong>
+            <p>{{ mascotCopy.archiveHint }}</p>
           </div>
         </div>
         <button v-for="message in unread" :key="message.id" type="button" class="unread" @click="openMessage(message)">
@@ -181,10 +213,11 @@ useDismissibleLayer(notificationRoot, {
     </section>
 
     <aside v-if="toast" class="notification-toast" role="status" aria-live="polite">
-      <MelinaMascot class="notification-toast-mascot" />
+      <NotificationMascot :mascot="mascot" class="notification-toast-mascot" />
       <div>
-        <small class="notification-sender">梅琳娜来信</small><strong>{{ toast.title }}</strong>
-        <p>{{ toast.summary }}</p>
+        <small class="notification-sender">{{ mascotCopy.toastLabel }}</small
+        ><strong>{{ toast.title }}</strong>
+        <p>{{ toast.batch ? mascotCopy.batchSummary : toast.summary }}</p>
       </div>
       <button type="button" class="notification-toast-close" aria-label="关闭消息提醒" @click="toast = null">
         <X :size="16" />

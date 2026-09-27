@@ -82,7 +82,7 @@ async function review(status) {
       message:
         status === 'APPROVED'
           ? `${competitionName} 已通过管理员认证。`
-          : `${competitionName} 已退回修改，梅琳娜会通知队长查看审核意见。`,
+          : `${competitionName} 已退回修改，队长会收到查看审核意见的站内通知。`,
       confirmLabel: '返回成果管理',
     })
   } catch (error) {

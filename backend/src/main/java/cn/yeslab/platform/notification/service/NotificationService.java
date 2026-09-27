@@ -23,25 +23,28 @@ import java.util.UUID;
 @Service
 public class NotificationService {
 
-    public static final String BOT_NAME = "梅琳娜";
-
     private final NotificationRepository notifications;
     private final AccountRepository accounts;
     private final AuthService authService;
+    private final MelinaVisibilityService visibility;
 
-    public NotificationService(NotificationRepository notifications, AccountRepository accounts, AuthService authService) {
+    public NotificationService(NotificationRepository notifications, AccountRepository accounts, AuthService authService,
+                               MelinaVisibilityService visibility) {
         this.notifications = notifications;
         this.accounts = accounts;
         this.authService = authService;
+        this.visibility = visibility;
     }
 
     @PreAuthorize("isAuthenticated()")
     @Transactional(readOnly = true)
     public NotificationModels.InboxView inbox(Authentication authentication) {
         AccountEntity account = authService.requireAccount(authentication);
+        var mascot = visibility.mascotFor(account.getId());
         List<NotificationModels.NotificationView> messages = notifications
-                .findTop50ByRecipientIdOrderByCreatedAtDesc(account.getId()).stream().map(this::toView).toList();
-        return new NotificationModels.InboxView(notifications.countByRecipientIdAndReadAtIsNull(account.getId()), messages);
+                .findTop50ByRecipientIdOrderByCreatedAtDesc(account.getId()).stream()
+                .map(item -> toView(item, mascot.getDisplayName())).toList();
+        return new NotificationModels.InboxView(notifications.countByRecipientIdAndReadAtIsNull(account.getId()), messages, mascot);
     }
 
     @PreAuthorize("isAuthenticated()")
@@ -107,8 +110,8 @@ public class NotificationService {
         }
     }
 
-    private NotificationModels.NotificationView toView(NotificationEntity item) {
-        return new NotificationModels.NotificationView(item.getId(), BOT_NAME, item.getType(),
+    private NotificationModels.NotificationView toView(NotificationEntity item, String senderName) {
+        return new NotificationModels.NotificationView(item.getId(), senderName, item.getType(),
                 HtmlUtils.htmlUnescape(item.getTitle()), HtmlUtils.htmlUnescape(item.getSummary()),
                 item.getTargetPath(), item.getAggregationCount(), item.getReadAt() != null,
                 item.getCreatedAt(), item.getUpdatedAt());

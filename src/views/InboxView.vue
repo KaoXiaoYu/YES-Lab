@@ -3,6 +3,7 @@ import { ArrowUpRight, CheckCheck, Inbox, Mail, MailOpen } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
+import { getNotificationMascot } from '../services/notificationMascots'
 import { getNotifications, markAllNotificationsRead, markNotificationRead } from '../services/authApi'
 
 const router = useRouter()
@@ -11,6 +12,7 @@ const loading = ref(true)
 const working = ref(false)
 const errorMessage = ref('')
 const filter = ref('ALL')
+const mascotCopy = computed(() => getNotificationMascot(inbox.value.mascot))
 
 const filteredMessages = computed(() =>
   filter.value === 'UNREAD' ? inbox.value.messages.filter((message) => !message.read) : inbox.value.messages,
@@ -20,9 +22,15 @@ const readCount = computed(() => Math.max(0, inbox.value.messages.length - inbox
 onMounted(async () => {
   await refresh()
   window.addEventListener('yeslab:notifications-updated', refresh)
+  window.addEventListener('yeslab:notification-settings-updated', refresh)
+  window.addEventListener('yeslab:notification-appearance-changed', refresh)
 })
 
-onBeforeUnmount(() => window.removeEventListener('yeslab:notifications-updated', refresh))
+onBeforeUnmount(() => {
+  window.removeEventListener('yeslab:notifications-updated', refresh)
+  window.removeEventListener('yeslab:notification-settings-updated', refresh)
+  window.removeEventListener('yeslab:notification-appearance-changed', refresh)
+})
 
 async function refresh() {
   try {
@@ -77,11 +85,7 @@ function formatTime(value) {
 </script>
 
 <template>
-  <PortalShell
-    eyebrow="INBOX / MELINA"
-    title="站内信箱"
-    description="查看梅琳娜送达的流程提醒、审核结果与团队通知。未读消息会保留醒目标记，已读历史也可以随时回看。"
-  >
+  <PortalShell :eyebrow="mascotCopy.eyebrow" title="站内信箱" :description="mascotCopy.description">
     <section class="inbox-summary" aria-label="信箱概览">
       <article>
         <span><Inbox :size="20" aria-hidden="true" /></span>
@@ -159,9 +163,7 @@ function formatTime(value) {
         <MailOpen :size="26" aria-hidden="true" />
         <strong>{{ filter === 'UNREAD' ? '没有未读消息' : '信箱还是空的' }}</strong>
         <p>
-          {{
-            filter === 'UNREAD' ? '新的流程提醒会继续由梅琳娜送到这里。' : '审核结果、面试安排和团队提醒会显示在这里。'
-          }}
+          {{ filter === 'UNREAD' ? mascotCopy.emptyUnread : '审核结果、面试安排和团队提醒会显示在这里。' }}
         </p>
       </div>
     </section>

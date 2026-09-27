@@ -122,7 +122,7 @@ async function saveSession() {
 }
 
 async function cancelSession(session) {
-  if (!window.confirm('确认取消该面试场次吗？已预约人员会收到梅琳娜的重新预约通知。')) return
+  if (!window.confirm('确认取消该面试场次吗？已预约人员会收到重新预约的站内通知。')) return
   await run(async () => {
     await cancelInterviewSession(session.id)
     await refreshQuietly()
@@ -162,7 +162,7 @@ async function submitResult() {
     showSubmissionFeedback({
       eyebrow: 'INTERVIEW RESULT SAVED',
       title: '面试结果已提交',
-      message: `${booking.applicantName} 的面试结论已经保存，梅琳娜已向报名者发送通知。`,
+      message: `${booking.applicantName} 的面试结论已经保存，已向报名者发送站内通知。`,
       confirmLabel: '返回面试队列',
     })
   })
