@@ -511,8 +511,12 @@ public class TaskService {
                     request.points());
             List<TaskEntity.SubtaskDraft> draftSubtasks = normalizeSubtasks(request.subtasks());
             requireSubtasksBelongTo(task, draftSubtasks);
-            task.replaceSubtasks(draftSubtasks);
-            task.replaceAudienceRules(buildRules(task, request.rules()));
+            task.syncSubtasks(draftSubtasks);
+            List<TaskAudienceRuleEntity> nextRules = buildRules(task, request.rules());
+            // 先落库删除旧条件，避免 Hibernate 先 INSERT 后 DELETE 触发 V11 的唯一约束。
+            task.replaceAudienceRules(List.of());
+            tasks.flush();
+            task.replaceAudienceRules(nextRules);
             syncManualAssignments(task, request.memberProfileIds());
         }
         tasks.save(task);
@@ -1216,7 +1220,12 @@ public class TaskService {
                 task.getPointsSettledAt(),
                 TaskTiming.isTaskExpired(task, LocalDate.now(LAB_TIME_ZONE)),
                 subtasks,
-                rules
+                rules,
+                task.getAssignments().stream()
+                        .filter(item -> item.getSource() == TaskAssignmentSource.MANUAL)
+                        .filter(item -> item.getMemberProfile() != null)
+                        .map(item -> item.getMemberProfile().getId())
+                        .toList()
         );
     }
 

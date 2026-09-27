@@ -296,7 +296,8 @@ public final class TaskModels {
             Instant pointsSettledAt,
             boolean expired,
             List<SubtaskView> subtasks,
-            List<AudienceRuleRequest> rules
+            List<AudienceRuleRequest> rules,
+            List<UUID> memberProfileIds
     ) {
     }
 

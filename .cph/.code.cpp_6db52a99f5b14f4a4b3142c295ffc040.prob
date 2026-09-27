@@ -1,0 +1,1 @@
+{"name":"Local: code","url":"/Users/kaoxiaoyu/Desktop/YES Lab/code.cpp","tests":[{"id":1790491588289,"input":"3 3\n1 5 7\n","output":"1\n1"},{"id":1790491594869,"input":"8 3\n4 77 20 26 9 26 22 40\n","output":"4\n1 2 5 8\n"}],"interactive":false,"memoryLimit":1024,"timeLimit":3000,"srcPath":"/Users/kaoxiaoyu/Desktop/YES Lab/code.cpp","group":"local","local":true}

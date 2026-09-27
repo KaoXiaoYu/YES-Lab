@@ -755,6 +755,14 @@ public TaskGrantResult grantForTask(UUID taskId, UUID memberProfileId, int point
 - 子任务勾选提供保存中状态与失败回滚提示；提交后显示「等待管理员确认」。
 - 未计分对象显示原因文本，不只依赖颜色；完成情况表窄屏改纵向卡片；触控目标不小于 44px；保留键盘焦点、`aria-live` 与减少动态效果适配。
 
+### 12.5 普通任务管理维护（2026-09-27）
+
+- 管理列表与编辑区分离；列表支持标题搜索、状态数量、待办优先/截止日期/名称排序。编辑区依次为任务设置、内容与子任务、发放对象；成员通过搜索与复选指定。
+- 草稿保存时先清空旧发放规则并 flush，再写入新规则，避免 Hibernate 插入早于删除造成 V11 唯一约束冲突；整个操作保持同一事务。已有子任务按 ID 同步，不再整体重建。
+- `TaskView.memberProfileIds` 返回手工指定成员编号，供草稿编辑回填；每次保存后更新服务端返回的子任务 ID 与表单快照。
+- 发布前预览名单，未保存或名单为空时禁止发布；保存错误保留输入并聚焦错误摘要。已结束任务只提供查看进度。未改变发布、审核、结算规则，不涉及迁移。
+- 页面规范见 `design-system/yes-lab/pages/task-management.md`。
+
 ## 13. 站内消息
 
 复用 `NotificationService.send(recipient, type, title, summary, targetPath)` 与现有「梅琳娜」口径：

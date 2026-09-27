@@ -869,7 +869,8 @@ public class BountyService {
                 task.getPointsSettledAt(),
                 TaskTiming.isTaskExpired(task, LocalDate.now(LAB_TIME_ZONE)),
                 subtasks,
-                rules
+                rules,
+                List.of()
         );
     }
 }
