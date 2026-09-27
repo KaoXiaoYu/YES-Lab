@@ -1527,3 +1527,10 @@
 - 验证：ESLint、修改文件 Prettier、生产构建、`git diff --check` 通过。全仓库 `npm run check` 的格式阶段被用户新增的 `.vscode/c_cpp_properties.json`、`launch.json`、`settings.json` 格式警告拦住；没有修改这些文件，也未改动 `.cph/`、`code.cpp`、`code.bin`。
 - 真实 Chrome + 隔离内存后端验收通过：连续保存、失败保留输入、成员回填/搜索、预览、子任务正文保留、减少动态；1440/1024/768/375 × 亮/暗共 24 张截图，无横向溢出或不足 44px 的按钮。人工复核发放对象桌面/手机明暗主题；截图为 `.codex-run/ui-review/task-manager-compact-*.png`，原版截图保留可比较。
 - 本轮仅改前端和文档，未重复后端全量测试。临时后端/Vite/Chrome 已关闭、端口无监听；已清理约 156MB 隔离配置、运行日志和测试上传目录，截图保留，测试数据可重新生成。未提交/推送/上线。
+
+## 2026-09-27：修复 CI 中 VS Code 配置格式检查失败
+
+- 用户截图明确显示失败在 `npm run check` 的 Prettier 阶段：`.vscode/c_cpp_properties.json`、`.vscode/launch.json`、`.vscode/settings.json` 共三份配置格式不一致；ESLint 已通过，构建和后端测试尚未执行。
+- 本次仅对上述三份已跟踪文件执行 Prettier 格式化，保留所有配置键和值；逐文件将解析后的 JSON 与修改前 HEAD 深度比较，结果完全一致。未关闭格式检查，也未添加忽略规则。
+- 完整重跑 `npm run check` 通过（ESLint、全仓库 Prettier、生产构建）；`git diff --check` 通过。仅有既有大 chunk 提示；本轮无业务、界面或后端修改，无需重复截图和后端测试，没有启动临时服务。
+- 待办：尚未提交/推送；推送后由 GitHub Actions 验证远端流水线。
