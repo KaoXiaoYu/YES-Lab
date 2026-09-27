@@ -1485,4 +1485,15 @@
 - 截图对应当前 `main` 提交 `4467a3f`（`Test and publish images #46`）。本地复跑 workflow 中的前端 `npm run check` 通过；后端 `./mvnw -B test` 在 Java 21 下 75 项测试全部通过。
 - 补充截图确认失败 job 是 `test`（2m08s），镜像矩阵因 `needs: test` 被跳过；Node 20、`setup-java@v4` 与 Ubuntu 迁移提示属于警告/通知，不是失败原因。截图仍未显示具体失败步骤或测试名称。
 - 首次本地后端测试使用默认 Java 8，因 JUnit 运行时要求 Java 17+ 而在测试启动前失败；切换到已安装的 Java 21 后通过，不代表 CI 失败原因。
-- 尚不能确认 GitHub Actions 实际失败 job/步骤：本机 `gh` 登录无效、GitHub API 域名无法解析；本机 Docker daemon 也未启动，未复现镜像构建/推送。待取得该次 run 的 job 日志后确认是否为 GHCR 权限、镜像构建或 runner 问题。本次未修改业务代码。
+- 初查受限网络导致无法读取 GitHub 日志，曾将 `gh` 提示判断为令牌失效；后续通过获准的网络访问已正常读取，纠正该判断，无需重新登录。具体失败原因与修复见下。
+
+## 2026-09-27：修复 CI 积分排行榜测试时区差异
+
+- 已读取 [Actions #46 原始日志](https://github.com/KaoXiaoYu/YES-Lab/actions/runs/36255869523)：75 项测试中唯一失败的是 `PointApiTests.memberLeaderboardIncludesAllOfficialStudentsAcrossPeriods`，日榜预期 25 分、实际 0 分。
+- 根因：`PointService` 按 `Asia/Shanghai` 计算积分周期，测试数据却由无时区的 `LocalDate.now()` 生成。失败发生在北京时间 9 月 27 日凌晨，CI 的 UTC 日期仍为 9 月 26 日，积分被测试写入北京时间的前一天，因而不计入当日日榜。
+- 跨日复验进一步发现：`GrantRequest.occurredOn` 的 `@PastOrPresent` 也依赖机器默认时区，改用北京时间的测试数据后会被误判为未来日期而返回 HTTP 400。这同样影响 UTC 部署下凌晨登记当天积分。
+- 修复：`PointApiTests` 在每个用例开始时按北京时间获取并保存 `labToday`；排行榜、热力图和月度封顶的测试数据及断言统一使用该日期。新增 `ValidationConfig`，将 Bean Validation 的 `ClockProvider` 设为北京时间，与业务日期保持一致；保留未来日期限制，面试 `@Future Instant` 仍比较同一绝对时间点。
+- 新增回归：北京时间的明天不能发放积分，接口须返回 `occurredOn` 字段错误且成员积分保持不变；既有用例继续验证今天可发放且当日日榜计入 25 分。
+- 已在 Java 21 下验证：旧测试使用 `GMT-18:00` 强制制造 JVM 日期落后北京时间，准确复现相同的 25/0 断言失败；仅修测试数据会复现 HTTP 400；完整修复后该时区下 `PointApiTests` 4 项全部通过，`-Duser.timezone=UTC test` 全量 76 项通过（0 失败、0 错误）。`git diff --check` 与开发日志格式检查通过，所有本次测试进程均已退出。
+- [Actions #47](https://github.com/KaoXiaoYu/YES-Lab/actions/runs/36293185454) 已通过，但对应提交 `6b2c85c` 仅改开发日志；白天 UTC 与北京时间日期一致会暂时掩盖该问题，该次通过不包含本次修复。
+- 待办：本次修复尚未提交/推送，推送后核对 CI。改动涉及日期校验配置、测试与开发日志，无数据库迁移。

@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -26,13 +27,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class PointApiTests {
 
+    private static final ZoneId LAB_TIME_ZONE = ZoneId.of("Asia/Shanghai");
+
     @Autowired
     private WebApplicationContext context;
 
     private MockMvc mvc;
+    private LocalDate labToday;
 
     @BeforeEach
     void setUp() {
+        // 积分周期使用北京时间；测试数据不能依赖 CI 机器的默认时区。
+        labToday = LocalDate.now(LAB_TIME_ZONE);
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
     }
 
@@ -73,7 +79,7 @@ class PointApiTests {
                 .andExpect(jsonPath("$.data.categoryTotals.PROJECT").value(30))
                 .andExpect(jsonPath("$.data.entries[0].grantId").value(grantId))
                 .andExpect(jsonPath("$.data.entries[0].points").value(30))
-                .andExpect(jsonPath("$.data.dailyPoints[0].date").value(LocalDate.now().minusDays(1).toString()))
+                .andExpect(jsonPath("$.data.dailyPoints[0].date").value(labToday.minusDays(1).toString()))
                 .andExpect(jsonPath("$.data.dailyPoints[0].points").value(30));
 
         mvc.perform(post("/api/v1/admin/points/grants")
@@ -111,7 +117,7 @@ class PointApiTests {
         String memberId = profileId(memberToken);
         String coreToken = login("core", "YesLab-Core-2026!");
         String coreId = profileId(coreToken);
-        String day = LocalDate.now().minusDays(1).toString();
+        String day = labToday.minusDays(1).toString();
 
         mvc.perform(post("/api/v1/admin/points/grants")
                         .header("Authorization", bearer(teacherToken))
@@ -158,11 +164,30 @@ class PointApiTests {
     }
 
     @Test
+    void adminCannotGrantPointsForFutureLabDate() throws Exception {
+        String teacherToken = login("teacher", "YesLab-Teacher-2026!");
+        String memberToken = login("member", "YesLab-Member-2026!");
+        String memberId = profileId(memberToken);
+
+        mvc.perform(post("/api/v1/admin/points/grants")
+                        .header("Authorization", bearer(teacherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(singleGrant("MEDIA_CONTENT", 25, "FUTURE:TEST:" + System.nanoTime(),
+                                memberId, labToday.plusDays(1).toString())))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.occurredOn").exists());
+
+        mvc.perform(get("/api/v1/member/points").header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalPoints").value(0));
+    }
+
+    @Test
     void memberLeaderboardIncludesAllOfficialStudentsAcrossPeriods() throws Exception {
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
         String memberToken = login("member", "YesLab-Member-2026!");
         String memberId = profileId(memberToken);
-        String today = LocalDate.now().toString();
+        String today = labToday.toString();
 
         mvc.perform(post("/api/v1/admin/points/grants")
                         .header("Authorization", bearer(teacherToken))
@@ -204,7 +229,7 @@ class PointApiTests {
                     {"memberProfileId":"%s","points":20,"contribution":"完成复现测试与验收记录"}
                   ]
                 }
-                """.formatted(LocalDate.now().minusDays(1), source, memberId, coreId);
+                """.formatted(labToday.minusDays(1), source, memberId, coreId);
     }
 
     private String singleGrant(String subcategory, int points, String source, String memberId, String day) {
