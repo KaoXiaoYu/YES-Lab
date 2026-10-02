@@ -1599,3 +1599,10 @@
 - 前端全仓 ESLint、改动文件 Prettier、生产构建及 `git diff --check` 通过，仅有既有大 chunk 提示；`npm run check` 的格式阶段被用户既有 `.vscode/settings.json` 格式警告拦住，未修改该文件。
 - 临时内存后端、Vite、隔离 Chrome 均已关停，8080/5173/9222 无监听；专用浏览器配置、演练上传目录与 Java 参数文件已清理，截图和有界日志保留。未启动临时 MySQL。
 - 待办：上线前在预生产 MySQL 复核并发幂等与通知差集；保留用户的 `.vscode/settings.json` 改动。未提交、未推送、未上线。
+
+## 2026-10-02：修复 CI #52 配置格式检查失败
+
+- 用户截图显示提交 `ee050e8` 的 Test and publish images #52 在 `npm run check` 的 Prettier 阶段失败，唯一警告文件为 `.vscode/settings.json`。
+- 对该文件执行 Prettier：收拢数组排版并补齐文件末尾换行。格式化前后解析 JSON 做深比较，所有配置值完全一致。
+- 验证：完整 `npm run check`（ESLint、全仓 Prettier、生产构建）与 `git diff --check` 通过，仅保留既有大 chunk 提示；日志为 `.codex-run/ui-review/ci-settings-format-check-20261002.log`。
+- 本次仅配置格式与日志变更，无业务代码、界面或数据库变更，未启动后台进程。待提交/推送后由 GitHub Actions 再次验证；本轮未提交、未推送，未宣称远端 CI 已恢复。
