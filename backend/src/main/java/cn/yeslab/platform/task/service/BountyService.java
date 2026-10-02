@@ -870,7 +870,8 @@ public class BountyService {
                 TaskTiming.isTaskExpired(task, LocalDate.now(LAB_TIME_ZONE)),
                 subtasks,
                 rules,
-                List.of()
+                List.of(),
+                null
         );
     }
 }

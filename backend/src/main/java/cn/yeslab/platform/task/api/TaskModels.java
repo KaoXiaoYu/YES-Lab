@@ -297,8 +297,12 @@ public final class TaskModels {
             boolean expired,
             List<SubtaskView> subtasks,
             List<AudienceRuleRequest> rules,
-            List<UUID> memberProfileIds
+            List<UUID> memberProfileIds,
+            SupplementResult supplementResult
     ) {
+    }
+
+    public record SupplementResult(int createdCount, int skippedExistingCount) {
     }
 
     public record TaskSummaryView(

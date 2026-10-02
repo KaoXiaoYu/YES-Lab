@@ -629,28 +629,50 @@ public class TaskService {
     @PreAuthorize("hasAuthority('TASK_MANAGE')")
     @Transactional
     public TaskModels.TaskView supplementAssignments(UUID taskId, TaskModels.AudienceRequest request) {
-        TaskEntity task = requireStandardTask(taskId);
+        TaskEntity task = tasks.findByIdForUpdate(taskId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "任务不存在"));
+        if (task.getTaskType() != TaskType.STANDARD) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "任务不存在");
+        }
         if (task.getStatus() != TaskStatus.PUBLISHED) {
             throw new ApiException(HttpStatus.CONFLICT, "只有已发布任务可以补充发放");
         }
         List<Rule> rules = normalizeRules(request == null ? null : request.rules());
         Set<UUID> desired = new LinkedHashSet<>();
         matchAudience(rules).forEach(profile -> desired.add(profile.getId()));
-        if (request != null && request.memberProfileIds() != null) desired.addAll(request.memberProfileIds());
+        Set<UUID> explicit = request == null || request.memberProfileIds() == null
+                ? Set.of() : new LinkedHashSet<>(request.memberProfileIds());
+        desired.addAll(explicit);
+        if (desired.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "请选择要补发的成员，或调整发放条件");
+        }
+        Map<UUID, MemberProfileEntity> recipients = new LinkedHashMap<>();
+        for (UUID id : desired) {
+            if (id == null) throw new ApiException(HttpStatus.BAD_REQUEST, "指定的成员不存在");
+            MemberProfileEntity profile = profiles.findById(id)
+                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "指定的成员不存在"));
+            if (profile.getAccount().getRole() == Role.VISITOR) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "游客不能作为普通任务的发放对象");
+            }
+            recipients.put(id, profile);
+        }
         Set<UUID> existing = task.getAssignments().stream()
                 .map(item -> item.getMemberProfile().getId())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         List<TaskAssignmentEntity> created = new ArrayList<>();
         for (UUID id : desired) {
             if (existing.contains(id)) continue;
-            MemberProfileEntity profile = profiles.findById(id)
-                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "指定的成员不存在"));
-            created.add(new TaskAssignmentEntity(task, profile, null, TaskAssignmentSource.CRITERIA));
+            created.add(new TaskAssignmentEntity(task, recipients.get(id), null,
+                    explicit.contains(id) ? TaskAssignmentSource.MANUAL : TaskAssignmentSource.CRITERIA));
         }
         created.forEach(task::addAssignment);
-        tasks.save(task);
-        notifyAssignees(task);
-        return toTaskView(requireTask(taskId));
+        tasks.saveAndFlush(task);
+        // merge 的级联可能用托管副本替换新对象；从持久化结果取带真实 ID 的通知目标。
+        List<TaskAssignmentEntity> added = assignments.findByTaskIdOrderByCreatedAtAsc(taskId).stream()
+                .filter(item -> !existing.contains(item.getMemberProfile().getId()))
+                .toList();
+        notifyAssignees(task, added);
+        return toTaskView(task, new TaskModels.SupplementResult(created.size(), desired.size() - created.size()));
     }
 
     @PreAuthorize("hasAuthority('TASK_MANAGE')")
@@ -1159,6 +1181,10 @@ public class TaskService {
 
     private void notifyAssignees(TaskEntity task) {
         List<TaskAssignmentEntity> rows = assignments.findByTaskIdOrderByCreatedAtAsc(task.getId());
+        notifyAssignees(task, rows);
+    }
+
+    private void notifyAssignees(TaskEntity task, List<TaskAssignmentEntity> rows) {
         for (TaskAssignmentEntity assignment : rows) {
             if (assignment.getMemberProfile() == null) continue;
             notifications.send(
@@ -1199,6 +1225,10 @@ public class TaskService {
     }
 
     private TaskModels.TaskView toTaskView(TaskEntity task) {
+        return toTaskView(task, null);
+    }
+
+    private TaskModels.TaskView toTaskView(TaskEntity task, TaskModels.SupplementResult supplementResult) {
         List<TaskModels.SubtaskView> subtasks = task.getSubtasks().stream()
                 .map(item -> new TaskModels.SubtaskView(
                         item.getId(), item.getTitle(), item.getDisplayOrder(), false, null, item.hasContent()))
@@ -1225,7 +1255,8 @@ public class TaskService {
                         .filter(item -> item.getSource() == TaskAssignmentSource.MANUAL)
                         .filter(item -> item.getMemberProfile() != null)
                         .map(item -> item.getMemberProfile().getId())
-                        .toList()
+                        .toList(),
+                supplementResult
         );
     }
 

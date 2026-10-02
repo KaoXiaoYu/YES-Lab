@@ -1,15 +1,11 @@
 <script setup>
-import { ArrowLeft, CheckCheck, ListChecks, UserPlus, X } from '@lucide/vue'
+import { ArrowLeft, CheckCheck, ListChecks, X } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
 import SubtaskSubmissionsPanel from '../components/SubtaskSubmissionsPanel.vue'
-import {
-  getTaskProgress,
-  removeTaskAssignment,
-  reviewTaskAssignment,
-  supplementTaskAssignments,
-} from '../services/authApi'
+import TaskSupplementMembers from '../components/TaskSupplementMembers.vue'
+import { getTaskProgress, removeTaskAssignment, reviewTaskAssignment } from '../services/authApi'
 
 const route = useRoute()
 const progress = ref(null)
@@ -24,7 +20,8 @@ function toggleSubmissions(assignmentId) {
   submissionsAssignmentId.value = submissionsAssignmentId.value === assignmentId ? '' : assignmentId
 }
 const review = reactive({ decision: 'APPROVED', comment: '' })
-const supplementTags = ref('')
+const refreshFailed = ref(false)
+const refreshing = ref(false)
 
 const statusLabels = {
   PENDING: '进行中',
@@ -37,13 +34,18 @@ const roleLabels = { TEACHER: '教师', CORE_STUDENT: '核心学生', MEMBER: '�
 const task = computed(() => progress.value?.task || null)
 
 async function load() {
-  loading.value = true
+  refreshing.value = true
+  if (!progress.value) loading.value = true
+  errorMessage.value = ''
+  refreshFailed.value = false
   try {
     progress.value = await getTaskProgress(route.params.taskId)
   } catch (error) {
     errorMessage.value = error.message
+    refreshFailed.value = true
   } finally {
     loading.value = false
+    refreshing.value = false
   }
 }
 
@@ -72,26 +74,13 @@ async function submitReview() {
   }
 }
 
-async function supplement() {
-  const tags = supplementTags.value
-    .split(/[、,，]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-  if (!tags.length) return
+async function supplementCompleted(result) {
   working.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
   try {
-    const result = await supplementTaskAssignments(route.params.taskId, {
-      rules: tags.map((value) => ({ dimension: 'SKILL_TAG', value })),
-      memberProfileIds: [],
-    })
-    supplementTags.value = ''
     progress.value = { ...progress.value, task: result }
-    successMessage.value = '已按条件补充发放。'
+    successMessage.value = `本次新增 ${result.supplementResult.createdCount} 人，已发放跳过 ${result.supplementResult.skippedExistingCount} 人。`
     await load()
-  } catch (error) {
-    errorMessage.value = error.message
+    if (refreshFailed.value) errorMessage.value = `补发成功，名单刷新失败：${errorMessage.value}`
   } finally {
     working.value = false
   }
@@ -121,10 +110,13 @@ async function removeAssignment(row) {
     <RouterLink class="task-back" to="/admin/tasks"><ArrowLeft :size="16" aria-hidden="true" />返回任务管理</RouterLink>
 
     <div v-if="loading" class="portal-state">正在读取完成情况…</div>
-    <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
+    <div v-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
+    <button v-if="refreshFailed" class="portal-secondary" type="button" :disabled="working || refreshing" @click="load">
+      重试刷新名单
+    </button>
     <p v-if="successMessage" class="portal-state success" role="status">{{ successMessage }}</p>
 
-    <template v-else-if="progress && task">
+    <template v-if="progress && task">
       <section class="task-summary" aria-labelledby="task-summary-title">
         <header>
           <div>
@@ -175,24 +167,13 @@ async function removeAssignment(row) {
         </p>
       </section>
 
-      <section v-if="task.status === 'PUBLISHED'" class="admin-form-card" aria-labelledby="supplement-title">
-        <header>
-          <UserPlus :size="22" aria-hidden="true" />
-          <div>
-            <p>SUPPLEMENT</p>
-            <h3 id="supplement-title">补充发放</h3>
-          </div>
-        </header>
-        <p>按能力标签补充命中的成员，已存在的对象不会重复创建。</p>
-        <div class="admin-form-grid">
-          <label class="full"
-            >能力标签（用、分隔）<input v-model.trim="supplementTags" placeholder="无人机、视觉"
-          /></label>
-        </div>
-        <button class="portal-primary" type="button" :disabled="working || !supplementTags" @click="supplement">
-          <UserPlus :size="16" aria-hidden="true" />补充发放
-        </button>
-      </section>
+      <TaskSupplementMembers
+        v-if="task.status === 'PUBLISHED'"
+        :task-id="task.id"
+        :assignments="progress.assignments"
+        :busy="working || refreshFailed || refreshing"
+        @completed="supplementCompleted"
+      />
 
       <section class="task-subtask-progress" aria-labelledby="subtask-progress-title">
         <h3 id="subtask-progress-title">子任务提交率</h3>

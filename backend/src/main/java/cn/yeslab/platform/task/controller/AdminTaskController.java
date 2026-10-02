@@ -140,7 +140,7 @@ public class AdminTaskController {
     @PostMapping("/{taskId}/assignments")
     public ApiResponse<TaskModels.TaskView> supplement(
             @PathVariable UUID taskId,
-            @RequestBody TaskModels.AudienceRequest request
+            @Valid @RequestBody TaskModels.AudienceRequest request
     ) {
         return ApiResponse.ok(service.supplementAssignments(taskId, request));
     }
