@@ -3240,3 +3240,13 @@ button:disabled {
   padding: 0;
   border: 0;
 }
+
+.site-shell .section.lab-status-section {
+  padding-top: 24px;
+  padding-bottom: 40px;
+}
+.lab-status-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}

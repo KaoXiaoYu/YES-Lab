@@ -10,8 +10,8 @@ public class DeadlineController {
     private final DeadlineService service;
     public DeadlineController(DeadlineService service) { this.service = service; }
     @GetMapping("/public/deadlines") public ApiResponse<DeadlinePage> publicDeadlines(@RequestParam(required=false) SourceType type,
-            @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="3") int pageSize) {
-        return ApiResponse.ok(service.publicDeadlines(type, page, pageSize));
+            @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="3") int pageSize, @RequestParam(defaultValue="false") boolean homepageWindow) {
+        return ApiResponse.ok(service.publicDeadlines(type, page, pageSize, homepageWindow));
     }
     @GetMapping("/me/deadlines") public ApiResponse<DeadlinePage> ownDeadlines(Authentication authentication,
             @RequestParam(required=false) SourceType type, @RequestParam(defaultValue="0") int page,

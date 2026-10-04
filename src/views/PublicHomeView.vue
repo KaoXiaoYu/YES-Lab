@@ -734,6 +734,10 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
+    <section class="section lab-status-section" aria-label="实验室基金与日程">
+      <div class="lab-status-stack"><PublicFundCard compact /><HomepageDeadlineConveyor /></div>
+    </section>
+
     <section
       v-if="liveProofItems.length"
       class="proof-bar"
@@ -969,10 +973,6 @@ onBeforeUnmount(() => {
           @retry="syncPublicHome"
         />
       </div>
-    </section>
-
-    <section class="section lab-status-section" aria-label="实验室基金与日程">
-      <div class="lab-status-grid"><PublicFundCard /><HomepageDeadlineConveyor /></div>
     </section>
 
     <section v-if="displayOptions.showPartners" class="section partners-section">

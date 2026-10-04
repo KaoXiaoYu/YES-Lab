@@ -34,7 +34,7 @@ public class DeadlineService {
         this.competitions = competitions; this.profiles = profiles; this.auth = auth;
     }
     @Transactional(readOnly = true)
-    public DeadlinePage publicDeadlines(SourceType type, int page, int size) {
+    public DeadlinePage publicDeadlines(SourceType type, int page, int size, boolean homepageWindow) {
         Instant now = Instant.now(); LocalDate today = now.atZone(LAB).toLocalDate();
         var result = new ArrayList<Entry>();
         var onboard = new HashMap<UUID, LocalDate>();
@@ -66,6 +66,7 @@ public class DeadlineService {
                             : named(taskMembers.getOrDefault(task.getId(), new LinkedHashMap<>()).values()));
         }
         addProjectsAndCompetitions(result, null, type, now);
+        if (homepageWindow) result.removeIf(entry -> !withinHomepageWindow(entry.deadlineDate(), entry.deadlineAt(), now));
         return page(result, type, page, size, now);
     }
     @Transactional(readOnly = true)
@@ -165,6 +166,10 @@ public class DeadlineService {
         if (date == null && at == null) return;
         rows.add(new Entry(type, id, key, title, milestone, date, at, deadlineStatus(date, at, now), href,
                 participants.names(), participants.count(), participants.visibility()));
+    }
+    static boolean withinHomepageWindow(LocalDate date, Instant at, Instant now) {
+        return at != null ? !at.isBefore(now.minus(Duration.ofDays(14)))
+                : date != null && !date.isBefore(now.atZone(LAB).toLocalDate().minusDays(14));
     }
     private static Instant due(Entry entry) {
         return entry.deadlineAt() != null ? entry.deadlineAt() : entry.deadlineDate().atTime(LocalTime.MAX).atZone(LAB).toInstant();

@@ -58,6 +58,28 @@ class DeadlineApiTests {
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
     }
     List<String> titles(String body) { return JsonPath.read(body, "$.data.entries[*].title"); }
+    @Test void homepageWindowFiltersBeforePaginationAndPreservesPersonalHistory() throws Exception {
+        var old = task("逾期十五天", TaskType.BOUNTY, TaskStatus.PUBLISHED, today.minusDays(15));
+        assignments.saveAndFlush(new TaskAssignmentEntity(old, member, null, TaskAssignmentSource.MANUAL));
+        task("逾期十四天", TaskType.BOUNTY, TaskStatus.PUBLISHED, today.minusDays(14));
+        task("逾期十三天", TaskType.BOUNTY, TaskStatus.PUBLISHED, today.minusDays(13));
+        task("下一笔悬赏", TaskType.BOUNTY, TaskStatus.PUBLISHED, today.plusDays(2));
+        String first = publicRows("?type=BOUNTY&homepageWindow=true&pageSize=2");
+        String second = publicRows("?type=BOUNTY&homepageWindow=true&pageSize=2&page=1");
+        assertThat(JsonPath.<Integer>read(first, "$.data.totalCount")).isEqualTo(3);
+        assertThat(titles(first)).containsExactly("下一笔悬赏", "逾期十三天");
+        assertThat(titles(second)).containsExactly("逾期十四天");
+        assertThat(titles(publicRows("?type=BOUNTY&pageSize=50"))).contains("逾期十五天");
+        assertThat(titles(ownRows())).contains("逾期十五天");
+    }
+    @Test void homepageWindowUsesBeijingCalendarAndExactInstantBoundary() {
+        Instant now = Instant.parse("2026-10-03T16:00:00Z"); // Beijing October 4 midnight
+        assertThat(DeadlineService.withinHomepageWindow(LocalDate.of(2026, 9, 20), null, now)).isTrue();
+        assertThat(DeadlineService.withinHomepageWindow(LocalDate.of(2026, 9, 19), null, now)).isFalse();
+        assertThat(DeadlineService.withinHomepageWindow(null, now.minus(Duration.ofDays(14)), now)).isTrue();
+        assertThat(DeadlineService.withinHomepageWindow(null, now.minus(Duration.ofDays(14)).minusNanos(1), now)).isFalse();
+        assertThat(DeadlineService.withinHomepageWindow(LocalDate.of(2026, 9, 19), null, now.minusNanos(1))).isTrue();
+    }
     @Test void publicIncludesUnassignedTasksAndPrivateProjectNamesButNoPrivateContents() throws Exception {
         var mine = task("我的普通任务", TaskType.STANDARD, TaskStatus.PUBLISHED, today.plusDays(2));
         assignments.save(new TaskAssignmentEntity(mine, member, null, TaskAssignmentSource.MANUAL));

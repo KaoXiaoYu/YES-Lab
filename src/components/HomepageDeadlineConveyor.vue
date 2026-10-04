@@ -30,7 +30,8 @@ const error = ref('')
 const hint = ref('')
 const updatedAt = ref('')
 const now = ref(Date.now())
-const overflow = ref(false)
+const viewportWidth = ref(0)
+const cycleWidth = ref(0)
 const manualPaused = ref(false)
 const hovered = ref(false)
 const focused = ref(false)
@@ -39,7 +40,7 @@ const visible = ref(false)
 const hidden = ref(false)
 const reduced = ref(false)
 const expanded = ref(null)
-const canLoop = computed(() => entries.value.length >= 3 && overflow.value)
+const canLoop = computed(() => entries.value.length >= 3)
 const paused = computed(
   () =>
     manualPaused.value ||
@@ -50,6 +51,11 @@ const paused = computed(
     hidden.value ||
     reduced.value ||
     expanded.value !== null,
+)
+const copyCount = computed(() =>
+  canLoop.value && !paused.value && cycleWidth.value > 16
+    ? Math.max(2, Math.ceil(viewportWidth.value / (cycleWidth.value || 1)) + 1)
+    : 1,
 )
 const member = computed(() => ['TEACHER', 'CORE_STUDENT', 'MEMBER'].includes(authState.account?.role))
 let sequence = 0
@@ -88,13 +94,13 @@ function scheduleBoundary() {
   clearTimeout(boundaryTimer)
   const time = Date.now() + offset
   const midnight = Date.parse(`${day(time)}T00:00:00+08:00`) + 86400000
-  const next = entries.value.reduce(
-    (boundary, entry) =>
-      entry.deadlineAt && Date.parse(entry.deadlineAt) > time
-        ? Math.min(boundary, Date.parse(entry.deadlineAt))
-        : boundary,
-    midnight,
-  )
+  const next = entries.value.reduce((boundary, entry) => {
+    if (!entry.deadlineAt) return boundary
+    const deadline = Date.parse(entry.deadlineAt)
+    const expiry = deadline + 14 * 86400000
+    for (const instant of [deadline, expiry]) if (instant > time) boundary = Math.min(boundary, instant)
+    return boundary
+  }, midnight)
   boundaryTimer = setTimeout(
     () => {
       now.value = Date.now() + offset
@@ -110,7 +116,7 @@ async function load(kind = type.value) {
   loading.value = true
   error.value = ''
   try {
-    const query = { page: 0, pageSize: 50, ...(kind === 'ALL' ? {} : { type: kind }) }
+    const query = { page: 0, pageSize: 50, homepageWindow: true, ...(kind === 'ALL' ? {} : { type: kind }) }
     const first = await getDeadlines(false, query)
     if (ticket !== sequence || disposed) return
     const rows = [...first.entries]
@@ -153,11 +159,8 @@ function measure() {
   if (!viewport.value || !original.value) return
   const width = original.value.getBoundingClientRect().width
   queueWidth = width + 16
-  const nextOverflow = width > viewport.value.clientWidth + 1
-  if (overflow.value !== nextOverflow) {
-    overflow.value = nextOverflow
-    if (!nextOverflow) viewport.value.scrollLeft = 0
-  }
+  cycleWidth.value = queueWidth
+  viewportWidth.value = viewport.value.clientWidth
 }
 function animate(time) {
   if (disposed) return
@@ -173,11 +176,10 @@ function animate(time) {
 async function stabilizeForReading() {
   if (stabilizing || !canLoop.value || !original.value || !viewport.value) return
   const scroll = viewport.value.scrollLeft % queueWidth
-  if (scroll + viewport.value.clientWidth <= queueWidth) return
   const cards = original.value.children
   const stride = cards[1]?.offsetLeft - cards[0]?.offsetLeft
   const index = Math.floor(scroll / stride)
-  if (!stride || index < 1) return
+  if (!stride) return
   const activeElement = document.activeElement
   const keepFocus = original.value.contains(activeElement)
   stabilizing = true
@@ -204,16 +206,16 @@ function step(direction) {
   if (!viewport.value || !original.value) return
   manualPaused.value = true
   expanded.value = null
-  const cards = [...original.value.children]
-  const current = viewport.value.scrollLeft % queueWidth
-  const positions = cards.map((card) => card.offsetLeft - original.value.offsetLeft)
-  const next =
-    direction > 0
-      ? (positions.find((position) => position > current + 2) ?? 0)
-      : (positions.toReversed().find((position) => position < current - 2) ?? positions.at(-1))
-  viewport.value.scrollTo({ left: next, behavior: 'instant' })
-  stabilizeForReading()
+  const cards = original.value.children
+  const stride = cards[1]?.offsetLeft - cards[0]?.offsetLeft
+  const current = stride ? Math.floor((viewport.value.scrollLeft % queueWidth) / stride) : 0
+  presentationStart.value =
+    (presentationStart.value + current + direction + entries.value.length) % entries.value.length
+  viewport.value.scrollLeft = 0
+  cursor = 0
+  previousTime = undefined
 }
+
 function focusOut(event) {
   if (!root.value.contains(event.relatedTarget)) focused.value = false
 }
@@ -329,7 +331,7 @@ onBeforeUnmount(() => {
     >
       <div class="conveyor-track">
         <ol
-          v-for="copy in canLoop ? 2 : 1"
+          v-for="copy in copyCount"
           :key="copy"
           :ref="
             (element) => {
@@ -337,8 +339,8 @@ onBeforeUnmount(() => {
             }
           "
           class="conveyor-queue"
-          :aria-hidden="copy === 2 ? true : undefined"
-          :inert="copy === 2 ? true : undefined"
+          :aria-hidden="copy > 1 ? true : undefined"
+          :inert="copy > 1 ? true : undefined"
         >
           <li
             v-for="entry in presentedEntries"
@@ -401,7 +403,7 @@ onBeforeUnmount(() => {
       {{ hint }} <RouterLink v-if="!authState.account" to="/login?redirect=/">成员登录</RouterLink>
     </p>
     <div class="conveyor-footer">
-      <div v-if="overflow" class="conveyor-controls" aria-label="倒计时播放控制">
+      <div v-if="canLoop" class="conveyor-controls" aria-label="倒计时播放控制">
         <button type="button" aria-label="上一项倒计时" :aria-controls="id" @click="step(-1)">
           <ChevronLeft :size="20" aria-hidden="true" />
         </button>
