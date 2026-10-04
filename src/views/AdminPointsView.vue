@@ -1,12 +1,13 @@
 <script setup>
 import { BadgePlus, CircleAlert, Plus, RotateCcw, Trash2 } from '@lucide/vue'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, nextTick, reactive, ref, watch } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
 import {
   authState,
   grantPoints,
   listMembers,
   listPointGrants,
+  getPointSources,
   getPointRules,
   reversePointGrant,
 } from '../services/authApi'
@@ -22,15 +23,20 @@ const message = ref('')
 const memberToAdd = ref('')
 const reversalTargetId = ref(null)
 const reversalSaving = ref(false)
-const reversalForm = reactive({ reason: '', evidenceUrl: '' })
+const reversalForm = reactive({ reason: '' })
+const sources = ref({ competitions: [], projects: [] })
+const sourceSearch = ref('')
+const refreshingSources = ref(false)
+const errorSummary = ref(null)
+let requestKey = crypto.randomUUID()
+let requestSignature = ''
 const today = localDateString()
 const form = reactive({
   title: '',
   subcategory: '',
   occurredOn: today,
   itemTotalPoints: 1,
-  sourceReference: '',
-  evidenceUrl: '',
+  sourceId: '',
   description: '',
   allocations: [],
 })
@@ -42,14 +48,35 @@ const eligibleMembers = computed(() =>
       member.status === 'OFFICIAL' && member.role !== 'TEACHER' && member.username !== authState.account?.username,
   ),
 )
+const sourceType = computed(() =>
+  form.subcategory === 'COMPETITION_AWARD' ? 'competitions' : form.subcategory === 'PROJECT_TASK' ? 'projects' : null,
+)
+const sourceOptions = computed(() => (sourceType.value ? sources.value[sourceType.value] : []))
+const selectedSource = computed(() => sourceOptions.value.find((item) => item.id === form.sourceId))
+const filteredSources = computed(() =>
+  sourceOptions.value.filter(
+    (item) =>
+      item.id === form.sourceId ||
+      `${item.name} ${item.awardName || ''}`.toLowerCase().includes(sourceSearch.value.trim().toLowerCase()),
+  ),
+)
+const sourceCandidates = computed(() =>
+  sourceType.value ? selectedSource.value?.members || [] : eligibleMembers.value,
+)
 const availableMembers = computed(() => {
   const selectedIds = new Set(form.allocations.map((allocation) => allocation.memberProfileId))
-  return eligibleMembers.value.filter((member) => !selectedIds.has(member.id))
+  return sourceCandidates.value.filter((member) => !selectedIds.has(member.id))
 })
 const allocatedPoints = computed(() =>
   form.allocations.reduce((total, allocation) => total + Number(allocation.points || 0), 0),
 )
+const invalidLinkedAllocation = computed(
+  () =>
+    sourceType.value &&
+    form.allocations.some((item) => !sourceCandidates.value.some((member) => member.id === item.memberProfileId)),
+)
 const allocationValid = computed(() => {
+  if (invalidLinkedAllocation.value) return false
   if (!form.allocations.length || form.allocations.some((item) => !item.contribution.trim())) return false
   if (selectedRule.value?.allocationPolicy === 'PER_MEMBER') {
     return form.allocations.every((item) => Number(item.points) === Number(form.itemTotalPoints))
@@ -63,9 +90,11 @@ const canSubmit = computed(
       form.subcategory &&
       form.occurredOn &&
       Number(form.itemTotalPoints) > 0 &&
-      form.sourceReference.trim() &&
-      form.evidenceUrl.trim(),
-    ) && allocationValid.value,
+      (!sourceType.value || selectedSource.value),
+    ) &&
+    allocationValid.value &&
+    !saving.value &&
+    !refreshingSources.value,
 )
 
 watch(
@@ -78,9 +107,36 @@ watch(
   },
 )
 
+watch(
+  () => [form.subcategory, form.sourceId],
+  () => {
+    form.allocations.splice(0)
+    memberToAdd.value = ''
+  },
+)
+watch(
+  () => form.subcategory,
+  () => {
+    form.sourceId = ''
+    sourceSearch.value = ''
+  },
+)
+watch(
+  () => form.sourceId,
+  () => {
+    const source = selectedSource.value
+    if (source) form.title = `${source.name}${source.awardName ? ` · ${source.awardName}` : ''}`.slice(0, 160)
+  },
+)
+
 onMounted(async () => {
   try {
-    ;[rules.value, members.value, grants.value] = await Promise.all([getPointRules(), listMembers(), listPointGrants()])
+    ;[rules.value, members.value, grants.value, sources.value] = await Promise.all([
+      getPointRules(),
+      listMembers(),
+      listPointGrants(),
+      getPointSources(),
+    ])
     form.subcategory = rules.value[0]?.subcategory || ''
   } catch (error) {
     errorMessage.value = error.message
@@ -88,6 +144,21 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+async function refreshSources() {
+  if (refreshingSources.value || saving.value) return
+  refreshingSources.value = true
+  errorMessage.value = ''
+  try {
+    sources.value = await getPointSources()
+  } catch (error) {
+    errorMessage.value = error.message
+    await nextTick()
+    errorSummary.value?.focus()
+  } finally {
+    refreshingSources.value = false
+  }
+}
 
 function addMember() {
   const member = availableMembers.value.find((item) => item.id === memberToAdd.value)
@@ -113,21 +184,25 @@ async function submitGrant() {
   errorMessage.value = ''
   message.value = ''
   try {
-    const saved = await grantPoints({
+    const payload = {
       title: form.title.trim(),
       subcategory: form.subcategory,
       occurredOn: form.occurredOn,
       itemTotalPoints: Number(form.itemTotalPoints),
-      sourceReference: form.sourceReference.trim(),
-      evidenceUrl: form.evidenceUrl.trim(),
+      competitionId: sourceType.value === 'competitions' ? form.sourceId : null,
+      projectId: sourceType.value === 'projects' ? form.sourceId : null,
       description: form.description.trim() || null,
       allocations: form.allocations.map((allocation) => ({
         memberProfileId: allocation.memberProfileId,
         points: Number(allocation.points),
         contribution: allocation.contribution.trim(),
       })),
-    })
-    grants.value.unshift(saved)
+    }
+    const signature = JSON.stringify(payload)
+    if (requestSignature && signature !== requestSignature) requestKey = crypto.randomUUID()
+    requestSignature = signature
+    const saved = await grantPoints({ ...payload, requestKey })
+    if (!grants.value.some((item) => item.id === saved.id)) grants.value.unshift(saved)
     saved.allocations.forEach((allocation) => {
       const member = members.value.find((item) => item.id === allocation.memberProfileId)
       if (member) member.totalPoints = allocation.currentTotalPoints
@@ -136,23 +211,26 @@ async function submitGrant() {
     showSubmissionFeedback({
       eyebrow: 'POINTS GRANTED',
       title: '积分已发放',
-      message: `${saved.title}已向 ${saved.allocations.length} 名成员完成记分，流水和凭证已保留。`,
+      message: `${saved.title}已向 ${saved.allocations.length} 名成员完成记分，积分编号：${saved.sourceReference}。`,
       confirmLabel: '查看积分流水',
     })
   } catch (error) {
     errorMessage.value = error.message
+    await nextTick()
+    errorSummary.value?.focus()
   } finally {
     saving.value = false
   }
 }
 
 function resetGrantForm() {
+  requestKey = crypto.randomUUID()
+  requestSignature = ''
   Object.assign(form, {
     title: '',
     occurredOn: today,
     itemTotalPoints: 1,
-    sourceReference: '',
-    evidenceUrl: '',
+    sourceId: '',
     description: '',
   })
   form.allocations.splice(0)
@@ -161,7 +239,6 @@ function resetGrantForm() {
 function openReversal(grant) {
   reversalTargetId.value = grant.id
   reversalForm.reason = ''
-  reversalForm.evidenceUrl = ''
   message.value = ''
   errorMessage.value = ''
 }
@@ -169,7 +246,6 @@ function openReversal(grant) {
 function cancelReversal() {
   reversalTargetId.value = null
   reversalForm.reason = ''
-  reversalForm.evidenceUrl = ''
 }
 
 async function submitReversal(grant) {
@@ -179,9 +255,8 @@ async function submitReversal(grant) {
   try {
     const saved = await reversePointGrant(grant.id, {
       reason: reversalForm.reason.trim(),
-      evidenceUrl: reversalForm.evidenceUrl.trim() || null,
     })
-    grants.value.unshift(saved)
+    if (!grants.value.some((item) => item.id === saved.id)) grants.value.unshift(saved)
     cancelReversal()
     message.value = `${grant.title}已撤销，原始记录和反向流水均已保留。`
   } catch (error) {
@@ -211,13 +286,13 @@ function localDateString() {
   <PortalShell
     eyebrow="ADMIN / POINTS"
     title="积分管理"
-    description="按事项发放、按成员分配并保留凭证；错误记录通过整批撤销更正，不直接覆盖历史。"
+    description="关联库内事项发放，系统自动生成积分编号；错误记录通过整批撤销更正，不直接覆盖历史。"
   >
     <div v-if="loading" class="portal-state">正在读取积分规则与流水…</div>
     <div v-else-if="errorMessage && !rules.length" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <template v-else>
       <div v-if="message" class="save-message" role="status">{{ message }}</div>
-      <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
+      <div v-if="errorMessage" ref="errorSummary" class="form-alert" role="alert" tabindex="-1">{{ errorMessage }}</div>
 
       <section class="points-rule-grid" aria-label="积分规则">
         <article v-for="rule in rules" :key="rule.subcategory">
@@ -240,11 +315,7 @@ function localDateString() {
             <BadgePlus :size="24" aria-hidden="true" />
           </header>
 
-          <form class="points-grant-form" @submit.prevent="submitGrant">
-            <label>
-              事项名称
-              <input v-model="form.title" required maxlength="160" placeholder="例：全国大学生机器人大赛二等奖" />
-            </label>
+          <form class="points-grant-form" :inert="saving" :aria-busy="saving" @submit.prevent="submitGrant">
             <label>
               积分类型
               <select v-model="form.subcategory" required>
@@ -252,6 +323,36 @@ function localDateString() {
                   {{ rule.categoryLabel }} · {{ rule.subcategoryLabel }}
                 </option>
               </select>
+            </label>
+            <div v-if="sourceType" class="points-source-picker full">
+              <label>
+                搜索{{ sourceType === 'competitions' ? '竞赛' : '项目' }}
+                <input v-model.trim="sourceSearch" type="search" placeholder="输入名称查找库内记录" />
+              </label>
+              <label>
+                关联{{ sourceType === 'competitions' ? '竞赛' : '项目' }}
+                <select v-model="form.sourceId" required>
+                  <option value="">请选择库内记录…</option>
+                  <option v-for="source in filteredSources" :key="source.id" :value="source.id">
+                    {{ source.name }}{{ source.awardName ? ` · ${source.awardName}` : '' }}
+                  </option>
+                </select>
+                <small v-if="!filteredSources.length"
+                  >暂无可选记录{{ sourceType === 'competitions' ? '，竞赛需已结束、审核通过且登记奖项' : '' }}。</small
+                >
+                <small v-else
+                  >仅可向该{{ sourceType === 'competitions' ? '竞赛' : '项目' }}的关联正式学生成员发放。</small
+                >
+              </label>
+              <div class="points-source-refresh">
+                <button type="button" :disabled="refreshingSources" @click="refreshSources">
+                  <RotateCcw :size="16" aria-hidden="true" />{{ refreshingSources ? '刷新中…' : '刷新关联成员' }}
+                </button>
+              </div>
+            </div>
+            <label>
+              事项名称
+              <input v-model="form.title" required maxlength="160" placeholder="例：全国大学生机器人大赛二等奖" />
             </label>
             <label>
               发生日期
@@ -263,15 +364,6 @@ function localDateString() {
               <small v-if="selectedRule?.allocationPolicy === 'PER_MEMBER'">竞赛类每位成员都按该分值计分。</small>
               <small v-else>当前已分配 {{ allocatedPoints }} / {{ form.itemTotalPoints }} 分。</small>
             </label>
-            <label>
-              唯一来源编号
-              <input v-model="form.sourceReference" required maxlength="190" placeholder="例：COMP-2026-001" />
-              <small>用于防止重复发分，撤销后重新发放也必须使用新编号。</small>
-            </label>
-            <label>
-              凭证地址
-              <input v-model="form.evidenceUrl" required maxlength="1000" placeholder="https://… 或 /uploads/…" />
-            </label>
             <label class="full">
               事项说明（可选）
               <textarea v-model="form.description" rows="3" maxlength="1000"></textarea>
@@ -279,7 +371,13 @@ function localDateString() {
 
             <fieldset class="points-allocation-editor full">
               <legend>成员与贡献分配</legend>
-              <p>只能选择正式学生成员；积分管理员不能给自己发分。</p>
+              <p>
+                {{
+                  sourceType ? '请先选择库内记录，只能添加对应关联成员；' : '只能选择正式学生成员；'
+                }}积分管理员不能给自己发分。
+              </p>
+              <p v-if="invalidLinkedAllocation" role="alert">已选成员不再属于当前记录，请移除后再发放。</p>
+              <p v-if="selectedSource && !sourceCandidates.length">该记录暂无符合发放条件的关联成员。</p>
               <div class="points-member-adder">
                 <label>
                   选择成员
@@ -369,7 +467,7 @@ function localDateString() {
                   <dd>{{ grant.operatorUsername }}</dd>
                 </div>
                 <div>
-                  <dt>来源编号</dt>
+                  <dt>积分编号</dt>
                   <dd>{{ grant.sourceReference }}</dd>
                 </div>
                 <div>
@@ -383,7 +481,8 @@ function localDateString() {
                   <b>{{ allocation.creditedPoints > 0 ? '+' : '' }}{{ allocation.creditedPoints }}</b>
                 </li>
               </ul>
-              <a :href="grant.evidenceUrl" target="_blank" rel="noopener noreferrer">查看凭证</a>
+              <p v-if="grant.sourceName" class="points-source-summary">关联事项：{{ grant.sourceName }}</p>
+              <p v-if="grant.description" class="points-description">事项说明：{{ grant.description }}</p>
               <button
                 v-if="grant.type === 'GRANT' && !isReversed(grant)"
                 class="points-reversal-trigger"
@@ -402,10 +501,6 @@ function localDateString() {
                 <label>
                   撤销原因
                   <textarea v-model="reversalForm.reason" required rows="2" maxlength="1000"></textarea>
-                </label>
-                <label>
-                  新凭证地址（可选）
-                  <input v-model="reversalForm.evidenceUrl" maxlength="1000" placeholder="留空则沿用原凭证" />
                 </label>
                 <div>
                   <button type="button" @click="cancelReversal">取消</button>

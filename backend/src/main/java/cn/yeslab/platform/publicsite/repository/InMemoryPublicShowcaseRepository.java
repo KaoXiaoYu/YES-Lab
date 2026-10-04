@@ -79,6 +79,7 @@ public class InMemoryPublicShowcaseRepository implements PublicShowcaseRepositor
                 projects,
                 findVisibleMembers(),
                 rankings,
+                0,
                 updates,
                 awards,
                 List.of(
@@ -121,15 +122,7 @@ public class InMemoryPublicShowcaseRepository implements PublicShowcaseRepositor
 
     @Override
     public List<PublicShowcase.RankingEntry> findRanking(String board) {
-        List<Integer> points = rankingPoints.getOrDefault(board, rankingPoints.get("总榜"));
-        return java.util.stream.IntStream.range(0, members.size())
-                .mapToObj(index -> {
-                    PublicShowcase.Member member = members.get(index);
-                    return new PublicShowcase.RankingEntry(
-                            index + 1, member.slug(), member.name(), member.initials(), member.tags().getFirst(), points.get(index)
-                    );
-                })
-                .toList();
+        return List.of();
     }
 
     @Override
@@ -139,12 +132,9 @@ public class InMemoryPublicShowcaseRepository implements PublicShowcaseRepositor
 
     private static Map<String, List<Integer>> createRankingPoints() {
         Map<String, List<Integer>> values = new LinkedHashMap<>();
-        values.put("总榜", List.of(2480, 2210, 1980, 1750));
-        values.put("月榜", List.of(380, 350, 290, 265));
-        values.put("年榜", List.of(1240, 1180, 960, 845));
-        values.put("无人机", List.of(920, 860, 740, 620));
-        values.put("空地协同", List.of(880, 810, 790, 650));
-        values.put("具身智能", List.of(850, 820, 760, 690));
+        values.put("总榜", List.of());
+        values.put("月榜", List.of());
+        values.put("年榜", List.of());
         return values;
     }
 }

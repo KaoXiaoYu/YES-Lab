@@ -1,5 +1,9 @@
 package cn.yeslab.platform.points.service;
 
+import cn.yeslab.platform.achievement.model.CompetitionEntity;
+import cn.yeslab.platform.achievement.model.CompetitionLifecycle;
+import cn.yeslab.platform.achievement.model.VerificationStatus;
+import cn.yeslab.platform.achievement.repository.CompetitionRepository;
 import cn.yeslab.platform.common.error.ApiException;
 import cn.yeslab.platform.identity.model.AccountEntity;
 import cn.yeslab.platform.identity.model.MemberProfileEntity;
@@ -16,26 +20,37 @@ import cn.yeslab.platform.points.model.PointGrantType;
 import cn.yeslab.platform.points.model.PointSubcategory;
 import cn.yeslab.platform.points.repository.PointEntryRepository;
 import cn.yeslab.platform.points.repository.PointGrantRepository;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import cn.yeslab.platform.project.model.ProjectTeamEntity;
+import cn.yeslab.platform.project.repository.ProjectTeamRepository;
+import cn.yeslab.platform.publicsite.model.PublicShowcase;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class PointService {
@@ -48,25 +63,157 @@ public class PointService {
     private final MemberProfileRepository profiles;
     private final AuthService authService;
     private final NotificationService notifications;
+    private final CompetitionRepository competitions;
+    private final ProjectTeamRepository projects;
+    private final TransactionTemplate transactions;
 
     public PointService(
             PointGrantRepository grants,
             PointEntryRepository entries,
             MemberProfileRepository profiles,
             AuthService authService,
-            NotificationService notifications
+            NotificationService notifications,
+            CompetitionRepository competitions,
+            ProjectTeamRepository projects,
+            PlatformTransactionManager transactionManager
     ) {
         this.grants = grants;
         this.entries = entries;
         this.profiles = profiles;
         this.authService = authService;
         this.notifications = notifications;
+        this.competitions = competitions;
+        this.projects = projects;
+        this.transactions = new TransactionTemplate(transactionManager);
     }
 
     @PreAuthorize("hasAuthority('POINTS_MANAGE')")
-    @Transactional
-    public PointModels.GrantView grant(Authentication authentication, PointModels.GrantRequest request) {
-        return grantAs(authService.requireAccount(authentication), request);
+    public PointModels.GrantView grant(Authentication authentication, PointModels.ManualGrantRequest request) {
+        AccountEntity operator = authService.requireAccount(authentication);
+        String fingerprint = fingerprint(request);
+        try {
+            return transactions.execute(status -> manualGrant(operator, request, fingerprint));
+        } catch (DataIntegrityViolationException conflict) {
+            // The failed transaction has ended; resolve concurrent retries in a fresh transaction.
+            return transactions.execute(status -> {
+                PointGrantEntity existing = grants.findByRequestKey(request.requestKey()).orElse(null);
+                if (existing == null) throw conflict;
+                return replay(existing, operator, fingerprint);
+            });
+        }
+    }
+
+    private PointModels.GrantView replay(PointGrantEntity existing, AccountEntity operator, String fingerprint) {
+        if (!existing.getOperator().getId().equals(operator.getId())
+                || !fingerprint.equals(existing.getRequestFingerprint())) {
+            throw new ApiException(HttpStatus.CONFLICT, "该提交编号已用于其他积分事项，请刷新后重新提交");
+        }
+        return toGrantView(existing);
+    }
+
+    private PointModels.GrantView manualGrant(AccountEntity operator, PointModels.ManualGrantRequest request,
+                                             String fingerprint) {
+        PointGrantEntity existing = grants.findByRequestKey(request.requestKey()).orElse(null);
+        if (existing != null) return replay(existing, operator, fingerprint);
+        CompetitionEntity competition = null;
+        ProjectTeamEntity project = null;
+        Set<UUID> allowed = new HashSet<>();
+        if (request.subcategory() == PointSubcategory.COMPETITION_AWARD) {
+            if (request.competitionId() == null || request.projectId() != null) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "竞赛积分必须选择竞赛库中的已审核获奖记录");
+            }
+            competition = competitions.findByIdForUpdate(request.competitionId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "关联竞赛不存在"));
+            if (!eligibleCompetition(competition)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "只能为已结束、审核通过且有奖项的竞赛发放积分");
+            }
+            competitionMembers(competition).forEach(member -> allowed.add(member.getId()));
+        } else if (request.subcategory() == PointSubcategory.PROJECT_TASK) {
+            if (request.projectId() == null || request.competitionId() != null) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "项目积分必须选择项目库中的项目");
+            }
+            project = projects.findByIdForUpdate(request.projectId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "关联项目不存在"));
+            projectMembers(project).forEach(member -> allowed.add(member.getId()));
+        } else if (request.projectId() != null || request.competitionId() != null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "该积分类型不接受项目或竞赛关联");
+        }
+        if (competition != null || project != null) {
+            for (var allocation : request.allocations()) {
+                if (!allowed.contains(allocation.memberProfileId())) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "只能给所选项目或竞赛的关联成员发放积分，请刷新成员名单");
+                }
+            }
+        }
+        var internal = new PointModels.GrantRequest(request.title(), request.subcategory(), request.occurredOn(),
+                request.itemTotalPoints(), nextNumber(), "", request.description(), request.allocations());
+        var result = grantAs(operator, internal);
+        PointGrantEntity saved = grants.findById(result.id()).orElseThrow();
+        saved.recordManualSource(competition, project, request.requestKey(), fingerprint);
+        grants.saveAndFlush(saved);
+        return toGrantView(saved);
+    }
+
+    @PreAuthorize("hasAuthority('POINTS_MANAGE')")
+    @Transactional(readOnly = true)
+    public PointModels.SourceOptions sources(Authentication authentication) {
+        AccountEntity operator = authService.requireAccount(authentication);
+        return new PointModels.SourceOptions(
+                competitions.findAll().stream().filter(PointService::eligibleCompetition)
+                        .sorted(Comparator.comparing(CompetitionEntity::getName))
+                        .map(source -> new PointModels.SourceOption(source.getId(), source.getName(),
+                                source.getAwardName(), sourceMembers(operator, competitionMembers(source)))).toList(),
+                projects.findAll().stream().sorted(Comparator.comparing(ProjectTeamEntity::getProjectName))
+                        .map(source -> new PointModels.SourceOption(source.getId(), source.getProjectName(), null,
+                                sourceMembers(operator, projectMembers(source)))).toList());
+    }
+
+    private List<PointModels.SourceMember> sourceMembers(AccountEntity operator, List<MemberProfileEntity> members) {
+        return members.stream().filter(member -> taskRecipientIneligibleReason(operator, member) == null)
+                .collect(java.util.stream.Collectors.toMap(MemberProfileEntity::getId, member -> member, (a, b) -> a))
+                .values().stream().sorted(Comparator.comparing(MemberProfileEntity::getName))
+                .map(member -> new PointModels.SourceMember(member.getId(), member.getName(),
+                        member.getMemberCode(), member.getTotalPoints())).toList();
+    }
+
+    private static List<MemberProfileEntity> competitionMembers(CompetitionEntity source) {
+        var members = new ArrayList<MemberProfileEntity>();
+        members.add(source.getCaptainProfile());
+        source.getParticipants().forEach(item -> { if (item.getLinkedProfile() != null) members.add(item.getLinkedProfile()); });
+        return members;
+    }
+
+    private static List<MemberProfileEntity> projectMembers(ProjectTeamEntity source) {
+        var members = new ArrayList<>(source.getMembers());
+        members.add(source.getLeader());
+        return members;
+    }
+
+    private static boolean eligibleCompetition(CompetitionEntity source) {
+        return source.isAwardedResult()
+                && source.getVerificationStatus() == VerificationStatus.APPROVED
+                && normalize(source.getAwardName()) != null;
+    }
+
+    private static String nextNumber() {
+        return "PTS-" + DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS").withZone(LAB_TIME_ZONE)
+                .format(Instant.now()) + "-" + UUID.randomUUID();
+    }
+
+    private static String fingerprint(PointModels.ManualGrantRequest request) {
+        StringBuilder value = new StringBuilder();
+        java.util.function.Consumer<Object> add = item -> {
+            String text = item == null ? "" : item.toString().trim();
+            value.append(text.length()).append(':').append(text);
+        };
+        add.accept(request.title()); add.accept(request.subcategory()); add.accept(request.occurredOn());
+        add.accept(request.itemTotalPoints()); add.accept(request.competitionId()); add.accept(request.projectId());
+        add.accept(request.description());
+        request.allocations().stream().sorted(Comparator.comparing(PointModels.AllocationRequest::memberProfileId))
+                .forEach(item -> { add.accept(item.memberProfileId()); add.accept(item.points()); add.accept(item.contribution()); });
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.toString().getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
     }
 
     /**
@@ -113,7 +260,7 @@ public class PointService {
                 request.occurredOn(),
                 request.itemTotalPoints(),
                 sourceReference,
-                validateEvidenceUrl(request.evidenceUrl()),
+                request.evidenceUrl(),
                 normalize(request.description()),
                 operator,
                 null
@@ -244,14 +391,13 @@ public class PointService {
                 limit("撤销：" + original.getTitle(), 160),
                 original.getOccurredOn(),
                 -original.getItemTotalPoints(),
-                "REVERSAL:" + original.getId(),
-                normalize(request.evidenceUrl()) == null
-                        ? original.getEvidenceUrl()
-                        : validateEvidenceUrl(request.evidenceUrl()),
+                nextNumber(),
+                "",
                 request.reason().trim(),
                 operator,
                 original
         );
+        reversal.copySource(original);
         for (PointEntryEntity originalEntry : originalEntries) {
             MemberProfileEntity member = lockedMembers.get(originalEntry.getMember().getId());
             int delta = -originalEntry.getPoints();
@@ -336,29 +482,8 @@ public class PointService {
     ) {
         AccountEntity account = authService.requireAccount(authentication);
         UUID currentProfileId = profiles.findByAccountId(account.getId()).map(MemberProfileEntity::getId).orElse(null);
-        LocalDate today = LocalDate.now(LAB_TIME_ZONE);
-        DateRange range = dateRange(period, today);
-        Map<UUID, Integer> periodPoints = new HashMap<>();
-        if (period != PointModels.LeaderboardPeriod.TOTAL) {
-            for (PointEntryRepository.MemberPointTotal total
-                    : entries.sumByMemberForPeriod(range.startInclusive(), range.endExclusive())) {
-                periodPoints.put(total.getMemberId(), Math.toIntExact(total.getPoints()));
-            }
-        }
-
-        List<RankedMember> ranked = rankingParticipants().stream()
-                .map(profile -> new RankedMember(
-                        profile,
-                        period == PointModels.LeaderboardPeriod.TOTAL
-                                ? profile.getTotalPoints()
-                                : periodPoints.getOrDefault(profile.getId(), 0)
-                ))
-                .sorted(Comparator.comparingInt(RankedMember::points).reversed()
-                        .thenComparing(Comparator.comparingInt(
-                                (RankedMember item) -> item.profile().getTotalPoints()).reversed())
-                        .thenComparing(item -> item.profile().getName(), String.CASE_INSENSITIVE_ORDER)
-                        .thenComparing(item -> item.profile().getId()))
-                .toList();
+        DateRange range = dateRange(period, LocalDate.now(LAB_TIME_ZONE));
+        List<RankedMember> ranked = rankedMembers(period);
 
         List<PointModels.LeaderboardEntry> result = new ArrayList<>();
         int previousPoints = Integer.MIN_VALUE;
@@ -388,6 +513,86 @@ public class PointService {
                 Instant.now(),
                 result
         );
+    }
+
+    private List<RankedMember> rankedMembers(PointModels.LeaderboardPeriod period) {
+        LocalDate today = LocalDate.now(LAB_TIME_ZONE);
+        DateRange range = dateRange(period, today);
+        Map<UUID, Integer> periodPoints = new HashMap<>();
+        if (period != PointModels.LeaderboardPeriod.TOTAL) {
+            for (PointEntryRepository.MemberPointTotal total
+                    : entries.sumByMemberForPeriod(range.startInclusive(), range.endExclusive())) {
+                periodPoints.put(total.getMemberId(), Math.toIntExact(total.getPoints()));
+            }
+        }
+
+        return rankingParticipants().stream()
+                .map(profile -> new RankedMember(
+                        profile,
+                        period == PointModels.LeaderboardPeriod.TOTAL
+                                ? profile.getTotalPoints()
+                                : periodPoints.getOrDefault(profile.getId(), 0)
+                ))
+                .sorted(Comparator.comparingInt(RankedMember::points).reversed()
+                        .thenComparing(Comparator.comparingInt(
+                                (RankedMember item) -> item.profile().getTotalPoints()).reversed())
+                        .thenComparing(item -> item.profile().getName(), String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(item -> item.profile().getId()))
+                .toList();
+
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, List<PublicShowcase.RankingEntry>> publicRankings() {
+        Map<String, List<PublicShowcase.RankingEntry>> boards = new LinkedHashMap<>();
+        for (var period : List.of(PointModels.LeaderboardPeriod.TOTAL, PointModels.LeaderboardPeriod.MONTH,
+                PointModels.LeaderboardPeriod.YEAR)) {
+            String name = period == PointModels.LeaderboardPeriod.TOTAL ? "总榜"
+                    : period == PointModels.LeaderboardPeriod.MONTH ? "月榜" : "年榜";
+            var rows = new ArrayList<PublicShowcase.RankingEntry>();
+            int previous = Integer.MIN_VALUE;
+            int rank = 0;
+            List<RankedMember> members = rankedMembers(period);
+            for (int index = 0; index < Math.min(6, members.size()); index++) {
+                var item = members.get(index);
+                if (previous != item.points()) rank = index + 1;
+                previous = item.points();
+                var profile = item.profile();
+                String initials = profile.getName().isEmpty() ? "" : profile.getName().substring(0, 1);
+                rows.add(new PublicShowcase.RankingEntry(rank, profile.getId().toString(), profile.getName(),
+                        initials, profile.getSkillTags().isEmpty() ? "" : profile.getSkillTags().getFirst(), item.points()));
+            }
+            boards.put(name, rows);
+        }
+        return boards;
+    }
+
+    @Transactional(readOnly = true)
+    public int publicRankingCount() { return rankingParticipants().size(); }
+
+    public record PreviewPage(List<PublicShowcase.RankingEntry> entries, int totalCount, int page, Instant updatedAt) {}
+
+    @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")
+    @Transactional(readOnly = true)
+    public PreviewPage memberRankingPage(Authentication authentication, PointModels.LeaderboardPeriod period, int page) {
+        if (authService.requireAccount(authentication).getRole() == Role.VISITOR)
+            throw new ApiException(HttpStatus.FORBIDDEN, "完整榜单仅成员可查看");
+        if (page < 0 || page > 1000000) throw new ApiException(HttpStatus.BAD_REQUEST, "页码无效");
+        var members = rankedMembers(period);
+        var rows = new ArrayList<PublicShowcase.RankingEntry>();
+        int previous = Integer.MIN_VALUE;
+        int rank = 0;
+        for (int index = 0; index < members.size(); index++) {
+            var item = members.get(index);
+            if (previous != item.points()) rank = index + 1;
+            previous = item.points();
+            if (index < page * 25 || index >= (page + 1) * 25) continue;
+            var profile = item.profile();
+            rows.add(new PublicShowcase.RankingEntry(rank, profile.getId().toString(), profile.getName(),
+                    profile.getName().isEmpty() ? "" : profile.getName().substring(0, 1),
+                    profile.getSkillTags().isEmpty() ? "" : profile.getSkillTags().getFirst(), item.points()));
+        }
+        return new PreviewPage(rows, members.size(), page, Instant.now());
     }
 
     private List<MemberProfileEntity> rankingParticipants() {
@@ -494,7 +699,9 @@ public class PointService {
                 grant.getDescription(),
                 grant.getOperator().getUsername(),
                 grant.getCreatedAt(),
-                allocations
+                allocations,
+                grant.getCompetitionId(), grant.getProjectId(),
+                grant.getSourceEntityReference(), grant.getSourceName()
         );
     }
 

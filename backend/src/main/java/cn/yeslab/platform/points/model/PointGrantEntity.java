@@ -1,6 +1,8 @@
 package cn.yeslab.platform.points.model;
 
 import cn.yeslab.platform.identity.model.AccountEntity;
+import cn.yeslab.platform.achievement.model.CompetitionEntity;
+import cn.yeslab.platform.project.model.ProjectTeamEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -57,6 +59,26 @@ public class PointGrantEntity {
     @Column(length = 1000)
     private String description;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "competition_id")
+    private CompetitionEntity competition;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private ProjectTeamEntity project;
+
+    @Column(length = 36)
+    private String sourceEntityReference;
+
+    @Column(length = 180)
+    private String sourceName;
+
+    @Column(unique = true)
+    private UUID requestKey;
+
+    @Column(length = 64)
+    private String requestFingerprint;
+
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "operator_account_id", nullable = false)
     private AccountEntity operator;
@@ -104,6 +126,30 @@ public class PointGrantEntity {
     }
 
     public UUID getId() { return id; }
+    public UUID getCompetitionId() { return competition == null ? null : competition.getId(); }
+    public UUID getProjectId() { return project == null ? null : project.getId(); }
+    public String getSourceEntityReference() { return sourceEntityReference; }
+    public String getSourceName() { return sourceName; }
+    public String getRequestFingerprint() { return requestFingerprint; }
+
+    public void recordManualSource(CompetitionEntity competition, ProjectTeamEntity project,
+                                   UUID requestKey, String fingerprint) {
+        this.competition = competition;
+        this.project = project;
+        this.sourceEntityReference = competition != null ? competition.getId().toString()
+                : project != null ? project.getId().toString() : null;
+        this.sourceName = competition != null ? competition.getName()
+                : project != null ? project.getProjectName() : null;
+        this.requestKey = requestKey;
+        this.requestFingerprint = fingerprint;
+    }
+
+    public void copySource(PointGrantEntity original) {
+        competition = original.competition;
+        project = original.project;
+        sourceEntityReference = original.sourceEntityReference;
+        sourceName = original.sourceName;
+    }
     public PointGrantType getType() { return type; }
     public PointSubcategory getSubcategory() { return subcategory; }
     public String getTitle() { return title; }

@@ -142,9 +142,9 @@ function normalizeHome(home, publicProfiles = [], publicProjects = [], competiti
       ...member,
       role: member.role || member.gradeAndMajor,
     })),
-    rankingData: Object.fromEntries(
-      Object.entries(home.rankings).map(([board, entries]) => [board, entries.map((entry) => entry.points)]),
-    ),
+    rankingTotalCount: home.rankingTotalCount || 0,
+    rankingsUpdatedAt: new Date().toISOString(),
+    rankingData: Object.fromEntries(Object.entries(home.rankings).map(([board, entries]) => [board, entries])),
     updates: home.updates.map((item) => ({
       ...item,
       date: item.publishedAt || '最新',

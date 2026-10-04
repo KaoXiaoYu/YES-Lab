@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public interface PointGrantRepository extends JpaRepository<PointGrantEntity, UUID> {
     boolean existsBySourceReferenceIgnoreCase(String sourceReference);
+    Optional<PointGrantEntity> findByRequestKey(UUID requestKey);
     boolean existsByReversalOf_Id(UUID grantId);
     List<PointGrantEntity> findTop200ByOrderByCreatedAtDesc();
     Optional<PointGrantEntity> findById(UUID id);

@@ -44,8 +44,9 @@ public class CompetitionController {
     public ApiResponse<AchievementModels.CompetitionView> create(Authentication authentication,
             @Valid @RequestPart("data") AchievementModels.CompetitionUpsertRequest data,
             @RequestPart(value = "certificate", required = false) MultipartFile certificate,
-            @RequestPart(value = "images", required = false) List<MultipartFile> images) {
-        return ApiResponse.ok(service.createCompetition(authentication, data, certificate, images));
+            @RequestPart(value = "images", required = false) List<MultipartFile> images,
+            @RequestPart(value = "registration", required = false) MultipartFile registration) {
+        return ApiResponse.ok(service.createCompetition(authentication, data, certificate, images, registration));
     }
 
     @PutMapping("/{id}")
@@ -65,6 +66,17 @@ public class CompetitionController {
             @RequestPart(value = "images", required = false) List<MultipartFile> images,
             @RequestParam(value = "descriptions", required = false) List<String> descriptions) {
         return ApiResponse.ok(service.replaceImages(authentication, id, images, descriptions));
+    }
+
+    @PutMapping(value = "/{id}/registration", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ApiResponse<AchievementModels.CompetitionView> replaceRegistration(Authentication authentication, @PathVariable UUID id,
+            @RequestPart("registration") MultipartFile registration) { return ApiResponse.ok(service.replaceRegistration(authentication, id, registration)); }
+    @GetMapping("/{id}/registration")
+    public ResponseEntity<Resource> registration(Authentication authentication, @PathVariable UUID id) {
+        var file = service.registration(authentication, id);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).header(HttpHeaders.CONTENT_DISPOSITION,
+                ContentDisposition.inline().filename(file.originalName(), java.nio.charset.StandardCharsets.UTF_8).build().toString())
+                .contentType(MediaType.parseMediaType(file.contentType())).body(file.resource());
     }
 
     @GetMapping("/{id}/certificate")

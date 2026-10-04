@@ -19,7 +19,7 @@ class PublicShowcaseServiceTests {
         assertThat(home.projects()).hasSize(3);
         assertThat(home.members()).allMatch(member -> member.visible());
         assertThat(home.members()).filteredOn(member -> member.core()).hasSize(3);
-        assertThat(home.rankings()).containsKeys("总榜", "月榜", "年榜", "无人机", "空地协同", "具身智能");
+        assertThat(home.rankings()).containsOnlyKeys("总榜", "月榜", "年榜");
         assertThat(home.profile().researchDirections()).containsExactly("无人机", "空地协同", "具身智能");
         assertThat(home.sponsors()).extracting("name").containsExactly("CUAV");
         assertThat(home.sponsors().getFirst().logoUrl()).isEqualTo("/sponsors/cuav-logo.jpg");

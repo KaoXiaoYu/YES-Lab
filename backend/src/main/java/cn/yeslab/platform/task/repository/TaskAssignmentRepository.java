@@ -44,4 +44,53 @@ public interface TaskAssignmentRepository extends JpaRepository<TaskAssignmentEn
 
     /** 悬赏：按完成名次升序取出所有已完成过的对象，用于重算奖金不变量。 */
     List<TaskAssignmentEntity> findByTaskIdAndCompletionRankIsNotNullOrderByCompletionRankAsc(UUID taskId);
+
+    interface OnboardingDeadline {
+        UUID getTaskId();
+        long getParticipantCount();
+        java.time.LocalDate getUpcomingDeadline();
+        java.time.LocalDate getLatestDeadline();
+    }
+    @org.springframework.data.jpa.repository.Query("""
+        select a.task.id as taskId,
+            count(a) as participantCount,
+            min(case when coalesce(a.dueDate, a.task.endDate) >= :today then coalesce(a.dueDate, a.task.endDate) else null end) as upcomingDeadline,
+            max(coalesce(a.dueDate, a.task.endDate)) as latestDeadline
+        from TaskAssignmentEntity a
+        where a.task.taskType = :type and a.task.status = :published
+            and a.status not in :completed
+        group by a.task.id
+        """)
+    List<OnboardingDeadline> aggregateOnboardingDeadlines(
+        @org.springframework.data.repository.query.Param("today") java.time.LocalDate today,
+        @org.springframework.data.repository.query.Param("type") TaskType type,
+        @org.springframework.data.repository.query.Param("published") cn.yeslab.platform.task.model.TaskStatus published,
+        @org.springframework.data.repository.query.Param("completed") Collection<TaskAssignmentStatus> completed);
+
+    interface DeadlineParticipant {
+        UUID getTaskId();
+        UUID getProfileId();
+        String getName();
+        TaskType getTaskType();
+        TaskAssignmentStatus getStatus();
+    }
+    @org.springframework.data.jpa.repository.Query("""
+        select a.task.id as taskId, m.id as profileId, m.name as name,
+            a.task.taskType as taskType, a.status as status
+        from TaskAssignmentEntity a join a.memberProfile m
+        where a.task.status = :published and a.task.taskType <> :onboarding
+        order by a.createdAt, a.id
+        """)
+    List<DeadlineParticipant> findDeadlineParticipants(
+        @org.springframework.data.repository.query.Param("published") cn.yeslab.platform.task.model.TaskStatus published,
+        @org.springframework.data.repository.query.Param("onboarding") TaskType onboarding);
+
+    @org.springframework.data.jpa.repository.Query("""
+        select a from TaskAssignmentEntity a
+        left join a.memberProfile m left join a.recruitmentApplication r
+        where m.id = :profileId or r.applicant.id = :accountId
+        """)
+    List<TaskAssignmentEntity> findRelatedAssignments(
+        @org.springframework.data.repository.query.Param("profileId") UUID profileId,
+        @org.springframework.data.repository.query.Param("accountId") UUID accountId);
 }

@@ -44,6 +44,13 @@ public class CompetitionEntity {
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 32)
     private CompetitionLifecycle lifecycle;
 
+    @Enumerated(EnumType.STRING) @Column(length = 32, columnDefinition = "VARCHAR(32)")
+    private CompetitionResultStatus resultStatus;
+    @Column(length = 255) private String registrationStoredName;
+    @Column(length = 255) private String registrationOriginalName;
+    @Column(length = 80) private String registrationContentType;
+    private Long registrationSizeBytes;
+
     @Column(length = 160)
     private String awardName;
 
@@ -166,12 +173,28 @@ public class CompetitionEntity {
     public void updateCertificate(String storedName, String originalName, String contentType, long sizeBytes, boolean resetReview) {
         this.certificateStoredName = storedName; this.certificateOriginalName = originalName;
         this.certificateContentType = contentType; this.certificateSizeBytes = sizeBytes;
-        if (resetReview && lifecycle == CompetitionLifecycle.FINISHED) {
+        if (resetReview && isAwardedResult()) {
             this.verificationStatus = VerificationStatus.PENDING;
             this.featured = false;
         }
         this.updatedAt = Instant.now();
     }
+
+    public void setResultStatus(CompetitionResultStatus resultStatus) { this.resultStatus = resultStatus; }
+    public CompetitionResultStatus getResultStatus() { return resultStatus; }
+    public CompetitionResultStatus effectiveResultStatus() {
+        if (resultStatus != null) return resultStatus;
+        return lifecycle == CompetitionLifecycle.FINISHED && awardName != null && !awardName.isBlank() && certificateStoredName != null
+                ? CompetitionResultStatus.AWARDED : null;
+    }
+    public boolean isAwardedResult() { return lifecycle == CompetitionLifecycle.FINISHED && effectiveResultStatus() == CompetitionResultStatus.AWARDED; }
+    public void updateRegistration(String storedName, String originalName, String contentType, long sizeBytes) {
+        registrationStoredName = storedName; registrationOriginalName = originalName;
+        registrationContentType = contentType; registrationSizeBytes = sizeBytes; updatedAt = Instant.now();
+    }
+    public String getRegistrationStoredName() { return registrationStoredName; }
+    public String getRegistrationOriginalName() { return registrationOriginalName; }
+    public String getRegistrationContentType() { return registrationContentType; }
 
     public void markPending() { this.verificationStatus = VerificationStatus.PENDING; this.featured = false; this.updatedAt = Instant.now(); }
     public void markNotRequired() { this.verificationStatus = VerificationStatus.NOT_REQUIRED; this.featured = false; this.updatedAt = Instant.now(); }

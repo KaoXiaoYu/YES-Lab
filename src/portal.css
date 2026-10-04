@@ -11017,3 +11017,36 @@ a.portal-secondary {
     transform: none;
   }
 }
+
+.points-source-picker > label {
+  display: grid;
+  gap: 8px;
+  color: var(--color-text-strong);
+  font-size: 11px;
+  font-weight: 700;
+}
+.points-source-picker {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.points-source-summary,
+.points-description {
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 12px 0;
+}
+.points-ledger-list dd {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 767px) {
+  .points-source-picker {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.file-drop:focus-within {
+  outline: 3px solid var(--color-ring);
+  outline-offset: 3px;
+}

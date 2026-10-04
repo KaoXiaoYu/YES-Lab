@@ -42,6 +42,7 @@ public enum Role {
                 Permission.TAG_MANAGE,
                 Permission.QUIZ_MANAGE,
                 Permission.POINTS_MANAGE,
+                Permission.FUND_MANAGE,
                 Permission.PROJECT_MANAGE,
                 Permission.TASK_MANAGE,
                 Permission.ACHIEVEMENT_MANAGE,

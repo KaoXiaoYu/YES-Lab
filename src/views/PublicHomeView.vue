@@ -1,13 +1,15 @@
 <script setup>
 import ThemeToggle from '../components/ThemeToggle.vue'
 import ResearchVisual from '../components/ResearchVisual.vue'
-import { ArrowDownRight, ArrowRight, ArrowUpRight, BookOpen, Code2, ExternalLink, Menu, Users, X } from '@lucide/vue'
+import CompactLeaderboard from '../components/CompactLeaderboard.vue'
+import PublicFundCard from '../components/PublicFundCard.vue'
+import HomepageDeadlineConveyor from '../components/HomepageDeadlineConveyor.vue'
+import { ArrowDownRight, ArrowRight, ArrowUpRight, BookOpen, Code2, ExternalLink, Menu, X } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { authState } from '../services/authApi'
 import { fetchPublicHome } from '../services/publicApi'
 
 const menuOpen = ref(false)
-const activeRanking = ref('总榜')
 const activeProjectFilter = ref('全部')
 const selectedProject = ref(null)
 const modalClose = ref(null)
@@ -16,7 +18,12 @@ const homeElement = ref(null)
 let revealObserver
 let rankingsRefreshTimer
 let homeUnmounted = false
-const publicHomeSnapshotKey = 'yeslab_public_home_snapshot_v1'
+const publicHomeSnapshotKey = 'yeslab_public_home_snapshot_v3'
+try {
+  window.localStorage.removeItem('yeslab_public_home_snapshot_v2')
+} catch {
+  /* Storage may be unavailable. */
+}
 const publicHomeSnapshotMaxAge = 7 * 24 * 60 * 60 * 1000
 
 const defaultProjects = [
@@ -102,14 +109,7 @@ const defaultAdvisor = {
   tags: ['研究指导', '人才培养'],
 }
 
-const defaultRankingData = {
-  总榜: [2480, 2210, 1980, 1750],
-  月榜: [380, 350, 290, 265],
-  年榜: [1240, 1180, 960, 845],
-  无人机: [920, 860, 740, 620],
-  空地协同: [880, 810, 790, 650],
-  具身智能: [850, 820, 760, 690],
-}
+const defaultRankingData = { 总榜: [], 月榜: [], 年榜: [] }
 
 const defaultUpdates = [
   { date: '荣誉', type: '竞赛成果', title: 'YES Lab 获得计算机设计大赛全国二等奖' },
@@ -188,7 +188,7 @@ const defaultHomepageContent = {
         },
       ],
     },
-    members: { eyebrow: '03 / PEOPLE', title: '共同成长的研究者', description: '榜单每30s刷新' },
+    members: { eyebrow: '03 / PEOPLE', title: '共同成长的研究者', description: '榜单每日刷新' },
     partners: {
       eyebrow: '04 / PARTNERS',
       title: '赞助与合作伙伴',
@@ -319,6 +319,11 @@ const projects = ref(defaultProjects)
 const members = ref(defaultMembers)
 const advisors = ref([defaultAdvisor])
 const rankingData = ref(defaultRankingData)
+const rankingsLoaded = ref(false)
+const rankingsError = ref('')
+const rankingsUpdatedAt = ref('')
+let lastHomeDay = ''
+let homeRequestVersion = 0
 const newsItems = ref(defaultUpdates)
 const competitionResults = ref(
   defaultAwards.map((item, index) => ({
@@ -357,14 +362,7 @@ const filteredProjects = computed(() => {
       : sourceProjects.filter((project) => project.category === activeProjectFilter.value)
   ).slice(0, displayOptions.value.projectLimit)
 })
-const rankings = computed(() =>
-  members.value
-    .map((member, index) => ({
-      ...member,
-      points: rankingData.value[activeRanking.value]?.[index] ?? member.points,
-    }))
-    .sort((a, b) => b.points - a.points),
-)
+const rankingTotalCount = ref(0)
 const coreMembers = computed(() => {
   if (displayOptions.value.memberSelectionMode === 'HIDDEN') return []
   const designatedMembers = members.value.filter((member) => member.core)
@@ -479,7 +477,12 @@ const applyCompleteHome = (home) => {
   projects.value = home.projects
   members.value = home.members
   advisors.value = home.advisors?.length ? home.advisors : home.advisor ? [home.advisor] : []
-  rankingData.value = home.rankingData
+  rankingData.value = Object.fromEntries(
+    Object.keys(defaultRankingData).map((board) => [board, home.rankingData?.[board] || []]),
+  )
+  rankingTotalCount.value = home.rankingTotalCount || 0
+  rankingsLoaded.value = true
+  rankingsUpdatedAt.value = home.rankingsUpdatedAt || ''
   newsItems.value = home.news?.length ? home.news : home.updates
   competitionResults.value = home.competitionResults?.length
     ? home.competitionResults
@@ -512,20 +515,43 @@ const savePublicHomeSnapshot = (home) => {
   }
 }
 
+const beijingDay = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date())
+const scheduleDailyRefresh = () => {
+  window.clearTimeout(rankingsRefreshTimer)
+  const [year, month, day] = beijingDay().split('-').map(Number)
+  const nextMidnight = Date.UTC(year, month - 1, day + 1) - 8 * 60 * 60 * 1000
+  rankingsRefreshTimer = window.setTimeout(
+    async () => {
+      if (document.visibilityState === 'visible') await syncPublicHome()
+      if (!homeUnmounted) scheduleDailyRefresh()
+    },
+    Math.max(1000, nextMidnight - Date.now()),
+  )
+}
 const syncPublicHome = async () => {
-  const home = await fetchPublicHome(applyCoreHome)
-  applyCompleteHome(home)
-  savePublicHomeSnapshot(home)
+  const version = ++homeRequestVersion
+  const home = await fetchPublicHome((core) => {
+    if (!homeUnmounted && version === homeRequestVersion) applyCoreHome(core)
+  })
+  if (homeUnmounted || version !== homeRequestVersion) return
+  if (home) {
+    applyCompleteHome(home)
+    savePublicHomeSnapshot(home)
+    lastHomeDay = beijingDay()
+    rankingsError.value = ''
+  } else {
+    rankingsError.value = rankingsLoaded.value ? '榜单刷新失败，暂显示上次结果。' : '榜单读取失败，请重试。'
+  }
   homepageReady.value = true
 }
-
 const refreshVisibleHome = () => {
-  if (document.visibilityState === 'visible') syncPublicHome()
+  if (document.visibilityState === 'visible' && lastHomeDay && lastHomeDay !== beijingDay()) syncPublicHome()
 }
 
 const cachedPublicHome = readPublicHomeSnapshot()
 if (cachedPublicHome) {
   applyCompleteHome(cachedPublicHome)
+  lastHomeDay = beijingDay()
   homepageReady.value = true
 }
 
@@ -570,7 +596,7 @@ onMounted(async () => {
   await nextTick()
   if (homeUnmounted) return
   initializeReveals()
-  rankingsRefreshTimer = window.setInterval(syncPublicHome, 30_000)
+  scheduleDailyRefresh()
 })
 
 onBeforeUnmount(() => {
@@ -580,7 +606,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('focus', refreshVisibleHome)
   document.body.classList.remove('modal-open')
   revealObserver?.disconnect()
-  window.clearInterval(rankingsRefreshTimer)
+  window.clearTimeout(rankingsRefreshTimer)
 })
 </script>
 
@@ -843,7 +869,7 @@ onBeforeUnmount(() => {
           <p class="section-index">{{ homepageContent.sections.members.eyebrow }}</p>
           <h2>{{ homepageContent.sections.members.title }}</h2>
         </div>
-        <p>{{ homepageContent.sections.members.description }}</p>
+        <p>榜单每日刷新</p>
       </header>
       <div :class="['people-grid', { 'single-column': !(displayOptions.showLeaderboard && showMemberShowcase) }]">
         <div
@@ -909,10 +935,10 @@ onBeforeUnmount(() => {
             <div class="core-head">
               <span>CORE MEMBERS</span><small>{{ String(coreMembers.length).padStart(2, '0') }} PEOPLE</small>
             </div>
-            <article v-for="(member, index) in coreMembers" :key="member.profileId || member.slug || member.initials">
+            <article v-for="(member, index) in coreMembers" :key="member.memberSlug">
               <RouterLink
                 class="member-card-link core-member-link"
-                :to="`/members/${member.profileId || member.slug}`"
+                :to="`/members/${member.memberSlug}`"
                 :aria-label="`查看${member.name}的公开主页`"
               >
                 <span class="member-rank">{{ String(index + 1).padStart(2, '0') }}</span
@@ -933,38 +959,20 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <aside v-if="displayOptions.showLeaderboard" class="leaderboard" data-reveal>
-          <div class="leaderboard-head">
-            <span><Users :size="19" aria-hidden="true" /> 实时成员榜单</span
-            ><small><i aria-hidden="true"></i> 30S SYNC</small>
-          </div>
-          <div class="ranking-tabs">
-            <button
-              v-for="tab in Object.keys(rankingData)"
-              :key="tab"
-              :class="{ active: activeRanking === tab }"
-              :aria-pressed="activeRanking === tab"
-              @click="activeRanking = tab"
-            >
-              {{ tab }}
-            </button>
-          </div>
-          <ol>
-            <li v-for="(member, index) in rankings" :key="member.profileId || member.slug || member.initials">
-              <RouterLink
-                :to="`/members/${member.profileId || member.slug}`"
-                :aria-label="`查看${member.name}的公开主页`"
-                ><span>{{ index + 1 }}</span>
-                <div>
-                  <strong>{{ member.name }}</strong
-                  ><small>{{ member.tags[0] }}</small>
-                </div>
-                <b>{{ member.points }}</b></RouterLink
-              >
-            </li>
-          </ol>
-        </aside>
+        <CompactLeaderboard
+          v-if="displayOptions.showLeaderboard"
+          :boards="rankingData"
+          :total-count="rankingTotalCount"
+          :updated-at="rankingsUpdatedAt"
+          :loaded="rankingsLoaded"
+          :error="rankingsError"
+          @retry="syncPublicHome"
+        />
       </div>
+    </section>
+
+    <section class="section lab-status-section" aria-label="实验室基金与日程">
+      <div class="lab-status-grid"><PublicFundCard /><HomepageDeadlineConveyor /></div>
     </section>
 
     <section v-if="displayOptions.showPartners" class="section partners-section">

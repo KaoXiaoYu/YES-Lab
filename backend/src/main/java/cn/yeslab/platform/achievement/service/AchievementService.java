@@ -4,6 +4,9 @@ import cn.yeslab.platform.achievement.api.AchievementModels;
 import cn.yeslab.platform.achievement.model.CompetitionEntity;
 import cn.yeslab.platform.achievement.model.CompetitionImageEntity;
 import cn.yeslab.platform.achievement.model.CompetitionLifecycle;
+import cn.yeslab.platform.achievement.model.CompetitionResultStatus;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import cn.yeslab.platform.achievement.model.CompetitionParticipantEntity;
 import cn.yeslab.platform.achievement.model.NewsEntity;
 import cn.yeslab.platform.achievement.model.VerificationStatus;
@@ -91,9 +94,9 @@ public class AchievementService {
     @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")
     @Transactional
     public AchievementModels.CompetitionView createCompetition(Authentication authentication,
-            AchievementModels.CompetitionUpsertRequest request, MultipartFile certificate, List<MultipartFile> images) {
+            AchievementModels.CompetitionUpsertRequest request, MultipartFile certificate, List<MultipartFile> images, MultipartFile registration) {
         Actor actor = actor(authentication);
-        validateRequest(request, certificate != null && !certificate.isEmpty(), null);
+        validateRequest(request, certificate != null && !certificate.isEmpty(), registration != null && !registration.isEmpty());
         Advisor advisor = resolveAdvisor(request.advisorProfileId(), request.advisorName());
         ProjectTeamEntity project = resolveProject(request.projectId(), actor);
         CompetitionEntity item = new CompetitionEntity(request.name().trim(), request.level(), request.lifecycle(),
@@ -103,8 +106,15 @@ public class AchievementService {
                 request.provincialDate(), request.nationalDate(), advisor.profile(), advisor.name(), project);
         item.replaceParticipants(resolveParticipants(request.participants(), actor.profile()));
 
+        item.setResultStatus(request.resultStatus());
+        if (!item.isAwardedResult()) item.markNotRequired();
         List<String> storedFiles = new ArrayList<>();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCompletion(int status) { if (status != STATUS_COMMITTED) storedFiles.forEach(AchievementService.this::deleteStoredMarker); }
+        });
         try {
+            var proof = storage.storeRegistration(registration); storedFiles.add("r:" + proof.storedName());
+            item.updateRegistration(proof.storedName(), proof.originalName(), proof.contentType(), proof.sizeBytes());
             if (certificate != null && !certificate.isEmpty()) {
                 var stored = storage.storeCertificate(certificate); storedFiles.add("c:" + stored.storedName());
                 item.updateCertificate(stored.storedName(), stored.originalName(), stored.contentType(), stored.sizeBytes(), false);
@@ -121,18 +131,17 @@ public class AchievementService {
     public AchievementModels.CompetitionView updateCompetition(Authentication authentication, UUID id,
             AchievementModels.CompetitionUpsertRequest request) {
         Actor actor = actor(authentication); CompetitionEntity item = requireCompetition(id);
-        ensureCanEdit(item, actor); boolean wasFinished = item.getLifecycle() == CompetitionLifecycle.FINISHED;
-        VerificationStatus previousStatus = item.getVerificationStatus();
-        validateRequest(request, item.getCertificateStoredName() != null, item);
+        ensureCanEdit(item, actor);
+        validateRequest(request, item.getCertificateStoredName() != null, item.getRegistrationStoredName() != null);
         Advisor advisor = resolveAdvisor(request.advisorProfileId(), request.advisorName());
         ProjectTeamEntity project = resolveProject(request.projectId(), actor);
         item.updateDetails(request.name().trim(), normalize(request.track()), request.level(), request.lifecycle(),
                 normalize(request.awardName()), request.description().trim(), request.competitionDate(),
                 request.provincialDate(), request.nationalDate(), advisor.profile(), advisor.name(), project);
         item.replaceParticipants(resolveParticipants(request.participants(), item.getCaptainProfile()));
-        if (request.lifecycle() == CompetitionLifecycle.FINISHED
-                && (!wasFinished || (!actor.systemAdmin() && previousStatus == VerificationStatus.REJECTED))) item.markPending();
-        if (request.lifecycle() != CompetitionLifecycle.FINISHED) item.markNotRequired();
+        item.setResultStatus(request.resultStatus());
+        if (item.isAwardedResult()) item.markPending();
+        else item.markNotRequired();
         return toView(competitions.save(item), actor);
     }
 
@@ -155,7 +164,7 @@ public class AchievementService {
         List<String> previous = item.getImages().stream().map(CompetitionImageEntity::getStoredName).toList();
         try {
             item.replaceImages(storeImages(item.getName(), images, descriptions, markers));
-            if (!actor.systemAdmin() && item.getLifecycle() == CompetitionLifecycle.FINISHED) item.markPending();
+            if (item.isAwardedResult()) item.markPending();
             CompetitionEntity saved = competitions.save(item); previous.forEach(storage::deleteImage); return toView(saved, actor);
         } catch (RuntimeException error) { markers.forEach(this::deleteStoredMarker); throw error; }
     }
@@ -166,7 +175,7 @@ public class AchievementService {
         Actor actor = actor(authentication); CompetitionEntity item = requireCompetition(competitionId); ensureCanEdit(item, actor);
         CompetitionImageEntity image = requireImage(item, imageId); String storedName = image.getStoredName();
         item.removeImage(image);
-        if (!actor.systemAdmin() && item.getLifecycle() == CompetitionLifecycle.FINISHED) item.markPending();
+        if (item.isAwardedResult()) item.markPending();
         CompetitionEntity saved = competitions.save(item);
         storage.deleteImage(storedName);
         return toView(saved, actor);
@@ -176,7 +185,7 @@ public class AchievementService {
     @Transactional
     public AchievementModels.CompetitionView review(Authentication authentication, UUID id, AchievementModels.ReviewRequest request) {
         Actor actor = actor(authentication); CompetitionEntity item = requireCompetition(id);
-        if (item.getLifecycle() != CompetitionLifecycle.FINISHED || item.getCertificateStoredName() == null)
+        if (!item.isAwardedResult() || item.getCertificateStoredName() == null)
             throw new ApiException(HttpStatus.BAD_REQUEST, "只有已结束且上传证书的比赛可以审核");
         if (request.status() != VerificationStatus.APPROVED && request.status() != VerificationStatus.REJECTED)
             throw new ApiException(HttpStatus.BAD_REQUEST, "审核状态只能是通过或驳回");
@@ -188,7 +197,7 @@ public class AchievementService {
     @Transactional
     public AchievementModels.CompetitionView updateDisplay(Authentication authentication, UUID id, AchievementModels.DisplayRequest request) {
         Actor actor = actor(authentication); CompetitionEntity item = requireCompetition(id);
-        if (item.getVerificationStatus() != VerificationStatus.APPROVED || item.getLifecycle() != CompetitionLifecycle.FINISHED)
+        if (!isApprovedFinished(item))
             throw new ApiException(HttpStatus.BAD_REQUEST, "只有审核通过的已结束比赛可以公开展示");
         item.updateDisplay(request.featured(), request.displayOrder());
         return toView(competitions.save(item), actor);
@@ -202,6 +211,33 @@ public class AchievementService {
             throw new ApiException(HttpStatus.FORBIDDEN, "只有队长和管理员可以查看证书");
         if (item.getCertificateStoredName() == null) throw new ApiException(HttpStatus.NOT_FOUND, "该比赛尚未上传证书");
         return new FileDownload(storage.certificate(item.getCertificateStoredName()), item.getCertificateOriginalName(), item.getCertificateContentType());
+    }
+
+    @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")
+    @Transactional(readOnly = true)
+    public FileDownload registration(Authentication authentication, UUID id) {
+        Actor actor = actor(authentication); var item = requireCompetition(id);
+        if (!canReadRegistration(item, actor)) throw new ApiException(HttpStatus.FORBIDDEN, "报名截图仅对该比赛关联成员和管理员开放");
+        if (item.getRegistrationStoredName() == null) throw new ApiException(HttpStatus.NOT_FOUND, "历史记录尚未补齐报名截图");
+        return new FileDownload(storage.registration(item.getRegistrationStoredName()), item.getRegistrationOriginalName(), item.getRegistrationContentType());
+    }
+    @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")
+    @Transactional
+    public AchievementModels.CompetitionView replaceRegistration(Authentication authentication, UUID id, MultipartFile registration) {
+        var actor = actor(authentication); var item = requireCompetition(id); ensureCanEdit(item, actor);
+        var stored = storage.storeRegistration(registration); String previous = item.getRegistrationStoredName();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() { storage.deleteRegistration(previous); }
+            @Override public void afterCompletion(int status) { if (status != STATUS_COMMITTED) storage.deleteRegistration(stored.storedName()); }
+        });
+        item.updateRegistration(stored.storedName(), stored.originalName(), stored.contentType(), stored.sizeBytes());
+        if (item.isAwardedResult()) item.markPending();
+        return toView(competitions.saveAndFlush(item), actor);
+    }
+    private boolean canReadRegistration(CompetitionEntity item, Actor actor) {
+        return actor.systemAdmin() || item.getCaptainProfile().getId().equals(actor.profile().getId())
+                || item.getAdvisorProfile() != null && item.getAdvisorProfile().getId().equals(actor.profile().getId())
+                || item.getParticipants().stream().anyMatch(p -> p.getLinkedProfile() != null && p.getLinkedProfile().getId().equals(actor.profile().getId()));
     }
 
     @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")
@@ -287,26 +323,30 @@ public class AchievementService {
     @Transactional(readOnly = true)
     public List<AchievementModels.CompetitionShowcaseOption> approvedAchievementOptionsFor(UUID profileId) {
         return competitions.findAll().stream()
-                .filter(item -> item.getLifecycle() == CompetitionLifecycle.FINISHED && item.getVerificationStatus() == VerificationStatus.APPROVED)
+                .filter(item -> item.isAwardedResult() && item.getVerificationStatus() == VerificationStatus.APPROVED)
                 .filter(item -> item.getParticipants().stream().anyMatch(p -> p.getLinkedProfile() != null && p.getLinkedProfile().getId().equals(profileId)))
                 .sorted(Comparator.comparing(CompetitionEntity::getCompetitionDate, Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(item -> new AchievementModels.CompetitionShowcaseOption(item.getId(), item.getName(), item.getAwardName(), item.getCompetitionDate()))
                 .toList();
     }
 
-    private void validateRequest(AchievementModels.CompetitionUpsertRequest request, boolean hasCertificate, CompetitionEntity existing) {
-        if (request.lifecycle() == CompetitionLifecycle.FINISHED) {
-            if (!hasCertificate) throw new ApiException(HttpStatus.BAD_REQUEST, "已结束比赛必须上传证书");
+    private void validateRequest(AchievementModels.CompetitionUpsertRequest request, boolean hasCertificate, boolean hasRegistration) {
+        if (request.lifecycle() == CompetitionLifecycle.ONGOING)
+            throw new ApiException(HttpStatus.BAD_REQUEST, "请选择未开始或完赛，进行中仅供读取历史记录");
+        if (request.competitionDate() == null) throw new ApiException(HttpStatus.BAD_REQUEST, "请填写比赛时间");
+        if (!hasRegistration) throw new ApiException(HttpStatus.BAD_REQUEST, "请上传报名截图");
+        if (request.lifecycle() == CompetitionLifecycle.PLANNED && request.resultStatus() != null)
+            throw new ApiException(HttpStatus.BAD_REQUEST, "未开始比赛不能填写完赛结果");
+        if (request.lifecycle() == CompetitionLifecycle.FINISHED && request.resultStatus() == null)
+            throw new ApiException(HttpStatus.BAD_REQUEST, "请选择待成绩、获奖或未获奖");
+        if (request.resultStatus() == CompetitionResultStatus.AWARDED) {
+            if (!hasCertificate) throw new ApiException(HttpStatus.BAD_REQUEST, "获奖成果必须上传证书");
             if (normalize(request.awardName()) == null) throw new ApiException(HttpStatus.BAD_REQUEST, "请填写获奖结果");
-            if (request.competitionDate() == null) throw new ApiException(HttpStatus.BAD_REQUEST, "请填写比赛或获奖日期");
-        } else {
-            if (request.provincialDate() == null || request.nationalDate() == null)
-                throw new ApiException(HttpStatus.BAD_REQUEST, "未结束比赛需要填写省赛和国赛时间");
-            if (request.nationalDate().isBefore(request.provincialDate()))
-                throw new ApiException(HttpStatus.BAD_REQUEST, "国赛时间不能早于省赛时间");
-            if (normalize(request.advisorName()) == null && request.advisorProfileId() == null)
-                throw new ApiException(HttpStatus.BAD_REQUEST, "未结束比赛需要填写指导老师");
+        } else if (normalize(request.awardName()) != null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "只有已结束获奖的比赛可以填写奖项");
         }
+        if (request.provincialDate() != null && request.nationalDate() != null && request.nationalDate().isBefore(request.provincialDate()))
+            throw new ApiException(HttpStatus.BAD_REQUEST, "国赛时间不能早于省赛时间");
     }
 
     private List<CompetitionParticipantEntity> resolveParticipants(List<AchievementModels.ParticipantRequest> requests, MemberProfileEntity captain) {
@@ -377,9 +417,10 @@ public class AchievementService {
         return null;
     }
 
-    private void deleteStoredMarker(String marker) { if (marker.startsWith("c:")) storage.deleteCertificate(marker.substring(2)); else storage.deleteImage(marker.substring(2)); }
+    private void deleteStoredMarker(String marker) { if (marker.startsWith("c:")) storage.deleteCertificate(marker.substring(2)); else if (marker.startsWith("r:")) storage.deleteRegistration(marker.substring(2)); else storage.deleteImage(marker.substring(2)); }
     private Actor actor(Authentication authentication) {
         AccountEntity account = authService.requireAccount(authentication);
+        if (account.getRole() == Role.VISITOR) throw new ApiException(HttpStatus.FORBIDDEN, "参赛登记仅对实验室成员开放");
         MemberProfileEntity profile = profiles.findByAccountId(account.getId()).orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "当前账号不是实验室成员"));
         return new Actor(account, profile, account.getRole().isSystemAdmin());
     }
@@ -394,7 +435,7 @@ public class AchievementService {
         if (item.getVerificationStatus() == VerificationStatus.APPROVED) throw new ApiException(HttpStatus.FORBIDDEN, "审核通过后仅管理员可以修改");
     }
     private boolean isPublicFeatured(CompetitionEntity item) { return isApprovedFinished(item) && item.isFeatured(); }
-    private boolean isApprovedFinished(CompetitionEntity item) { return item.getLifecycle() == CompetitionLifecycle.FINISHED && item.getVerificationStatus() == VerificationStatus.APPROVED; }
+    private boolean isApprovedFinished(CompetitionEntity item) { return item.isAwardedResult() && item.getVerificationStatus() == VerificationStatus.APPROVED; }
     private void ensurePublic(CompetitionEntity item) { if (!isApprovedFinished(item)) throw new ApiException(HttpStatus.NOT_FOUND, "该比赛成果暂未公开"); }
     private CompetitionEntity requireCompetition(UUID id) { return competitions.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "比赛不存在")); }
     private CompetitionImageEntity requireImage(CompetitionEntity item, UUID imageId) { return item.getImages().stream().filter(i -> i.getId().equals(imageId)).findFirst().orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "比赛图片不存在")); }
@@ -409,7 +450,7 @@ public class AchievementService {
                 item.getAdvisorProfile() == null ? null : memberOption(item.getAdvisorProfile()), item.getAdvisorName(), projectOption(item.getProject()),
                 participantViews(item), imageViews(item, false), item.getVerificationStatus(), item.getReviewNote(),
                 item.getReviewer() == null ? null : item.getReviewer().getUsername(), item.getReviewedAt(), item.isFeatured(), item.getDisplayOrder(),
-                item.getCertificateStoredName() != null, item.getCertificateOriginalName(), canEdit(item, actor), actor.systemAdmin(), item.getCreatedAt(), item.getUpdatedAt());
+                item.getCertificateStoredName() != null, item.getCertificateOriginalName(), canEdit(item, actor), actor.systemAdmin() && item.isAwardedResult(), item.getCreatedAt(), item.getUpdatedAt(), item.effectiveResultStatus(), item.getRegistrationStoredName() != null, canReadRegistration(item, actor) ? item.getRegistrationOriginalName() : null, canReadRegistration(item, actor));
     }
     private boolean canEdit(CompetitionEntity item, Actor actor) { return actor.systemAdmin() || item.getCaptainProfile().getId().equals(actor.profile().getId()) && item.getVerificationStatus() != VerificationStatus.APPROVED; }
     private AchievementModels.PublicCompetitionView toPublicView(CompetitionEntity item) {

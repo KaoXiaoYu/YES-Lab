@@ -1,16 +1,20 @@
 <script setup>
 import { ArrowRight, CalendarDays, CheckCircle2, Clock3, Medal, Plus, ShieldCheck, UsersRound } from '@lucide/vue'
-import { computed, onMounted, ref } from 'vue'
+import { competitionState, competitionOutcome } from '../services/competitionStatus'
+import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
-import { authState, listCompetitions } from '../services/authApi'
+import { authState, listCompetitions, getAuthenticatedFile } from '../services/authApi'
 
+const registrationId = ref(null)
+const registrationUrl = ref('')
+const readingRegistration = ref(false)
 const items = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
 const lifecycle = ref('ALL')
 const route = useRoute()
-const lifecycleLabels = { PLANNED: '筹备中', ONGOING: '进行中', FINISHED: '已结束' }
+const lifecycleLabels = { PLANNED: '未开始', FINISHED: '完赛', ONGOING: '历史：进行中' }
 const levelLabels = {
   SCHOOL: '校级',
   PROVINCIAL: '省级',
@@ -31,6 +35,26 @@ const saveMessage = computed(() => {
   if (imageCount > 0) assets.push(`${imageCount} 张比赛图片`)
   return assets.length ? `比赛记录已保存，后端已确认接收并可读取${assets.join('和')}。` : '比赛记录已由后端保存。'
 })
+async function viewRegistration(item) {
+  if (registrationUrl.value) URL.revokeObjectURL(registrationUrl.value)
+  registrationUrl.value = ''
+  if (registrationId.value === item.id) {
+    registrationId.value = null
+    return
+  }
+  registrationId.value = item.id
+  readingRegistration.value = true
+  try {
+    registrationUrl.value = await getAuthenticatedFile(`/api/v1/competitions/${item.id}/registration`)
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    readingRegistration.value = false
+  }
+}
+onBeforeUnmount(() => {
+  if (registrationUrl.value) URL.revokeObjectURL(registrationUrl.value)
+})
 onMounted(async () => {
   try {
     items.value = await listCompetitions()
@@ -45,7 +69,7 @@ onMounted(async () => {
 <template>
   <PortalShell
     eyebrow="ACHIEVEMENTS / COMPETITIONS"
-    title="竞赛成果"
+    title="比赛管理"
     description="队长提交参赛记录；已结束比赛经管理员核验证书后，才能进入公开成果与成员主页。"
   >
     <div v-if="saveMessage" class="save-message" role="status">{{ saveMessage }}</div>
@@ -73,11 +97,27 @@ onMounted(async () => {
     <section v-else class="competition-record-grid">
       <article v-for="item in filtered" :key="item.id" class="competition-record-card">
         <header>
-          <span>{{ levelLabels[item.level] }} · {{ lifecycleLabels[item.lifecycle] }}</span
+          <span>{{ levelLabels[item.level] }} · {{ competitionState(item) }}</span
           ><b :data-review="item.verificationStatus">{{ reviewLabels[item.verificationStatus] }}</b>
         </header>
+        <p class="competition-result-state">{{ competitionOutcome(item) }}</p>
         <p>{{ item.track || '综合赛道' }}</p>
         <h2>{{ item.name }}</h2>
+        <button
+          v-if="item.hasRegistration && item.canReadRegistration"
+          type="button"
+          class="disclosure-button"
+          :disabled="readingRegistration"
+          :aria-expanded="registrationId === item.id"
+          @click="viewRegistration(item)"
+        >
+          {{ registrationId === item.id ? '收起报名截图' : '查看报名截图' }}
+        </button>
+        <p v-else-if="!item.hasRegistration" class="ledger-muted">历史记录尚未补齐报名截图。</p>
+        <div v-if="registrationId === item.id" class="registration-preview">
+          <p v-if="readingRegistration" role="status">正在读取报名截图…</p>
+          <img v-if="registrationUrl" :src="registrationUrl" alt="已保存的报名截图" />
+        </div>
         <div class="competition-record-summary">{{ item.description }}</div>
         <dl>
           <div>

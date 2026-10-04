@@ -1,0 +1,21 @@
+-- Preserve historical competition lifecycle and certificates.
+SET @ddl = IF((SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='competitions' AND column_name='result_status')=0, 'ALTER TABLE competitions ADD COLUMN result_status VARCHAR(32) NULL', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+SET @ddl = IF((SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='competitions' AND column_name='registration_stored_name')=0, 'ALTER TABLE competitions ADD COLUMN registration_stored_name VARCHAR(255) NULL', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+SET @ddl = IF((SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='competitions' AND column_name='registration_original_name')=0, 'ALTER TABLE competitions ADD COLUMN registration_original_name VARCHAR(255) NULL', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+SET @ddl = IF((SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='competitions' AND column_name='registration_content_type')=0, 'ALTER TABLE competitions ADD COLUMN registration_content_type VARCHAR(80) NULL', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+SET @ddl = IF((SELECT COUNT(*) FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name='competitions' AND column_name='registration_size_bytes')=0, 'ALTER TABLE competitions ADD COLUMN registration_size_bytes BIGINT NULL', 'SELECT 1');
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

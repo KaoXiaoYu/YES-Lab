@@ -7,6 +7,7 @@ public enum Permission {
     TAG_MANAGE,
     QUIZ_MANAGE,
     POINTS_MANAGE,
+    FUND_MANAGE,
     PROJECT_MANAGE,
     TASK_MANAGE,
     ACHIEVEMENT_MANAGE,

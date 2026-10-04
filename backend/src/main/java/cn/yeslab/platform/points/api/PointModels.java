@@ -24,6 +24,22 @@ public final class PointModels {
     private PointModels() {
     }
 
+    public record ManualGrantRequest(
+            @NotBlank @Size(max = 160) String title,
+            @NotNull PointSubcategory subcategory,
+            @NotNull @PastOrPresent LocalDate occurredOn,
+            @Min(1) @Max(100000) int itemTotalPoints,
+            @NotNull UUID requestKey,
+            UUID competitionId,
+            UUID projectId,
+            @Size(max = 1000) String description,
+            @NotEmpty @Size(max = 100) List<@Valid AllocationRequest> allocations
+    ) { }
+
+    public record SourceMember(UUID id, String name, String memberCode, int totalPoints) { }
+    public record SourceOption(UUID id, String name, String awardName, List<SourceMember> members) { }
+    public record SourceOptions(List<SourceOption> competitions, List<SourceOption> projects) { }
+
     public record GrantRequest(
             @NotBlank @Size(max = 160) String title,
             @NotNull PointSubcategory subcategory,
@@ -87,7 +103,11 @@ public final class PointModels {
             String description,
             String operatorUsername,
             Instant createdAt,
-            List<AllocationView> allocations
+            List<AllocationView> allocations,
+            UUID competitionId,
+            UUID projectId,
+            String sourceEntityReference,
+            String sourceName
     ) {
     }
 

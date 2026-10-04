@@ -34,6 +34,13 @@ public class PointController {
         return ApiResponse.ok(service.leaderboard(authentication, period));
     }
 
+    @GetMapping("/points/preview")
+    public ApiResponse<PointService.PreviewPage> memberPreview(Authentication authentication,
+            @RequestParam(defaultValue = "TOTAL") PointModels.LeaderboardPeriod period,
+            @RequestParam(defaultValue = "0") int page) {
+        return ApiResponse.ok(service.memberRankingPage(authentication, period, page));
+    }
+
     @GetMapping("/points/rules")
     public ApiResponse<List<PointModels.RuleView>> rules() {
         return ApiResponse.ok(service.rules());

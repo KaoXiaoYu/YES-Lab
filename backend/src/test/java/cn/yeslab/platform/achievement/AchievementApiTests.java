@@ -63,7 +63,7 @@ class AchievementApiTests {
         MockMultipartFile image = new MockMultipartFile("images", "现场.png", "image/png", pngBytes());
 
         String created = mvc.perform(multipart("/api/v1/competitions")
-                        .file(data).file(certificate).file(image).header("Authorization", bearer(memberToken)))
+                        .file(data).file(registrationPart()).file(certificate).file(image).header("Authorization", bearer(memberToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.captain.id").value(memberId))
                 .andExpect(jsonPath("$.data.verificationStatus").value("PENDING"))
@@ -151,7 +151,7 @@ class AchievementApiTests {
                 }
                 """.formatted(provincialDate, nationalDate, teacherIds.getFirst()));
 
-        String created = mvc.perform(multipart("/api/v1/competitions").file(data).header("Authorization", bearer(memberToken)))
+        String created = mvc.perform(multipart("/api/v1/competitions").file(data).file(registrationPart()).header("Authorization", bearer(memberToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.lifecycle").value("PLANNED"))
                 .andExpect(jsonPath("$.data.verificationStatus").value("NOT_REQUIRED"))
@@ -192,7 +192,7 @@ class AchievementApiTests {
         MockMultipartFile scannerJpg = new MockMultipartFile("certificate", "扫描证书.JPG", "image/pjpeg", bitmap);
         MockMultipartFile scannerGalleryJpg = new MockMultipartFile("images", "比赛现场.JPG", "image/pjpeg", bitmap);
 
-        String created = mvc.perform(multipart("/api/v1/competitions").file(data).file(scannerJpg).file(scannerGalleryJpg)
+        String created = mvc.perform(multipart("/api/v1/competitions").file(data).file(registrationPart()).file(scannerJpg).file(scannerGalleryJpg)
                         .header("Authorization", bearer(memberToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.hasCertificate").value(true))
@@ -218,7 +218,7 @@ class AchievementApiTests {
 
         MockMultipartFile disguisedText = new MockMultipartFile(
                 "certificate", "伪装证书.jpg", "image/jpeg", "plain text".getBytes(StandardCharsets.UTF_8));
-        mvc.perform(multipart("/api/v1/competitions").file(data).file(disguisedText)
+        mvc.perform(multipart("/api/v1/competitions").file(data).file(registrationPart()).file(disguisedText)
                         .header("Authorization", bearer(memberToken)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("证书文件内容与格式不匹配"));
@@ -282,8 +282,17 @@ class AchievementApiTests {
     }
 
     private MockMultipartFile jsonPart(String json) {
+        if (json.contains("\"FINISHED\"")) json = json.replaceFirst("\\{", "{\"resultStatus\":\"AWARDED\",");
+        else if (json.contains("\"PLANNED\"")) json = json.replaceFirst("\\{", "{\"competitionDate\":\"" + LocalDate.now(ZoneId.of("Asia/Shanghai")).plusDays(21) + "\",");
         return new MockMultipartFile("data", "data.json", MediaType.APPLICATION_JSON_VALUE,
                 json.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private MockMultipartFile registrationPart() throws Exception {
+        var image = new java.awt.image.BufferedImage(2, 2, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        var output = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(image, "png", output);
+        return new MockMultipartFile("registration", "报名.png", "image/png", output.toByteArray());
     }
 
     private byte[] pngBytes() {
@@ -316,7 +325,7 @@ class AchievementApiTests {
                  "awardName":"%s","description":"用于验证个人主页成果选择和顺序。","competitionDate":"%s","participants":[]}
                 """.formatted(name, award, date));
         MockMultipartFile certificate = new MockMultipartFile("certificate", name + ".jpg", "application/octet-stream", jpegBytes());
-        String response = mvc.perform(multipart("/api/v1/competitions").file(data).file(certificate)
+        String response = mvc.perform(multipart("/api/v1/competitions").file(data).file(registrationPart()).file(certificate)
                         .header("Authorization", bearer(memberToken)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         String id = JsonPath.read(response, "$.data.id");

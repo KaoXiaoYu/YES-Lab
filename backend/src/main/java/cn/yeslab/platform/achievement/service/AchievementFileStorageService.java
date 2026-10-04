@@ -43,14 +43,17 @@ public class AchievementFileStorageService {
 
     private final Path certificateDirectory;
     private final Path imageDirectory;
+    private final Path registrationDirectory;
 
     public AchievementFileStorageService(@Value("${yeslab.storage.achievements-directory:./data/achievements}") String directory) {
         Path root = Path.of(directory).toAbsolutePath().normalize();
         this.certificateDirectory = root.resolve("certificates");
         this.imageDirectory = root.resolve("competition-images");
+        this.registrationDirectory = root.resolve("registrations");
         try {
             Files.createDirectories(certificateDirectory);
             Files.createDirectories(imageDirectory);
+            Files.createDirectories(registrationDirectory);
         } catch (IOException error) {
             throw new IllegalStateException("无法初始化成果文件目录", error);
         }
@@ -62,6 +65,29 @@ public class AchievementFileStorageService {
     public Resource image(String storedName) { return resource(imageDirectory, storedName, "比赛图片"); }
     public void deleteCertificate(String storedName) { delete(certificateDirectory, storedName); }
     public void deleteImage(String storedName) { delete(imageDirectory, storedName); }
+
+    public StoredFile storeRegistration(MultipartFile file) {
+        if (file == null || file.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "请上传报名截图");
+        if (file.getSize() > IMAGE_LIMIT) throw new ApiException(HttpStatus.BAD_REQUEST, "报名截图不能超过 8MB");
+        try (var input = ImageIO.createImageInputStream(new ByteArrayInputStream(file.getBytes()))) {
+            var readers = ImageIO.getImageReaders(input);
+            if (!readers.hasNext()) throw new ApiException(HttpStatus.BAD_REQUEST, "报名截图必须是真实 PNG、JPEG 或 WebP 图片");
+            var reader = readers.next();
+            try {
+                reader.setInput(input);
+                String format = reader.getFormatName().toLowerCase(Locale.ROOT);
+                if (!Set.of("png", "jpeg", "jpg", "webp").contains(format))
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "报名截图仅支持 PNG、JPEG 或 WebP");
+                int width = reader.getWidth(0), height = reader.getHeight(0);
+                if (width < 1 || height < 1 || (long) width * height > MAX_IMAGE_PIXELS)
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "报名截图尺寸过大");
+                if (reader.read(0) == null) throw new ApiException(HttpStatus.BAD_REQUEST, "报名截图无法解码");
+            } finally { reader.dispose(); }
+        } catch (IOException error) { throw new ApiException(HttpStatus.BAD_REQUEST, "报名截图无法解码"); }
+        return store(file, registrationDirectory, IMAGE_TYPES, IMAGE_LIMIT, "报名截图", false);
+    }
+    public Resource registration(String storedName) { return resource(registrationDirectory, storedName, "报名截图"); }
+    public void deleteRegistration(String storedName) { delete(registrationDirectory, storedName); }
 
     private StoredFile store(MultipartFile file, Path directory, Set<String> allowedTypes, long limit, String label, boolean jpegFallback) {
         if (file == null || file.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "请上传" + label);

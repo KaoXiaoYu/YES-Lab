@@ -1,6 +1,6 @@
 <script setup>
 import { ArrowLeft, FileBadge, ImagePlus, Plus, Save, Trash2 } from '@lucide/vue'
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
 import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
@@ -12,6 +12,7 @@ import {
   listCompetitionMemberOptions,
   listCompetitionProjectOptions,
   replaceCompetitionCertificate,
+  replaceCompetitionRegistration,
   replaceCompetitionImages,
   updateCompetition,
 } from '../services/authApi'
@@ -26,6 +27,11 @@ const existing = ref(null)
 const loading = ref(true)
 const saving = ref(false)
 const errorMessage = ref('')
+const errorElement = ref(null)
+const registration = ref(null)
+const registrationError = ref('')
+const registrationPreviewUrl = ref('')
+const existingRegistrationUrl = ref('')
 const certificate = ref(null)
 const imageFiles = ref([])
 const imageDescriptions = ref([])
@@ -44,6 +50,7 @@ const form = reactive({
   track: '',
   level: 'PROVINCIAL',
   lifecycle: 'PLANNED',
+  resultStatus: 'PENDING_RESULT',
   awardName: '',
   description: '',
   competitionDate: '',
@@ -56,6 +63,13 @@ const form = reactive({
 })
 const teachers = computed(() => members.value.filter((member) => member.role === 'TEACHER'))
 const finished = computed(() => form.lifecycle === 'FINISHED')
+const awarded = computed(() => finished.value && form.resultStatus === 'AWARDED')
+const completionStage = computed({
+  get: () => (form.resultStatus === 'PENDING_RESULT' ? 'PENDING' : 'ENDED'),
+  set: (value) => {
+    form.resultStatus = value === 'PENDING' ? 'PENDING_RESULT' : 'NO_AWARD'
+  },
+})
 
 watch(
   () => form.advisorProfileId,
@@ -77,7 +91,8 @@ onMounted(async () => {
         name: item.name,
         track: item.track || '',
         level: item.level,
-        lifecycle: item.lifecycle,
+        lifecycle: item.lifecycle === 'ONGOING' ? '' : item.lifecycle,
+        resultStatus: item.resultStatus || (item.awardName ? 'AWARDED' : 'PENDING_RESULT'),
         awardName: item.awardName || '',
         description: item.description,
         competitionDate: item.competitionDate || '',
@@ -92,6 +107,8 @@ onMounted(async () => {
       })
       if (!form.participants.length) form.participants.push({ displayName: '', linkedProfileId: '' })
       await loadExistingImages(item)
+      if (item.hasRegistration)
+        existingRegistrationUrl.value = await getAuthenticatedFile(`/api/v1/competitions/${item.id}/registration`)
     }
   } catch (error) {
     errorMessage.value = error.message
@@ -110,6 +127,24 @@ function removeParticipant(index) {
 function chooseMember(row) {
   const member = members.value.find((item) => item.id === row.linkedProfileId)
   if (member) row.displayName = member.name
+}
+async function chooseRegistration(event) {
+  registrationError.value = ''
+  if (registrationPreviewUrl.value) URL.revokeObjectURL(registrationPreviewUrl.value)
+  registrationPreviewUrl.value = ''
+  registration.value = null
+  const file = event.target.files?.[0]
+  if (!file) return
+  if (
+    !['png', 'jpg', 'jpeg', 'webp'].includes(file.name.split('.').pop()?.toLowerCase()) ||
+    file.size > 8 * 1024 * 1024
+  ) {
+    registrationError.value = '报名截图仅支持 PNG、JPEG 或 WebP，最大 8MB。'
+    event.target.value = ''
+    return
+  }
+  registration.value = file
+  registrationPreviewUrl.value = URL.createObjectURL(file)
 }
 async function chooseCertificate(event) {
   certificateError.value = ''
@@ -247,17 +282,21 @@ onBeforeUnmount(() => {
   Object.values(existingImageUrls.value).forEach((url) => URL.revokeObjectURL(url))
   clearCertificatePreview()
   clearImagePreviews()
+  if (registrationPreviewUrl.value) URL.revokeObjectURL(registrationPreviewUrl.value)
+  if (existingRegistrationUrl.value) URL.revokeObjectURL(existingRegistrationUrl.value)
 })
 function payload() {
   return {
     ...form,
+    resultStatus: finished.value ? form.resultStatus : null,
+    awardName: awarded.value ? form.awardName : '',
     competitionDate: form.competitionDate || null,
     provincialDate: form.provincialDate || null,
     nationalDate: form.nationalDate || null,
     advisorProfileId: form.advisorProfileId || null,
     advisorName: form.advisorName || null,
     projectId: form.projectId || null,
-    awardName: form.awardName || null,
+
     track: form.track || null,
     participants: form.participants
       .filter((row) => row.displayName.trim() || row.linkedProfileId)
@@ -267,36 +306,50 @@ function payload() {
 }
 
 async function submit() {
+  if (saving.value) return
   saving.value = true
   errorMessage.value = ''
   try {
     let item
-    if (!editing.value) item = await createCompetition(payload(), certificate.value, imageFiles.value)
+    if (!editing.value)
+      item = await createCompetition(
+        payload(),
+        awarded.value ? certificate.value : null,
+        imageFiles.value,
+        registration.value,
+      )
     else {
-      if (certificate.value) item = await replaceCompetitionCertificate(existing.value.id, certificate.value)
+      if (registration.value) item = await replaceCompetitionRegistration(existing.value.id, registration.value)
+      if (certificate.value && awarded.value)
+        item = await replaceCompetitionCertificate(existing.value.id, certificate.value)
       item = await updateCompetition(existing.value.id, payload())
       if (imageFiles.value.length)
         item = await replaceCompetitionImages(existing.value.id, imageFiles.value, imageDescriptions.value)
     }
-    if (certificate.value && !item?.hasCertificate)
+    if (registration.value && !item?.hasRegistration)
+      throw new Error('后端尚未确认报名截图，请保留输入并核对上传结果。')
+    if (certificate.value && awarded.value && !item?.hasCertificate)
       throw new Error('后端未确认收到证书，请不要重复提交并联系管理员检查服务日志。')
     if (imageFiles.value.length && item?.images?.length !== imageFiles.value.length)
       throw new Error('后端返回的比赛图片数量与本次上传不一致，请不要重复提交。')
     window.dispatchEvent(new Event('yeslab:competitions-changed'))
     const wasEditing = editing.value
     const savedAssets = [
-      certificate.value ? '证书' : '',
+      registration.value ? '报名截图' : '',
+      certificate.value && awarded.value ? '证书' : '',
       imageFiles.value.length ? `${imageFiles.value.length} 张比赛图片` : '',
     ].filter(Boolean)
     await router.push('/competitions')
     showSubmissionFeedback({
       eyebrow: wasEditing ? 'COMPETITION UPDATED' : 'COMPETITION SUBMITTED',
       title: wasEditing ? '比赛记录已保存' : '比赛记录已提交',
-      message: `${item.name} 已由后端保存${savedAssets.length ? `，并确认接收${savedAssets.join('和')}` : ''}。${item.lifecycle === 'FINISHED' ? '已结束比赛将进入管理员审核。' : ''}`,
+      message: `${item.name} 已由后端保存${savedAssets.length ? `，并确认接收${savedAssets.join('和')}` : ''}。${item.resultStatus === 'AWARDED' ? '获奖成果将进入管理员审核。' : '参赛记录已登记。'}`,
       confirmLabel: '查看比赛列表',
     })
   } catch (error) {
     errorMessage.value = error.message
+    await nextTick()
+    errorElement.value?.focus()
   } finally {
     saving.value = false
   }
@@ -314,7 +367,7 @@ async function submit() {
     >
     <div v-if="loading" class="portal-state">正在准备比赛表单…</div>
     <form v-else class="competition-form" @submit.prevent="submit">
-      <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
+      <div v-if="errorMessage" ref="errorElement" class="form-alert" role="alert" tabindex="-1">{{ errorMessage }}</div>
       <section class="competition-form-section">
         <header>
           <span>01</span>
@@ -338,9 +391,9 @@ async function submit() {
           >
           <label
             >当前状态<select v-model="form.lifecycle">
-              <option value="PLANNED">筹备中</option>
-              <option value="ONGOING">进行中</option>
-              <option value="FINISHED">已结束</option>
+              <option value="" disabled>请选择实际状态</option>
+              <option value="PLANNED">未开始</option>
+              <option value="FINISHED">完赛</option>
             </select></label
           >
           <label class="full"
@@ -352,19 +405,51 @@ async function submit() {
               placeholder="介绍比赛背景、技术方案、团队分工、过程与成果。"
             ></textarea>
           </label>
+          <label>比赛时间<input v-model="form.competitionDate" type="date" required /></label>
           <template v-if="finished"
-            ><label>比赛 / 获奖日期<input v-model="form.competitionDate" type="date" required /></label
             ><label
-              >获奖结果<input
+              >成绩状态<select v-model="completionStage">
+                <option value="PENDING">待成绩</option>
+                <option value="ENDED">已结束</option>
+              </select></label
+            ><label v-if="completionStage === 'ENDED'"
+              >比赛结果<select v-model="form.resultStatus">
+                <option value="NO_AWARD">未获奖</option>
+                <option value="AWARDED">获奖</option>
+              </select></label
+            ><label v-if="awarded"
+              >奖项名称<input
                 v-model.trim="form.awardName"
                 required
                 maxlength="160"
                 placeholder="例如：全国二等奖" /></label
           ></template>
-          <template v-else
-            ><label>省赛时间<input v-model="form.provincialDate" type="date" required /></label
-            ><label>国赛时间<input v-model="form.nationalDate" type="date" required /></label
+          <template v-if="!finished"
+            ><label>省赛时间（可选）<input v-model="form.provincialDate" type="date" /></label
+            ><label>国赛时间（可选）<input v-model="form.nationalDate" type="date" /></label
           ></template>
+          <label class="file-drop full"
+            ><ImagePlus :size="24" aria-hidden="true" /><span
+              ><strong>报名截图（必填）</strong
+              ><small>PNG、JPEG 或 WebP，最大 8MB；只对比赛关联成员和管理员开放。</small></span
+            ><input
+              type="file"
+              accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+              :required="!existing?.hasRegistration"
+              @change="chooseRegistration"
+            /><b>{{ registration?.name || existing?.registrationOriginalName || '选择报名截图' }}</b
+            ><small v-if="registrationError" class="file-error" role="alert">{{ registrationError }}</small></label
+          >
+          <div
+            v-if="registrationPreviewUrl || existingRegistrationUrl"
+            class="upload-preview-panel registration-preview full"
+          >
+            <strong>{{ registrationPreviewUrl ? '报名截图本地预览' : '已保存的报名截图' }}</strong
+            ><img :src="registrationPreviewUrl || existingRegistrationUrl" alt="报名截图预览" />
+          </div>
+          <p v-if="editing && !existing?.hasRegistration" class="full ledger-muted">
+            历史记录尚未补齐报名截图，保存完整资料前请补充。
+          </p>
         </div>
       </section>
 
@@ -380,13 +465,9 @@ async function submit() {
           <SearchableMemberSelect
             v-model="form.advisorProfileId"
             :options="teachers"
-            :label="`指导老师账号${finished ? '（可选）' : ''}`"
+            label="指导老师账号（可选）"
             empty-label="不关联账号"
-            :required="!finished && !form.advisorName"
-          /><label
-            >指导老师展示姓名{{ finished ? '（可选）' : ''
-            }}<input v-model.trim="form.advisorName" :required="!finished && !form.advisorProfileId" maxlength="80"
-          /></label>
+          /><label>指导老师展示姓名（可选）<input v-model.trim="form.advisorName" maxlength="80" /></label>
           <label class="full"
             >关联项目（可选）<select v-model="form.projectId">
               <option value="">不关联项目</option>
@@ -426,15 +507,15 @@ async function submit() {
           </div>
         </header>
         <div class="competition-form-grid">
-          <label class="file-drop full"
+          <label v-if="awarded || existing?.hasCertificate" class="file-drop full"
             ><FileBadge :size="24" aria-hidden="true" /><span
-              ><strong>证书文件{{ finished ? '（必填）' : '（可选）' }}</strong
+              ><strong>证书文件{{ awarded ? '（获奖必填）' : '（历史证书）' }}</strong
               ><small>PDF、JPG、JPEG 或 PNG，最大 10MB；管理员审核通过后可在公开详情查看。</small></span
             ><input
               ref="certificateInput"
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-              :required="finished && !existing?.hasCertificate"
+              :required="awarded && !existing?.hasCertificate"
               @change="chooseCertificate"
             /><b>{{ certificate?.name || existing?.certificateOriginalName || '选择文件' }}</b
             ><small v-if="certificateError" class="file-error" role="alert">{{ certificateError }}</small></label

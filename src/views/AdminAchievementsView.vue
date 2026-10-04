@@ -1,5 +1,6 @@
 <script setup>
 import { Check, ExternalLink, Eye, FileBadge, Newspaper, Pencil, Save, ShieldCheck, Trophy, X } from '@lucide/vue'
+import { competitionState, competitionOutcome } from '../services/competitionStatus'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
 import {
@@ -28,7 +29,7 @@ const newsEditingId = ref(null)
 const newsForm = reactive({ title: '', sourceName: '', sourceUrl: '', summary: '', publishedDate: '', visible: true })
 const selected = computed(() => competitions.value.find((item) => item.id === selectedId.value) || null)
 const pendingCount = computed(() => competitions.value.filter((item) => item.verificationStatus === 'PENDING').length)
-const reviewLabels = { NOT_REQUIRED: '未结束', PENDING: '待审核', APPROVED: '已认证', REJECTED: '已驳回' }
+const reviewLabels = { NOT_REQUIRED: '参赛记录', PENDING: '待审核', APPROVED: '已认证', REJECTED: '已驳回' }
 
 onMounted(load)
 watch(
@@ -103,10 +104,10 @@ async function saveDisplay() {
     saving.value = false
   }
 }
-async function openCertificate() {
+async function openCertificate(kind = 'certificate') {
   const page = window.open('', '_blank')
   try {
-    const url = await getAuthenticatedFile(`/api/v1/competitions/${selected.value.id}/certificate`)
+    const url = await getAuthenticatedFile(`/api/v1/competitions/${selected.value.id}/${kind}`)
     if (page) page.location = url
     else window.open(url, '_blank')
   } catch (error) {
@@ -192,7 +193,7 @@ async function saveNews() {
       <section v-if="selected" class="achievement-admin-detail">
         <header>
           <div>
-            <p>COMPETITION / {{ selected.lifecycle }}</p>
+            <p>COMPETITION / {{ competitionState(selected) }}</p>
             <h2>{{ selected.name }}</h2>
             <span>{{ selected.track || '综合赛道' }} · 队长 {{ selected.captain.name }}</span>
           </div>
@@ -203,7 +204,7 @@ async function saveNews() {
         <div class="achievement-detail-grid">
           <article>
             <p>获奖结果</p>
-            <strong>{{ selected.awardName || '比赛尚未结束' }}</strong>
+            <strong>{{ competitionOutcome(selected) }}</strong>
           </article>
           <article>
             <p>成员</p>
@@ -228,10 +229,18 @@ async function saveNews() {
             <figcaption>{{ image.description }}</figcaption>
           </figure>
         </section>
-        <button v-if="selected.hasCertificate" class="achievement-secondary" type="button" @click="openCertificate">
+        <button v-if="selected.hasCertificate" class="achievement-secondary" type="button" @click="openCertificate()">
           <FileBadge :size="17" aria-hidden="true" />查看审核证书：{{ selected.certificateOriginalName }}
         </button>
-        <section v-if="selected.lifecycle === 'FINISHED'" class="achievement-review-box">
+        <button
+          v-if="selected.hasRegistration"
+          type="button"
+          class="disclosure-button"
+          @click="openCertificate('registration')"
+        >
+          查看报名截图：{{ selected.registrationOriginalName }}
+        </button>
+        <section v-if="selected.canReview" class="achievement-review-box">
           <header>
             <ShieldCheck :size="19" aria-hidden="true" />
             <h3>管理员认证</h3>

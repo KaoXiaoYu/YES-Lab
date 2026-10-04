@@ -27,6 +27,8 @@ public interface TaskRepository extends JpaRepository<TaskEntity, UUID> {
 
     List<TaskEntity> findAllByOrderByCreatedAtDesc();
 
+    List<TaskEntity> findByStatus(TaskStatus status);
+
     /**
      * 待结算的任务：已过截止日期或已被结束，且绑定了积分但尚未结算。
      *

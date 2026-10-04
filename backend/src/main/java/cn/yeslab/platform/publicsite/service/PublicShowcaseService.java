@@ -1,31 +1,35 @@
 package cn.yeslab.platform.publicsite.service;
 
-import cn.yeslab.platform.publicsite.model.PublicShowcase;
+import cn.yeslab.platform.points.service.PointService;
 import cn.yeslab.platform.publicsite.cms.api.HomepageModels;
 import cn.yeslab.platform.publicsite.cms.service.HomepageContentService;
+import cn.yeslab.platform.publicsite.model.PublicShowcase;
 import cn.yeslab.platform.publicsite.repository.PublicShowcaseRepository;
+import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
-
 @Service
 public class PublicShowcaseService {
 
     private final PublicShowcaseRepository repository;
+    private final PointService points;
     private final HomepageContentService homepageContentService;
 
     @Autowired
-    public PublicShowcaseService(PublicShowcaseRepository repository, HomepageContentService homepageContentService) {
+    public PublicShowcaseService(PublicShowcaseRepository repository, HomepageContentService homepageContentService, PointService points) {
         this.repository = repository;
         this.homepageContentService = homepageContentService;
+        this.points = points;
     }
 
     public PublicShowcaseService(PublicShowcaseRepository repository) {
         this.repository = repository;
         this.homepageContentService = null;
+        this.points = null;
     }
 
     public PublicShowcase.Home getHome() {
@@ -41,7 +45,7 @@ public class PublicShowcaseService {
                 new PublicShowcase.Statistics(
                         fallback.statistics().activeProjects(), fallback.statistics().members(), content.awards().size()
                 ),
-                fallback.projects(), fallback.members(), fallback.rankings(),
+                fallback.projects(), fallback.members(), points.publicRankings(), points.publicRankingCount(),
                 content.updates().stream().map(item -> new PublicShowcase.Update(item.publishedAt(), item.type(), item.title(), item.slug())).toList(),
                 content.awards().stream().map(item -> new PublicShowcase.Award(item.competition(), item.category(), item.level(), item.prize())).toList(),
                 content.sponsors().stream().map(item -> new PublicShowcase.Sponsor(
@@ -73,7 +77,11 @@ public class PublicShowcaseService {
     }
 
     public List<PublicShowcase.RankingEntry> getRanking(String board) {
-        return repository.findRanking(board);
+        Map<String, List<PublicShowcase.RankingEntry>> boards = points == null ? Map.of() : points.publicRankings();
+        if (!List.of("总榜", "月榜", "年榜").contains(board)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "不支持的榜单");
+        }
+        return boards.getOrDefault(board, List.of());
     }
 
     public List<PublicShowcase.Update> getUpdates() {

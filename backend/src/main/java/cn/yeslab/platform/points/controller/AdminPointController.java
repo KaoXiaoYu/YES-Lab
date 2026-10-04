@@ -28,9 +28,14 @@ public class AdminPointController {
     @PostMapping("/grants")
     public ApiResponse<PointModels.GrantView> grant(
             Authentication authentication,
-            @Valid @RequestBody PointModels.GrantRequest request
+            @Valid @RequestBody PointModels.ManualGrantRequest request
     ) {
         return ApiResponse.ok(service.grant(authentication, request));
+    }
+
+    @GetMapping("/sources")
+    public ApiResponse<PointModels.SourceOptions> sources(Authentication authentication) {
+        return ApiResponse.ok(service.sources(authentication));
     }
 
     @PostMapping("/grants/{grantId}/reversal")

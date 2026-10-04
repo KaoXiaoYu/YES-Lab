@@ -2781,3 +2781,462 @@ footer p {
     transition-duration: 0.01ms;
   }
 }
+
+.ranking-state {
+  color: var(--color-text-secondary);
+  padding: 16px 0;
+}
+.ranking-state button {
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.ranking-tabs button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.ranking-updated {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  margin: 16px 0 0;
+}
+
+/* Compact laboratory summaries and audited ledger. */
+.compact-leaderboard {
+  min-width: 0;
+  border-radius: 16px;
+}
+.compact-leaderboard .leaderboard-head {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.compact-leaderboard .leaderboard-head small {
+  font-size: 12px;
+}
+.compact-leaderboard .ranking-tabs {
+  margin-block: 16px;
+}
+.compact-ranking-body {
+  min-width: 0;
+}
+.compact-ranking-body.expanded {
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.compact-leaderboard li strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.compact-leaderboard li small {
+  font-size: 12px;
+}
+.compact-leaderboard li div {
+  min-width: 0;
+}
+.compact-leaderboard li a {
+  min-height: 72px;
+  padding-block: 10px;
+}
+.compact-ranking-footer {
+  margin-top: 12px;
+}
+.compact-ranking-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+}
+.disclosure-button,
+.ledger-pagination button,
+.lab-info-card button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 16px;
+  color: var(--color-foreground);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+.disclosure-button:focus-visible,
+.lab-info-card :is(button, a, input, select, textarea):focus-visible,
+.compact-leaderboard :is(button, a):focus-visible {
+  outline: 3px solid var(--color-ring);
+  outline-offset: 3px;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+.member-access-hint {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.lab-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.lab-info-card {
+  min-width: 0;
+  padding: 28px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: var(--color-card);
+  color: var(--color-foreground);
+}
+.portal-page .lab-info-card {
+  margin-bottom: 24px;
+}
+.lab-info-card > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.lab-info-card header p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--color-text-secondary);
+}
+.lab-info-card h2 {
+  margin: 0;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lab-info-card header > span {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+.fund-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.fund-totals > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.fund-totals > div:first-child {
+  grid-column: 1 / -1;
+}
+.fund-totals strong {
+  font-size: clamp(18px, 2vw, 26px);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.fund-totals .fund-balance strong {
+  font-size: clamp(28px, 3vw, 40px);
+  color: var(--color-primary);
+}
+.fund-totals span,
+.ledger-muted {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.ledger-form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.ledger-form h2 {
+  margin-bottom: 24px;
+}
+.ledger-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.ledger-wide {
+  grid-column: 1 / -1;
+}
+.lab-info-card :is(label) {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 15px;
+}
+.lab-info-card :is(input, select, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px;
+  font: inherit;
+  color: var(--color-foreground);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+.lab-info-card .ledger-checkbox {
+  flex-direction: row;
+  align-items: center;
+  margin-block: 20px;
+}
+.lab-info-card input[type='checkbox'] {
+  width: 20px;
+  min-height: 20px;
+}
+.lab-info-card .ledger-primary {
+  margin-top: 20px;
+  background: var(--color-primary-fill);
+  color: white;
+  border-color: var(--color-primary-fill);
+}
+.ledger-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 16px;
+  align-items: end;
+  margin-bottom: 24px;
+}
+.ledger-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 20px;
+}
+.fund-entry-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.fund-entry-list > li {
+  padding-block: 24px;
+  border-top: 1px solid var(--color-border);
+  overflow-wrap: anywhere;
+}
+.fund-entry-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+.fund-entry-heading h3 {
+  margin: 8px 0 0;
+  font-size: 18px;
+}
+.fund-entry-heading strong {
+  flex-shrink: 0;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.ledger-type {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.fund-reversal-form {
+  margin-top: 20px;
+}
+.fund-reversal-form button {
+  margin: 12px 8px 0 0;
+}
+.ledger-success {
+  padding: 16px;
+  color: var(--color-foreground);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+@media (max-width: 767px) {
+  .lab-status-grid,
+  .ledger-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lab-info-card {
+    padding: 20px;
+  }
+  .ledger-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .fund-entry-heading {
+    flex-wrap: wrap;
+  }
+  .fund-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .compact-ranking-body.expanded {
+    max-height: 360px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .compact-ranking-body,
+  .disclosure-button {
+    transition: none;
+    scroll-behavior: auto;
+  }
+}
+
+.registration-preview {
+  display: grid;
+  gap: 16px;
+}
+.registration-preview img {
+  max-width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+}
+.lab-info-card .ledger-checkbox {
+  min-height: 44px;
+}
+
+.deadline-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.lab-info-card .deadline-filters button {
+  padding: 8px 12px;
+  min-width: 44px;
+  font-size: 14px;
+}
+.lab-info-card .deadline-filters button.active {
+  color: white;
+  background: var(--color-primary-fill);
+  border-color: var(--color-primary-fill);
+}
+.deadline-body.expanded {
+  max-height: 420px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.deadline-group h3 {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 16px 0 8px;
+}
+.deadline-group ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.deadline-group li {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-border);
+  align-items: center;
+}
+.deadline-group li > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.deadline-group li span,
+.deadline-group time {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.lab-info-card .deadline-title {
+  text-align: left;
+  justify-content: start;
+  padding: 0;
+  min-height: 44px;
+  border: 0;
+  font-size: 16px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.deadline-group li > strong {
+  flex-shrink: 0;
+  color: var(--color-primary);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.deadline-group li > strong.overdue {
+  color: var(--color-danger);
+}
+.deadline-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+}
+.deadline-footer .ledger-muted {
+  font-size: 12px;
+}
+@media (max-width: 767px) {
+  .deadline-group li {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .deadline-group li > div {
+    flex-basis: 100%;
+  }
+  .deadline-body.expanded {
+    max-height: 360px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .deadline-body {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}
+
+.lab-info-card p[role='status'] a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  margin-inline-start: 8px;
+}
+
+.lab-status-grid {
+  align-items: start;
+}
+.site-shell .lab-info-card > header h2 {
+  font-size: 22px;
+  line-height: 1.35;
+  letter-spacing: normal;
+}
+
+.member-access-hint button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px 14px;
+  margin-top: 8px;
+  border: 1px solid var(--color-primary-fill);
+  border-radius: 8px;
+  color: white;
+  background: var(--color-primary-fill);
+  font: inherit;
+}
+
+.compact-ranking-footer {
+  display: grid;
+  justify-content: start;
+  gap: 12px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}
+.deadline-footer {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+}

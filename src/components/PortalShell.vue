@@ -20,6 +20,7 @@ import {
   Trophy,
   UserRound,
   UsersRound,
+  Wallet,
   X,
 } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
@@ -87,6 +88,9 @@ async function signOut() {
         <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/points"
           ><Trophy :size="17" aria-hidden="true" />积分榜</RouterLink
         >
+        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/fund"
+          ><Wallet :size="17" aria-hidden="true" />实验室基金</RouterLink
+        >
         <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/projects"
           ><FolderKanban :size="17" aria-hidden="true" />项目团队</RouterLink
         >
@@ -97,7 +101,7 @@ async function signOut() {
           ><Gift :size="17" aria-hidden="true" />悬赏</RouterLink
         >
         <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/competitions"
-          ><Medal :size="17" aria-hidden="true" />竞赛成果</RouterLink
+          ><Medal :size="17" aria-hidden="true" />比赛管理</RouterLink
         >
         <RouterLink to="/discussions"><MessageSquareText :size="17" aria-hidden="true" />讨论板</RouterLink>
         <RouterLink v-if="authState.account?.role === 'VISITOR'" to="/application"
@@ -210,7 +214,7 @@ async function signOut() {
           <RouterLink to="/projects"><FolderKanban :size="18" aria-hidden="true" />项目团队</RouterLink>
           <RouterLink to="/tasks"><ListChecks :size="18" aria-hidden="true" />我的任务</RouterLink>
           <RouterLink to="/bounties"><Gift :size="18" aria-hidden="true" />悬赏榜</RouterLink>
-          <RouterLink to="/competitions"><Medal :size="18" aria-hidden="true" />竞赛成果</RouterLink>
+          <RouterLink to="/competitions"><Medal :size="18" aria-hidden="true" />比赛管理</RouterLink>
           <RouterLink to="/discussions"><MessageSquareText :size="18" aria-hidden="true" />讨论板</RouterLink>
         </nav>
 

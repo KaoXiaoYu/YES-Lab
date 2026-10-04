@@ -1,6 +1,7 @@
 package cn.yeslab.platform.achievement.api;
 
 import cn.yeslab.platform.achievement.model.CompetitionLevel;
+import cn.yeslab.platform.achievement.model.CompetitionResultStatus;
 import cn.yeslab.platform.achievement.model.CompetitionLifecycle;
 import cn.yeslab.platform.achievement.model.VerificationStatus;
 import cn.yeslab.platform.identity.model.Role;
@@ -41,7 +42,8 @@ public final class AchievementModels {
             @Size(max = 80) String advisorName,
             UUID projectId,
             @Size(max = 50, message = "参赛成员不能超过 50 人") List<@Valid ParticipantRequest> participants,
-            @Size(max = 8, message = "比赛图片不能超过 8 张") List<@Size(max = 300) String> imageDescriptions
+            @Size(max = 8, message = "比赛图片不能超过 8 张") List<@Size(max = 300) String> imageDescriptions,
+            CompetitionResultStatus resultStatus
     ) {}
 
     public record CompetitionView(
@@ -51,7 +53,8 @@ public final class AchievementModels {
             ProjectOption project, List<ParticipantView> participants, List<ImageView> images,
             VerificationStatus verificationStatus, String reviewNote, String reviewerName, Instant reviewedAt,
             boolean featured, int displayOrder, boolean hasCertificate, String certificateOriginalName,
-            boolean canEdit, boolean canReview, Instant createdAt, Instant updatedAt
+            boolean canEdit, boolean canReview, Instant createdAt, Instant updatedAt,
+            CompetitionResultStatus resultStatus, boolean hasRegistration, String registrationOriginalName, boolean canReadRegistration
     ) {}
 
     public record PublicCompetitionView(

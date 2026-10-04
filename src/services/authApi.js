@@ -114,6 +114,10 @@ export function getPointLeaderboard(period = 'TOTAL') {
   return apiRequest(`/api/v1/points/leaderboard?period=${encodeURIComponent(period)}`)
 }
 
+export function getPointSources() {
+  return apiRequest('/api/v1/admin/points/sources')
+}
+
 export function listPointGrants() {
   return apiRequest('/api/v1/admin/points/grants')
 }
@@ -217,10 +221,11 @@ export function listCompetitionMemberOptions() {
 export function listCompetitionProjectOptions() {
   return apiRequest('/api/v1/competitions/project-options')
 }
-export function createCompetition(payload, certificate, images = []) {
+export function createCompetition(payload, certificate, images = [], registration = null) {
   const form = new FormData()
   form.append('data', new Blob([JSON.stringify(payload)], { type: 'application/json' }))
   if (certificate) form.append('certificate', certificate)
+  if (registration) form.append('registration', registration)
   images.forEach((image) => form.append('images', image))
   return formRequest('/api/v1/competitions', { method: 'POST', body: form })
 }
@@ -455,6 +460,7 @@ async function apiRequest(path, options = {}) {
     if (response.status === 401 && refreshOnUnauthorized) clearSession()
     throw new ApiError(payload?.message || `请求失败（${response.status}）`, payload?.fields || {}, response.status)
   }
+  if (options.method && options.method !== 'GET') notifyDomainMutation(path)
   return payload?.data ?? null
 }
 
@@ -475,6 +481,7 @@ async function formRequest(path, options) {
   const payload = await response.json().catch(() => null)
   if (!response.ok)
     throw new ApiError(payload?.message || `请求失败（${response.status}）`, payload?.fields || {}, response.status)
+  if (options.method && options.method !== 'GET') notifyDomainMutation(path)
   return payload?.data ?? null
 }
 
@@ -753,4 +760,49 @@ export function submitMyTask(assignmentId, completionNote) {
 
 export function listTaskMemberOptions() {
   return apiRequest('/api/v1/admin/tasks/member-options')
+}
+
+export function getMemberRankingPage(period = 'TOTAL', page = 0) {
+  return apiRequest(`/api/v1/points/preview?period=${encodeURIComponent(period)}&page=${page}`)
+}
+export function getPublicFundSummary() {
+  return apiRequest('/api/v1/public/fund/summary', { authenticated: false })
+}
+export function getFundSummary() {
+  return apiRequest('/api/v1/fund')
+}
+export function getFundEntries(filters) {
+  return apiRequest(`/api/v1/fund/entries?${new URLSearchParams(filters)}`)
+}
+export function createFundEntry(payload, initialize = false) {
+  return apiRequest(initialize ? '/api/v1/fund/initialize' : '/api/v1/fund/entries', { method: 'POST', body: payload })
+}
+export function reverseFundEntry(id, payload) {
+  return apiRequest(`/api/v1/fund/entries/${id}/reverse`, { method: 'POST', body: payload })
+}
+
+export function replaceCompetitionRegistration(id, registration) {
+  const form = new FormData()
+  form.append('registration', registration)
+  return formRequest(`/api/v1/competitions/${id}/registration`, { method: 'PUT', body: form })
+}
+
+function notifyDomainMutation(path) {
+  const kind = /\/fund(?:\/|$)/.test(path)
+    ? 'fund'
+    : /\/(tasks|bounties|projects|competitions|recruitment)(?:\/|$)/.test(path)
+      ? 'deadlines'
+      : null
+  if (!kind) return
+  window.dispatchEvent(new Event(`yeslab:${kind}-changed`))
+  try {
+    localStorage.setItem(`yeslab-${kind}-changed`, `${Date.now()}-${crypto.randomUUID()}`)
+  } catch {
+    /* Browser storage may be unavailable. */
+  }
+}
+export function getDeadlines(personal, filters) {
+  return apiRequest(`/api/v1/${personal ? 'me' : 'public'}/deadlines?${new URLSearchParams(filters)}`, {
+    authenticated: personal,
+  })
 }

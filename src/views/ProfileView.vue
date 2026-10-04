@@ -4,6 +4,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import MemberProfileDisplay from '../components/MemberProfileDisplay.vue'
 import PointsHeatmap from '../components/PointsHeatmap.vue'
+import DeadlinePanel from '../components/DeadlinePanel.vue'
 import PortalShell from '../components/PortalShell.vue'
 import { changeOwnPassword, getOwnPoints, getOwnProfile, logout } from '../services/authApi'
 import { showSubmissionFeedback } from '../services/submissionFeedback'
@@ -89,6 +90,7 @@ async function submitPasswordChange() {
     <div v-if="loading" class="portal-state">正在读取成员资料…</div>
     <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <template v-else-if="profile">
+      <DeadlinePanel personal />
       <MemberProfileDisplay :profile="profile" private-view editable />
       <PointsHeatmap :daily-points="pointsSummary?.dailyPoints || []" :total-points="pointsSummary?.totalPoints || 0" />
       <section class="password-settings-card profile-password-card" aria-labelledby="profile-password-title">

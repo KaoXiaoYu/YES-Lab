@@ -17,6 +17,7 @@ public final class PublicShowcase {
             List<Project> projects,
             List<Member> members,
             Map<String, List<RankingEntry>> rankings,
+            int rankingTotalCount,
             List<Update> updates,
             List<Award> awards,
             List<Sponsor> sponsors,
