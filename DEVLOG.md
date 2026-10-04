@@ -1738,3 +1738,6 @@
 - 按 `git log` 确认 V20 由历史提交 `fe925ed` 引入，逐字节比对发现本地唯一迁移差异为上轮将 yeslab SQL 变量改名；已恢复远端原件，全部历史迁移与官方基线一致，未改数据库 checksum/执行 repair。历史变量名为兼容性例外，已同步更新 README、部署/适配/验证文档与协作说明；生产 history 和 MySQL 实机验收仍未完成。
 - 远端已跟踪的 C++ 练习、编译产物和旧托管配置不新增上传；`.cph` 仅本机路径调整不纳入适配提交。测试日志、截图、临时目录、依赖和环境密钥按 gitignore 排除。已核对 Java 包重命名后的业务差异，继续保留所有模块。
 - 上传前格式检查通过，历史迁移 Git diff 为空，diff --check 无问题。此前前后端验收结果沿用；本次仅恢复原 SQL 与更新审计文档，未改变业务执行代码。提交、远端推送和 GitHub CI 结果待后续记录。
+
+- GitHub 上传进度：本地提交 `d4577eb` 已完成，恢复 C++ 既有执行权限且未提交本机 `.cph` 路径变化；两次实际 HTTPS 推送均被网络 `Empty reply from server` 中断，官方 main 仍为 `43a3b39`，不能报告上传成功。HTTP/1.1 dry-run 连接与快进检查通过。
+- GitHub OAuth 响应确认当前 scopes 为 `gist, read:org, repo`，缺少修改 CI 所需 `workflow`；已请求用户执行 `gh auth refresh -h github.com -s workflow`。本次仅保存已准备的代码与审计记录，等待授权后使用有界日志、缓冲 POST 重试，再核对远端 SHA/Actions。未连接生产，未留下推送后台进程。
