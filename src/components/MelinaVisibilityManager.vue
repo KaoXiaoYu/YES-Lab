@@ -69,7 +69,7 @@ async function save() {
     applySettings(
       await updateMelinaVisibilitySettings({ visibleRoles: visibleRoles.value, overrides, mascotOverrides }),
     )
-    window.dispatchEvent(new CustomEvent('yeslab:notification-settings-updated'))
+    window.dispatchEvent(new CustomEvent('openlims:notification-settings-updated'))
     message.value = '吉祥物与展示设置已保存。对应账号刷新页面即可生效，正在浏览的页面会自动更新。'
   } catch (error) {
     errorMessage.value = error.message

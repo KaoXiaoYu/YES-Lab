@@ -2,7 +2,7 @@
 @import 'tailwindcss/utilities.css' layer(utilities);
 
 /*
- * YES Lab admin workspace
+ * OpenLIMS admin workspace
  *
  * Tailwind supplies the small layout utilities used by PortalShell. The rules
  * below deliberately target the existing admin classes so the business forms,
@@ -30,13 +30,7 @@
   min-height: 100vh;
   color: var(--admin-foreground);
   background: var(--admin-bg);
-  font-family:
-    Inter,
-    'Noto Sans SC',
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
+  font-family: var(--font-body);
 }
 
 :root[data-theme='dark'] .portal-page--admin {
@@ -372,7 +366,7 @@
 .portal-page--admin .portal-heading h1 {
   margin: 0;
   color: var(--admin-foreground);
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: clamp(28px, 3vw, 38px);
   font-weight: 680;
   line-height: 1.2;
@@ -513,7 +507,7 @@
 
 .portal-page--admin :is(h2, h3, h4) {
   color: var(--admin-foreground);
-  font-family: inherit;
+  font-family: var(--font-body);
   letter-spacing: -0.02em;
 }
 
@@ -551,7 +545,7 @@
 
 .portal-page--admin .melina-visibility-manager > header h2 {
   color: var(--admin-foreground);
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 18px;
   font-weight: 670;
 }
@@ -578,7 +572,7 @@
 
 .portal-page--admin .melina-visibility-manager legend {
   color: var(--admin-muted);
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 11px;
 }
 
@@ -708,7 +702,7 @@
   border-radius: 999px;
   color: var(--admin-muted);
   background: var(--admin-card-muted);
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 11px;
 }
 
@@ -797,7 +791,7 @@
 
 .portal-page--admin .member-admin-form legend {
   color: var(--admin-foreground);
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 13px;
 }
 
@@ -842,7 +836,7 @@
 
 .portal-page--admin .screening-decision-card h3,
 .portal-page--admin :is(.admin-form-card h3, .admin-history h3) {
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 17px;
 }
 
@@ -929,7 +923,7 @@
 
 .portal-page--admin .points-rule-grid strong {
   color: var(--admin-foreground);
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 15px;
 }
 
@@ -956,7 +950,7 @@
 }
 
 .portal-page--admin :is(.points-grant-card > header h2, .points-ledger-card > header h2) {
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 18px;
 }
 
@@ -989,7 +983,7 @@
 }
 
 .portal-page--admin .points-ledger-list article > header h3 {
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 14px;
 }
 
@@ -1073,7 +1067,7 @@
 }
 
 .portal-page--admin .homepage-editor-nav > header h2 {
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 16px;
 }
 
@@ -1119,7 +1113,7 @@
 }
 
 .portal-page--admin .homepage-editor-section > header h2 {
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 22px;
   font-weight: 670;
 }

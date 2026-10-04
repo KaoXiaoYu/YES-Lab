@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# YES Lab 任务模块端到端冒烟测试（真实 HTTP，独立内存库）
+# OpenLIMS 任务模块端到端冒烟测试（真实 HTTP，独立内存库）
 set +u
 BASE=http://127.0.0.1:8080
 PASS=0
@@ -33,7 +33,7 @@ status_of() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 
 echo "== 1. 登录与报名 =="
 TEACHER=$(curl -s -X POST "$BASE/api/v1/auth/login" -H 'Content-Type: application/json' \
-  -d '{"username":"teacher","password":"YesLab-Teacher-2026!"}' | j "['data']['accessToken']")
+  -d '{"username":"teacher","password":"OpenLIMS-Teacher-2026!"}' | j "['data']['accessToken']")
 check_nonempty "教师登录拿到访问令牌" "$TEACHER"
 
 TS=$(date +%s)
@@ -172,7 +172,7 @@ check "转正后账号角色" "MEMBER" "$(echo "$PROFILE" | j "['data']['role']"
 
 echo "== 5. 普通任务：发布 → 提交 → 审核计分 =="
 MEMBER=$(curl -s -X POST "$BASE/api/v1/auth/login" -H 'Content-Type: application/json' \
-  -d '{"username":"member","password":"YesLab-Member-2026!"}' | j "['data']['accessToken']")
+  -d '{"username":"member","password":"OpenLIMS-Member-2026!"}' | j "['data']['accessToken']")
 BEFORE=$(curl -s "$BASE/api/v1/member/points" -H "Authorization: Bearer $MEMBER" | j "['data']['totalPoints']")
 echo "  （member 当前总积分：$BEFORE 分）"
 
@@ -255,7 +255,7 @@ MID=$(curl -s "$BASE/api/v1/admin/members" -H "Authorization: Bearer $TEACHER" |
 import sys,json
 print([m['id'] for m in json.load(sys.stdin)['data'] if m['memberCode']=='S-001'][0])")
 st=$(status_of -X PUT "$BASE/api/v1/admin/members/$MID" -H "Authorization: Bearer $TEACHER" -H 'Content-Type: application/json' \
-  -d '{"name":"范桌轩大王","memberCode":"S-001","role":"MEMBER","major":"人工智能","className":"人工智能 2401","grade":"2024","internalContact":"m@x.com","status":"PAUSED","skillTags":["具身智能"]}')
+  -d '{"name":"示例成员","memberCode":"S-001","role":"MEMBER","major":"人工智能","className":"人工智能 2401","grade":"2024","internalContact":"m@x.com","status":"PAUSED","skillTags":["具身智能"]}')
 check "停用状态 PAUSED 被拒绝" "400" "$st"
 
 echo

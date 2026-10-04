@@ -1,0 +1,136 @@
+{
+  "defaultPreset": "general",
+  "presets": {
+    "general": {
+      "label": "通用科研 · 蓝灰",
+      "fontBody": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif",
+      "fontHeading": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif",
+      "radius": "12px",
+      "light": {
+        "primary": "#1e3a5f",
+        "secondary": "#1d4ed8",
+        "accent": "#1d4ed8",
+        "accent-fill": "#1d4ed8",
+        "accent-surface": "#eff6ff",
+        "accent-highlight": "#dbeafe",
+        "accent-border": "#93c5fd",
+        "primary-fill": "#1e3a5f",
+        "background": "#f8fafc",
+        "surface-soft": "#f1f5f9",
+        "ring": "#1d4ed8"
+      },
+      "dark": {
+        "primary": "#b9d5fb",
+        "secondary": "#93c5fd",
+        "accent": "#93c5fd",
+        "accent-fill": "#1d4ed8",
+        "accent-surface": "#182f4b",
+        "accent-highlight": "#243b5b",
+        "accent-border": "#5b708f",
+        "primary-fill": "#284f7e",
+        "background": "#0b1423",
+        "surface-soft": "#111e31",
+        "ring": "#93c5fd"
+      }
+    },
+    "academic": {
+      "label": "学术人文 · 靛蓝纸面",
+      "fontBody": "system-ui, 'Microsoft YaHei', sans-serif",
+      "fontHeading": "Georgia, 'Songti SC', 'Noto Serif CJK SC', serif",
+      "radius": "6px",
+      "light": {
+        "primary": "#312e81",
+        "secondary": "#4338ca",
+        "accent": "#854d0e",
+        "accent-fill": "#854d0e",
+        "accent-surface": "#fefce8",
+        "accent-highlight": "#fef3c7",
+        "accent-border": "#e7d9ad",
+        "primary-fill": "#312e81",
+        "background": "#faf9f6",
+        "surface-soft": "#f2f0ea",
+        "ring": "#4338ca"
+      },
+      "dark": {
+        "primary": "#c7d2fe",
+        "secondary": "#c7d2fe",
+        "accent": "#fde68a",
+        "accent-fill": "#854d0e",
+        "accent-surface": "#302719",
+        "accent-highlight": "#42351e",
+        "accent-border": "#78623d",
+        "primary-fill": "#373078",
+        "background": "#14131e",
+        "surface-soft": "#1d1b2b",
+        "card": "#242234",
+        "ring": "#c7d2fe"
+      }
+    },
+    "engineering": {
+      "label": "工程计算 · 青蓝网格",
+      "fontBody": "system-ui, 'Microsoft YaHei', sans-serif",
+      "fontHeading": "'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace",
+      "radius": "4px",
+      "light": {
+        "primary": "#164e63",
+        "secondary": "#0e7490",
+        "accent": "#0e7490",
+        "accent-fill": "#0e7490",
+        "accent-surface": "#ecfeff",
+        "accent-highlight": "#cffafe",
+        "accent-border": "#67e8f9",
+        "primary-fill": "#164e63",
+        "background": "#f5fafb",
+        "surface-soft": "#eaf4f6",
+        "ring": "#0e7490"
+      },
+      "dark": {
+        "primary": "#a5f3fc",
+        "secondary": "#67e8f9",
+        "accent": "#67e8f9",
+        "accent-fill": "#0e7490",
+        "accent-surface": "#12313d",
+        "accent-highlight": "#194452",
+        "accent-border": "#407481",
+        "primary-fill": "#155e75",
+        "background": "#08191f",
+        "surface-soft": "#10272f",
+        "card": "#14323d",
+        "ring": "#67e8f9"
+      }
+    },
+    "life-science": {
+      "label": "生命环境 · 森林绿",
+      "fontBody": "system-ui, 'Microsoft YaHei', sans-serif",
+      "fontHeading": "system-ui, 'Microsoft YaHei', sans-serif",
+      "radius": "20px",
+      "light": {
+        "primary": "#14532d",
+        "secondary": "#166534",
+        "accent": "#166534",
+        "accent-fill": "#166534",
+        "accent-surface": "#f0fdf4",
+        "accent-highlight": "#dcfce7",
+        "accent-border": "#86efac",
+        "primary-fill": "#14532d",
+        "background": "#f7faf7",
+        "surface-soft": "#edf5ef",
+        "ring": "#166534"
+      },
+      "dark": {
+        "primary": "#bbf7d0",
+        "secondary": "#86efac",
+        "accent": "#86efac",
+        "accent-fill": "#166534",
+        "accent-surface": "#17352d",
+        "accent-highlight": "#224c3b",
+        "accent-border": "#426c58",
+        "primary-fill": "#166534",
+        "background": "#0d1914",
+        "surface-soft": "#13271d",
+        "card": "#193526",
+        "ring": "#86efac"
+      }
+    }
+  }
+}

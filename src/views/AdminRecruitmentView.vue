@@ -285,7 +285,7 @@ async function resetApplicantPassword() {
   successMessage.value = ''
   if (
     !window.confirm(
-      `确定将 ${selected.value.name} 的报名账号密码重置为 yeslab521 吗？该账号在其他设备上的续期登录状态将失效。`,
+      `确定将 ${selected.value.name} 的报名账号密码重置为 OpenLIMS521 吗？该账号在其他设备上的续期登录状态将失效。`,
     )
   )
     return
@@ -293,7 +293,7 @@ async function resetApplicantPassword() {
   passwordWorking.value = true
   try {
     await resetRecruitmentPassword(selected.value.id)
-    successMessage.value = `已将 ${selected.value.name} 的报名账号密码重置为 yeslab521，请提醒本人登录后尽快修改。`
+    successMessage.value = `已将 ${selected.value.name} 的报名账号密码重置为 OpenLIMS521，请提醒本人登录后尽快修改。`
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -739,7 +739,7 @@ function splitTags(value) {
             </div>
           </header>
           <div class="default-password-reset">
-            <p>适用于尚未转为正式成员的报名账号。默认密码为 <strong>yeslab521</strong>，重置后请安全告知本人。</p>
+            <p>适用于尚未转为正式成员的报名账号。默认密码为 <strong>OpenLIMS521</strong>，重置后请安全告知本人。</p>
             <button class="portal-primary" type="button" :disabled="passwordWorking" @click="resetApplicantPassword">
               <KeyRound :size="17" aria-hidden="true" />{{ passwordWorking ? '重置中…' : '重置为默认密码' }}
             </button>

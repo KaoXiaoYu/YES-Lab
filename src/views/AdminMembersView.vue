@@ -228,7 +228,7 @@ async function resetSelectedPassword() {
   message.value = ''
   if (
     !window.confirm(
-      `确定将 ${selected.value.name} 的登录密码重置为 yeslab521 吗？该账号在其他设备上的续期登录状态将失效。`,
+      `确定将 ${selected.value.name} 的登录密码重置为 OpenLIMS521 吗？该账号在其他设备上的续期登录状态将失效。`,
     )
   )
     return
@@ -236,7 +236,7 @@ async function resetSelectedPassword() {
   passwordSaving.value = true
   try {
     await resetMemberPassword(selected.value.id)
-    message.value = `已将 ${selected.value.name} 的密码重置为 yeslab521，请提醒本人登录后尽快修改。`
+    message.value = `已将 ${selected.value.name} 的密码重置为 OpenLIMS521，请提醒本人登录后尽快修改。`
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -588,7 +588,7 @@ function splitTags(value) {
             <span>重置后该成员需要使用默认密码重新登录。</span>
           </header>
           <div class="default-password-reset">
-            <p>默认密码 <strong>yeslab521</strong>。请通过可信渠道告知本人，并提醒登录后尽快修改。</p>
+            <p>默认密码 <strong>OpenLIMS521</strong>。请通过可信渠道告知本人，并提醒登录后尽快修改。</p>
             <button class="portal-primary" type="button" :disabled="passwordSaving" @click="resetSelectedPassword">
               <KeyRound :size="17" aria-hidden="true" />{{ passwordSaving ? '重置中…' : '重置为默认密码' }}
             </button>

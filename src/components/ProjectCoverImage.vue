@@ -1,4 +1,5 @@
 <script setup>
+import { brand } from '../config/site'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { getAuthenticatedFile } from '../services/authApi'
 
@@ -8,7 +9,7 @@ const props = defineProps({
   authenticated: { type: Boolean, default: true },
 })
 
-const defaultCover = '/yes-lab-logo.png'
+const defaultCover = brand.logo
 const source = ref(defaultCover)
 const usingDefault = ref(true)
 let objectUrl = ''

@@ -45,8 +45,8 @@ onMounted(async () => {
   }, 15000)
   document.addEventListener('visibilitychange', handleVisibility)
   window.addEventListener('resize', updatePosition)
-  window.addEventListener('yeslab:notifications-updated', handleNotificationUpdate)
-  window.addEventListener('yeslab:notification-settings-updated', handleNotificationUpdate)
+  window.addEventListener('openlims:notifications-updated', handleNotificationUpdate)
+  window.addEventListener('openlims:notification-settings-updated', handleNotificationUpdate)
 })
 
 onBeforeUnmount(() => {
@@ -55,8 +55,8 @@ onBeforeUnmount(() => {
   window.clearTimeout(toastTimer)
   document.removeEventListener('visibilitychange', handleVisibility)
   window.removeEventListener('resize', updatePosition)
-  window.removeEventListener('yeslab:notifications-updated', handleNotificationUpdate)
-  window.removeEventListener('yeslab:notification-settings-updated', handleNotificationUpdate)
+  window.removeEventListener('openlims:notifications-updated', handleNotificationUpdate)
+  window.removeEventListener('openlims:notification-settings-updated', handleNotificationUpdate)
 })
 
 async function refresh(firstLoad) {
@@ -70,7 +70,7 @@ async function refresh(firstLoad) {
       const previousMascot = mascot.value
       mascot.value = settings?.mascot === 'NAILONG' ? 'NAILONG' : 'MELINA'
       if (mascot.value !== previousMascot) {
-        window.dispatchEvent(new CustomEvent('yeslab:notification-appearance-changed'))
+        window.dispatchEvent(new CustomEvent('openlims:notification-appearance-changed'))
       }
     } catch {
       // Retain the previous setting on transient failures; support older backends on first load.
@@ -137,14 +137,14 @@ function updatePosition() {
 
 async function openMessage(message) {
   if (!message.read) inbox.value = await markNotificationRead(message.id)
-  window.dispatchEvent(new CustomEvent('yeslab:notifications-updated'))
+  window.dispatchEvent(new CustomEvent('openlims:notifications-updated'))
   open.value = false
   if (message.targetPath) router.push(message.targetPath)
 }
 
 async function readAll() {
   inbox.value = await markAllNotificationsRead()
-  window.dispatchEvent(new CustomEvent('yeslab:notifications-updated'))
+  window.dispatchEvent(new CustomEvent('openlims:notifications-updated'))
 }
 
 function handleVisibility() {

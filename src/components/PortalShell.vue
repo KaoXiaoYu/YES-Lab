@@ -1,4 +1,5 @@
 <script setup>
+import { brand } from '../config/site'
 import ThemeToggle from './ThemeToggle.vue'
 import NotificationCenter from './NotificationCenter.vue'
 import {
@@ -76,8 +77,8 @@ async function signOut() {
 <template>
   <div class="portal-page" :class="{ 'portal-page--admin': isAdminPage }">
     <header v-if="!isAdminPage" class="portal-topbar">
-      <RouterLink class="portal-brand" to="/" aria-label="返回 YES Lab 公开首页">
-        <img src="/yes-lab-logo.png" alt="YES Lab" width="900" height="506" />
+      <RouterLink class="portal-brand" to="/" :aria-label="`返回 ${brand.name} 公开首页`">
+        <img :src="brand.logo" :alt="brand.name" width="900" height="300" />
         <span>MEMBER SYSTEM</span>
       </RouterLink>
       <nav aria-label="成员系统导航">
@@ -188,9 +189,12 @@ async function signOut() {
         aria-label="后台管理导航"
       >
         <div class="admin-shell-sidebar-head">
-          <RouterLink class="admin-shell-brand flex items-center" to="/" aria-label="返回 YES Lab 公开首页">
-            <img src="/logo-variants/yes-lab-white.png" alt="YES Lab" width="900" height="506" />
-            <span><b>YES Lab</b><small>管理工作台</small></span>
+          <RouterLink class="admin-shell-brand flex items-center" to="/" :aria-label="`返回 ${brand.name} 公开首页`">
+            <img :src="brand.logoOnDark" :alt="brand.name" width="900" height="300" />
+            <span
+              ><b>{{ brand.name }}</b
+              ><small>管理工作台</small></span
+            >
           </RouterLink>
           <button type="button" aria-label="关闭后台导航" @click="adminSidebarOpen = false">
             <X :size="18" aria-hidden="true" />
@@ -246,7 +250,7 @@ async function signOut() {
             <Menu :size="20" aria-hidden="true" />
           </button>
           <div class="admin-shell-context">
-            <small>YES LAB / ADMIN</small>
+            <small>{{ brand.name }} / ADMIN</small>
             <strong>{{ title }}</strong>
           </div>
         </div>

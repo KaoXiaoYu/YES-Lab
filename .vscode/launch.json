@@ -6,8 +6,8 @@
       "type": "lldb",
       "request": "launch",
       "args": [],
-      "cwd": "/Users/kaoxiaoyu/Desktop/YES Lab",
-      "program": "/Users/kaoxiaoyu/Desktop/YES Lab/build/Debug/outDebug"
+      "cwd": "/Users/kaoxiaoyu/Desktop/OpenLIMS",
+      "program": "/Users/kaoxiaoyu/Desktop/OpenLIMS/build/Debug/outDebug"
     }
   ]
 }

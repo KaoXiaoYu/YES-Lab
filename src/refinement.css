@@ -1,4 +1,4 @@
-/* YES Lab visual refresh: shared surfaces, research canvas and restrained motion. */
+/* OpenLIMS visual refresh: shared surfaces, research canvas and restrained motion. */
 :root {
   --radius-card: 16px;
   --radius-control: 10px;
@@ -10,7 +10,7 @@
   --shadow-card: 0 12px 36px -24px rgba(15, 35, 64, 0.3);
 }
 body {
-  font-family: 'Noto Sans SC', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 ::selection {
   color: var(--color-on-primary);
@@ -212,7 +212,7 @@ body {
   background: var(--color-secondary);
 }
 .site-shell :is(h1, h2, h3, h4) {
-  font-family: 'Noto Sans SC', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 .hero h1 {
   max-width: 680px;
@@ -308,7 +308,7 @@ body {
   font-size: 12px;
 }
 .hero-directory li strong {
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: clamp(16px, 1.4vw, 20px);
   font-weight: 500;
   line-height: 1.5;
@@ -421,7 +421,7 @@ body {
 .diagram-annotation text {
   fill: var(--color-muted-foreground);
   font-size: 15px;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
 }
 .machine-ground-shadow {
   fill: var(--color-primary);
@@ -1905,5 +1905,56 @@ body {
 @keyframes go2-breathe {
   50% {
     transform: translateY(-1.5px);
+  }
+}
+
+/* Project repository and copyright stay readable at every footer width. */
+.site-shell > footer {
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.footer-meta {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  text-align: right;
+}
+.footer-repository {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--color-foreground);
+  font-size: 12px;
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+.footer-repository:hover {
+  color: var(--color-accent);
+}
+.footer-repository:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 5px;
+  border-radius: 4px;
+}
+.footer-repository-address {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.footer-repository-address svg {
+  flex-shrink: 0;
+}
+@media (max-width: 760px) {
+  .footer-meta {
+    width: 100%;
+    text-align: left;
+  }
+  .footer-repository {
+    align-items: flex-start;
   }
 }

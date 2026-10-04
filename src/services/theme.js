@@ -12,7 +12,7 @@ function applyTheme(value) {
 
 function persistTheme() {
   try {
-    localStorage.setItem('yeslab-theme', theme.value)
+    localStorage.setItem('openlims-theme', theme.value)
   } catch {
     /* Theme still works when storage is unavailable. */
   }
@@ -45,6 +45,6 @@ export function toggleTheme(event) {
 }
 
 window.addEventListener('storage', (event) => {
-  if (event.key === 'yeslab-theme') applyTheme(event.newValue)
+  if (event.key === 'openlims-theme') applyTheme(event.newValue)
 })
 applyTheme(theme.value)

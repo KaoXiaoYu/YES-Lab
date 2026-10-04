@@ -1,6 +1,6 @@
-# YES Lab API
+# OpenLIMS API
 
-YES Lab API 是平台的 Spring Boot 后端，提供身份认证、公开内容、成员、招新、项目、竞赛成果、积分账本、讨论板和站内通知接口。
+OpenLIMS API 是平台的 Spring Boot 后端，提供身份认证、公开内容、成员、招新、项目、竞赛成果、三类任务与奖金履约、积分账本、基金、日程、讨论板和站内通知接口。
 
 ## 技术基线
 
@@ -29,6 +29,7 @@ macOS 上如果默认 Java 不是 21：
 
 ```bash
 export JAVA_HOME=$(/usr/libexec/java_home -v 21)
+export PATH="$JAVA_HOME/bin:$PATH"
 ./mvnw spring-boot:run
 ```
 
@@ -58,7 +59,7 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 ## 包结构
 
 ```text
-cn.yeslab.platform
+cn.openlims.platform
 ├── achievement      # 竞赛成果、证书、图集和新闻
 ├── common           # 通用 API 响应与错误处理
 ├── config           # 安全、Web、本地数据和首管理员配置
@@ -80,3 +81,9 @@ cn.yeslab.platform
 - 生产 profile 使用 `ddl-auto=validate`，只允许 Flyway 管理结构。
 - 不修改已经发布的迁移文件；每次结构变更新增更高版本 SQL。
 - 迁移应兼容已有正式数据，避免无备份的删除或重建操作。
+
+## 共享配置与生产限制
+
+品牌默认值由根目录 `config/branding.json` 打入 JAR 的 `/branding.json`，不能只复制 backend 目录构建；前端使用同一文件。生产 profile 使用 MySQL 8.4 + Flyway + Hibernate validate，关闭演示数据，管理员走独立幂等初始化。启动/升级/备份恢复见 [部署手册](../docs/production-deployment.md)，模块使用流程见 [使用指南](../docs/user-guide.md)。
+
+本副本没有 Git 历史，上轮日志记录历史 SQL 曾更名；既有库升级必须先取已部署提交的原迁移、核对 Flyway 历史。本轮冻结迁移，不支持靠 repair 绕过 checksum。H2 测试关闭 Flyway，不能覆盖 MySQL 语法/锁行为。

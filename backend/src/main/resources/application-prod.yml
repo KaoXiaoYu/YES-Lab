@@ -1,12 +1,12 @@
 spring:
   datasource:
-    url: ${YESLAB_DATABASE_URL}
-    username: ${YESLAB_DATABASE_USERNAME}
-    password: ${YESLAB_DATABASE_PASSWORD}
+    url: ${OPENLIMS_DATABASE_URL}
+    username: ${OPENLIMS_DATABASE_USERNAME}
+    password: ${OPENLIMS_DATABASE_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: ${YESLAB_DATABASE_MAX_POOL_SIZE:10}
-      minimum-idle: ${YESLAB_DATABASE_MIN_IDLE:2}
+      maximum-pool-size: ${OPENLIMS_DATABASE_MAX_POOL_SIZE:10}
+      minimum-idle: ${OPENLIMS_DATABASE_MIN_IDLE:2}
       connection-timeout: 20000
   jpa:
     hibernate:
@@ -18,20 +18,20 @@ spring:
     baseline-version: 1
     locations: classpath:db/migration
 
-yeslab:
+openlims:
   storage:
-    sponsors-directory: ${YESLAB_SPONSORS_DIRECTORY:/var/lib/yeslab/uploads/sponsors}
-    homepage-models-directory: ${YESLAB_HOMEPAGE_MODELS_DIRECTORY:/var/lib/yeslab/uploads/homepage-models}
-    achievements-directory: ${YESLAB_ACHIEVEMENTS_DIRECTORY:/var/lib/yeslab/uploads/achievements}
-    projects-directory: ${YESLAB_PROJECTS_DIRECTORY:/var/lib/yeslab/uploads/projects}
-    members-directory: ${YESLAB_MEMBERS_DIRECTORY:/var/lib/yeslab/uploads/members}
-    recruitment-directory: ${YESLAB_RECRUITMENT_DIRECTORY:/var/lib/yeslab/uploads/recruitment}
+    sponsors-directory: ${OPENLIMS_SPONSORS_DIRECTORY:/var/lib/openlims/uploads/sponsors}
+    homepage-models-directory: ${OPENLIMS_HOMEPAGE_MODELS_DIRECTORY:/var/lib/openlims/uploads/homepage-models}
+    achievements-directory: ${OPENLIMS_ACHIEVEMENTS_DIRECTORY:/var/lib/openlims/uploads/achievements}
+    projects-directory: ${OPENLIMS_PROJECTS_DIRECTORY:/var/lib/openlims/uploads/projects}
+    members-directory: ${OPENLIMS_MEMBERS_DIRECTORY:/var/lib/openlims/uploads/members}
+    recruitment-directory: ${OPENLIMS_RECRUITMENT_DIRECTORY:/var/lib/openlims/uploads/recruitment}
   cors:
-    allowed-origins: ${YESLAB_CORS_ALLOWED_ORIGINS}
+    allowed-origins: ${OPENLIMS_CORS_ALLOWED_ORIGINS}
   security:
     jwt:
-      issuer: ${YESLAB_JWT_ISSUER:yes-lab-api}
-      secret: ${YESLAB_JWT_SECRET}
+      issuer: ${OPENLIMS_JWT_ISSUER:openlims-api}
+      secret: ${OPENLIMS_JWT_SECRET}
       ttl: PT15M
     refresh-token:
       session-ttl: PT12H
@@ -40,8 +40,8 @@ yeslab:
     bootstrap:
       enabled: false
     initial-admin:
-      enabled: ${YESLAB_INITIAL_ADMIN_ENABLED:false}
-      username: ${YESLAB_INITIAL_ADMIN_USERNAME:admin}
-      password: ${YESLAB_INITIAL_ADMIN_PASSWORD:}
-      display-name: ${YESLAB_INITIAL_ADMIN_DISPLAY_NAME:系统管理员}
-      member-code: ${YESLAB_INITIAL_ADMIN_MEMBER_CODE:T-001}
+      enabled: ${OPENLIMS_INITIAL_ADMIN_ENABLED:false}
+      username: ${OPENLIMS_INITIAL_ADMIN_USERNAME:admin}
+      password: ${OPENLIMS_INITIAL_ADMIN_PASSWORD:}
+      display-name: ${OPENLIMS_INITIAL_ADMIN_DISPLAY_NAME:系统管理员}
+      member-code: ${OPENLIMS_INITIAL_ADMIN_MEMBER_CODE:T-001}

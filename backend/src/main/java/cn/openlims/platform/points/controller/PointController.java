@@ -1,0 +1,48 @@
+package cn.openlims.platform.points.controller;
+
+import cn.openlims.platform.common.api.ApiResponse;
+import cn.openlims.platform.points.api.PointModels;
+import cn.openlims.platform.points.service.PointService;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1")
+public class PointController {
+
+    private final PointService service;
+
+    public PointController(PointService service) {
+        this.service = service;
+    }
+
+    @GetMapping("/member/points")
+    public ApiResponse<PointModels.MemberSummary> ownPoints(Authentication authentication) {
+        return ApiResponse.ok(service.ownSummary(authentication));
+    }
+
+    @GetMapping("/points/leaderboard")
+    public ApiResponse<PointModels.LeaderboardView> leaderboard(
+            Authentication authentication,
+            @RequestParam(defaultValue = "TOTAL") PointModels.LeaderboardPeriod period
+    ) {
+        return ApiResponse.ok(service.leaderboard(authentication, period));
+    }
+
+    @GetMapping("/points/preview")
+    public ApiResponse<PointService.PreviewPage> memberPreview(Authentication authentication,
+            @RequestParam(defaultValue = "TOTAL") PointModels.LeaderboardPeriod period,
+            @RequestParam(defaultValue = "0") int page) {
+        return ApiResponse.ok(service.memberRankingPage(authentication, period, page));
+    }
+
+    @GetMapping("/points/rules")
+    public ApiResponse<List<PointModels.RuleView>> rules() {
+        return ApiResponse.ok(service.rules());
+    }
+}

@@ -1,7 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=EB+Garamond:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700;800&display=swap');
-
 :root {
-  font-family: 'Crimson Text', 'Noto Sans SC', system-ui, sans-serif;
+  font-family: var(--font-body);
   color: #0f172a;
   background: #f8fafc;
   font-synthesis: none;
@@ -110,7 +108,7 @@ a:focus-visible,
 .competition-countdown-copy p {
   margin: 0 0 4px;
   color: #f1c779;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.12em;
@@ -119,7 +117,7 @@ a:focus-visible,
   display: block;
   overflow: hidden;
   color: #fff;
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -131,7 +129,7 @@ a:focus-visible,
   min-width: 0;
   margin-top: 6px;
   color: #cbd5e1;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
 }
 .competition-countdown-copy small {
@@ -155,12 +153,12 @@ a:focus-visible,
   font-variant-numeric: tabular-nums;
 }
 .competition-countdown-days b {
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 34px;
   line-height: 1;
 }
 .competition-countdown-days span {
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   font-weight: 700;
 }
@@ -168,7 +166,7 @@ a:focus-visible,
   grid-column: 2 / -1;
   width: fit-content;
   color: #bfdbfe;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   font-weight: 700;
   text-underline-offset: 3px;
@@ -209,7 +207,7 @@ a:focus-visible,
 }
 .home-bootstrap-state p {
   margin: 0;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -231,7 +229,7 @@ a:focus-visible,
   border-radius: 8px;
   color: #fff;
   background: var(--color-primary-fill);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   text-decoration: none;
   transform: translateY(-160%);
@@ -274,7 +272,7 @@ a:focus-visible,
   padding-left: 16px;
   border-left: 1px solid var(--color-border);
   color: var(--color-primary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -296,7 +294,7 @@ a:focus-visible,
   border: 0;
   color: var(--color-muted-foreground);
   background: none;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 500;
   text-decoration: none;
@@ -348,7 +346,7 @@ a:focus-visible,
   gap: 9px;
   min-height: 44px;
   color: var(--color-primary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 12px;
   text-decoration: none;
 }
@@ -426,7 +424,7 @@ a:focus-visible,
 .eyebrow {
   margin: 0 0 32px;
   color: var(--color-muted-foreground);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -439,7 +437,7 @@ a:focus-visible,
   max-width: 900px;
   margin: 0;
   color: var(--color-primary);
-  font-family: 'EB Garamond', 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(64px, 7.2vw, 116px);
   font-weight: 600;
   line-height: 0.98;
@@ -453,7 +451,7 @@ a:focus-visible,
   max-width: 620px;
   margin: 26px 0 0;
   color: var(--color-primary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: clamp(16px, 1.35vw, 20px);
   font-weight: 600;
   line-height: 1.7;
@@ -462,7 +460,7 @@ a:focus-visible,
   max-width: 620px;
   margin: 36px 0 0;
   color: var(--color-muted-foreground);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: clamp(15px, 1.2vw, 18px);
   line-height: 1.85;
 }
@@ -484,7 +482,7 @@ a:focus-visible,
   gap: 28px;
   min-height: 48px;
   border-radius: 8px;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   font-weight: 600;
   transition:
@@ -542,7 +540,7 @@ a:focus-visible,
   top: 20px;
   left: 22px;
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.18em;
@@ -552,7 +550,7 @@ a:focus-visible,
   padding-top: 16px;
   border-top: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.13em;
@@ -567,7 +565,7 @@ a:focus-visible,
 .hero-directory > p {
   margin: 0 0 36px;
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.15em;
@@ -603,11 +601,11 @@ a:focus-visible,
 }
 .hero-directory li span {
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
 }
 .hero-directory li strong {
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(19px, 1.55vw, 26px);
   font-weight: 600;
 }
@@ -655,20 +653,20 @@ a:focus-visible,
 }
 .proof-bar span {
   color: #cbd5e1;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.15em;
 }
 .proof-bar strong {
   margin: 12px 0 4px;
-  font-family: 'EB Garamond', 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(24px, 2vw, 34px);
   font-weight: 600;
 }
 .proof-bar small {
   color: #cbd5e1;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
 }
 
@@ -690,7 +688,7 @@ a:focus-visible,
 .section-index {
   margin: 0 0 20px;
   color: var(--color-accent);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -698,7 +696,7 @@ a:focus-visible,
 h2 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'EB Garamond', 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(45px, 5vw, 76px);
   font-weight: 600;
   line-height: 1.05;
@@ -712,7 +710,7 @@ h2 em {
   max-width: 430px;
   margin: 0 0 5px;
   color: var(--color-muted-foreground);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.8;
 }
@@ -742,7 +740,7 @@ h2 em {
   border-radius: 999px;
   color: var(--color-muted-foreground);
   background: transparent;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 600;
   transition:
@@ -758,7 +756,7 @@ h2 em {
 }
 .project-toolbar > span {
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -790,7 +788,7 @@ h2 em {
   align-items: center;
   justify-content: space-between;
   color: var(--color-primary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
 }
 .project-card-head > span {
   font-size: 12px;
@@ -869,7 +867,7 @@ h2 em {
   right: 14px;
   bottom: 12px;
   color: rgba(255, 255, 255, 0.75);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   letter-spacing: 0.12em;
 }
@@ -900,7 +898,7 @@ h2 em {
 .project-copy > p {
   margin: 0 0 10px;
   color: var(--color-accent);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.13em;
@@ -908,7 +906,7 @@ h2 em {
 .project-copy h3 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'EB Garamond', 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(28px, 2.25vw, 38px);
   font-weight: 600;
   line-height: 1.12;
@@ -918,7 +916,7 @@ h2 em {
   display: block;
   margin-top: 16px;
   color: var(--color-muted-foreground);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   line-height: 1.75;
 }
@@ -938,7 +936,7 @@ h2 em {
 }
 .project-card-foot small {
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
 }
 .project-list-enter-active,
@@ -963,7 +961,7 @@ h2 em {
 }
 .project-link-pending {
   color: var(--color-muted-foreground);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
 }
 .project-modal-cover {
@@ -1007,7 +1005,7 @@ h2 em {
 .about-copy > p {
   margin: 0 0 24px;
   color: #e2e8f0;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: clamp(16px, 1.4vw, 20px);
   line-height: 1.9;
 }
@@ -1025,11 +1023,11 @@ h2 em {
 }
 .principle-list span {
   color: #d6a85a;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
 }
 .principle-list strong {
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 17px;
   font-weight: 600;
 }
@@ -1049,7 +1047,7 @@ h2 em {
 .about-feature-board > header p {
   margin: 0;
   color: #f1c779;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.15em;
@@ -1057,7 +1055,7 @@ h2 em {
 .about-feature-board > header h3 {
   margin: 0;
   color: #fff;
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(23px, 2.3vw, 34px);
   font-weight: 600;
 }
@@ -1075,20 +1073,20 @@ h2 em {
 }
 .about-feature-board article span {
   color: #f1c779;
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 20px;
 }
 .about-feature-board article h4 {
   margin: 42px 0 12px;
   color: #fff;
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(18px, 1.65vw, 25px);
   font-weight: 600;
 }
 .about-feature-board article p {
   margin: 0;
   color: #cbd5e1;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 12px;
   line-height: 1.85;
 }
@@ -1160,7 +1158,7 @@ h2 em {
   gap: 12px;
   min-height: 44px;
   color: #f1c779;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.13em;
@@ -1187,7 +1185,7 @@ h2 em {
   border: 1px solid #d6a85a;
   border-radius: 50%;
   color: #f1c779;
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 25px;
   font-weight: 700;
   box-shadow: inset 0 0 0 7px rgba(214, 168, 90, 0.08);
@@ -1195,7 +1193,7 @@ h2 em {
 .advisor-body p {
   margin: 0 0 7px;
   color: #f1c779;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -1203,13 +1201,13 @@ h2 em {
 .advisor-body h3 {
   margin: 0 0 6px;
   color: #fff;
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(24px, 2vw, 32px);
   font-weight: 600;
 }
 .advisor-body div > span {
   color: var(--color-text-subtle);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
 }
 .advisor-card > p,
@@ -1217,7 +1215,7 @@ h2 em {
   flex: 1;
   margin: 0 0 26px;
   color: #cbd5e1;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 12px;
   line-height: 1.85;
 }
@@ -1228,7 +1226,7 @@ h2 em {
 }
 .member-tags small {
   color: #cbd5e1;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
 }
 .advisor-card .member-tags small {
@@ -1258,7 +1256,7 @@ h2 em {
 }
 .member-rank {
   color: var(--color-text-subtle);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
 }
 .avatar {
@@ -1269,19 +1267,19 @@ h2 em {
   border: 1px solid #64748b;
   border-radius: 50%;
   color: #f1c779;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 700;
 }
 .core-team h3 {
   margin: 0 0 5px;
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 16px;
 }
 .core-team p {
   margin: 0;
   color: var(--color-text-subtle);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
 }
 .core-team article .member-tags {
@@ -1307,7 +1305,7 @@ h2 em {
   align-items: center;
   gap: 10px;
   color: var(--color-primary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 700;
 }
@@ -1316,7 +1314,7 @@ h2 em {
   align-items: center;
   gap: 6px;
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 8px;
   letter-spacing: 0.13em;
 }
@@ -1369,7 +1367,7 @@ h2 em {
 }
 .leaderboard li > a > span {
   color: var(--color-accent);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 20px;
 }
 .leaderboard li div {
@@ -1378,17 +1376,17 @@ h2 em {
   gap: 3px;
 }
 .leaderboard li strong {
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 13px;
 }
 .leaderboard li small {
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
 }
 .leaderboard li b {
   color: var(--color-primary);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 18px;
 }
 
@@ -1409,7 +1407,7 @@ h2 em {
   padding: 24px;
   border-right: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.13em;
@@ -1439,7 +1437,7 @@ h2 em {
 .sponsor-copy > p {
   margin: 0 0 12px;
   color: var(--color-accent);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -1447,7 +1445,7 @@ h2 em {
 .sponsor-copy h3 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: clamp(64px, 7vw, 100px);
   font-weight: 600;
   line-height: 0.9;
@@ -1456,7 +1454,7 @@ h2 em {
   max-width: 600px;
   margin-top: 28px;
   color: var(--color-muted-foreground);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.85;
 }
@@ -1473,7 +1471,7 @@ h2 em {
   border: 1px solid var(--color-border);
   border-radius: 999px;
   color: var(--color-muted-foreground);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
 }
 .sponsor-copy > a {
@@ -1485,7 +1483,7 @@ h2 em {
   padding: 10px 0;
   border-bottom: 1px solid var(--color-primary);
   color: var(--color-primary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 600;
   text-decoration: none;
@@ -1513,24 +1511,24 @@ h2 em {
 }
 .update-list article > span {
   color: var(--color-text-subtle);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
 }
 .update-list time {
   color: var(--color-muted-foreground);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
 }
 .update-list small {
   color: var(--color-accent);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 600;
 }
 .update-list h3 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(17px, 1.55vw, 24px);
   font-weight: 600;
 }
@@ -1556,7 +1554,7 @@ h2 em {
 .home-news-column > header span,
 .home-competition-column > header span {
   color: var(--color-accent);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -1565,7 +1563,7 @@ h2 em {
 .home-competition-column > header h3 {
   margin: 8px 0 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 32px;
 }
 .home-news-column > div > *,
@@ -1587,12 +1585,12 @@ h2 em {
 }
 .home-news-column time {
   color: var(--color-text-secondary);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 16px;
 }
 .home-news-column small {
   color: var(--color-accent);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 8px;
   font-weight: 700;
 }
@@ -1600,7 +1598,7 @@ h2 em {
   grid-column: 2;
   margin: 4px 0 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 17px;
   line-height: 1.45;
 }
@@ -1610,7 +1608,7 @@ h2 em {
   margin: 7px 0 0;
   overflow: hidden;
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   line-height: 1.6;
   -webkit-box-orient: vertical;
@@ -1632,29 +1630,29 @@ h2 em {
 }
 .home-competition-column > div > * > span {
   color: var(--color-text-subtle);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 20px;
 }
 .home-competition-column small {
   color: var(--color-text-subtle);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 8px;
 }
 .home-competition-column h4 {
   margin: 5px 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .home-competition-column p {
   margin: 0;
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
 }
 .home-competition-column strong {
   color: var(--color-accent);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 15px;
   text-align: right;
 }
@@ -1721,7 +1719,7 @@ h2 em {
 .public-result-hero > p {
   margin: 0 0 32px;
   color: #f1c779;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -1730,7 +1728,7 @@ h2 em {
   max-width: 900px;
   margin: 0;
   color: #fff;
-  font-family: 'EB Garamond', 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(48px, 7vw, 86px);
   font-weight: 600;
   line-height: 1.02;
@@ -1740,7 +1738,7 @@ h2 em {
   display: block;
   margin-top: 17px;
   color: #93c5fd;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
 }
 .public-result-hero > strong {
@@ -1749,7 +1747,7 @@ h2 em {
   gap: 10px;
   margin-top: 46px;
   color: #f1c779;
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(20px, 2.5vw, 30px);
 }
 .public-result-certificate {
@@ -1769,7 +1767,7 @@ h2 em {
   grid-column: 1 / -1;
   margin: 0;
   color: var(--color-accent);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -1777,14 +1775,14 @@ h2 em {
 .public-result-certificate h2 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(28px, 4vw, 42px);
 }
 .public-result-certificate > header span {
   max-width: 360px;
   overflow-wrap: anywhere;
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   text-align: right;
 }
@@ -1822,7 +1820,7 @@ h2 em {
 .public-result-certificate object p {
   padding: 32px;
   color: var(--color-text-strong);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   text-align: center;
 }
 .public-image-status {
@@ -1833,7 +1831,7 @@ h2 em {
   min-height: 76px;
   padding: 18px 22px;
   color: var(--color-muted-foreground);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 700;
   text-align: center;
@@ -1898,7 +1896,7 @@ h2 em {
   min-height: 52px;
   padding: 14px 16px;
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   line-height: 1.55;
 }
@@ -1927,7 +1925,7 @@ h2 em {
 .public-result-team header p {
   margin: 0 0 8px;
   color: var(--color-accent);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -1936,13 +1934,13 @@ h2 em {
 .public-result-team h2 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 34px;
 }
 .public-result-story > div {
   margin-top: 28px;
   color: var(--color-text-strong);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.95;
   white-space: pre-wrap;
@@ -1968,7 +1966,7 @@ h2 em {
   flex-direction: column;
   gap: 6px;
   color: var(--color-text-subtle);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 8px;
 }
 .public-result-facts strong {
@@ -2009,7 +2007,7 @@ h2 em {
   border-radius: 50%;
   color: var(--color-accent);
   background: var(--color-accent-highlight);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-weight: 700;
 }
 .public-result-team strong,
@@ -2017,13 +2015,13 @@ h2 em {
   display: block;
 }
 .public-result-team strong {
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 13px;
 }
 .public-result-team small {
   margin-top: 5px;
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 8px;
 }
 .public-result-team svg {
@@ -2051,7 +2049,7 @@ h2 em {
 }
 .contact-section > div:first-child > p {
   margin: 0 0 20px;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -2065,7 +2063,7 @@ h2 em {
 .contact-panel > p {
   margin: 0 0 28px;
   color: #fff7ed;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
 }
 .contact-panel > div {
@@ -2080,7 +2078,7 @@ h2 em {
   min-height: 64px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.4);
   color: inherit;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 12px;
   text-decoration: none;
 }
@@ -2105,7 +2103,7 @@ footer {
 footer p {
   margin: 0;
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 9px;
   letter-spacing: 0.12em;
 }
@@ -2152,7 +2150,7 @@ footer p {
 .project-modal > p {
   margin: 0 0 20px;
   color: var(--color-accent);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -2166,7 +2164,7 @@ footer p {
   display: block;
   margin: 24px 0 32px;
   color: var(--color-muted-foreground);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.8;
 }
@@ -2189,12 +2187,12 @@ footer p {
 .project-modal dt {
   margin-bottom: 6px;
   color: var(--color-text-secondary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
 }
 .project-modal dd {
   margin: 0;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   line-height: 1.6;
 }

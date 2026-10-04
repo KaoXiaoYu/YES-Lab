@@ -1,0 +1,12 @@
+package cn.openlims.platform.recruitment.repository;
+
+import cn.openlims.platform.recruitment.model.RecruitmentApplicationEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+public interface RecruitmentApplicationRepository extends JpaRepository<RecruitmentApplicationEntity, UUID> {
+    Optional<RecruitmentApplicationEntity> findByApplicantId(UUID accountId);
+    boolean existsByMemberCodeIgnoreCaseAndIdNot(String memberCode, UUID applicationId);
+}

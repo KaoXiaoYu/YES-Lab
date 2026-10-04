@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# YES Lab 悬赏任务端到端冒烟测试（真实 HTTP，独立内存库）
+# OpenLIMS 悬赏任务端到端冒烟测试（真实 HTTP，独立内存库）
 #
 # 用法：先以隔离内存库启动后端（见 DEVLOG 的启动命令），再执行本脚本。
 # 覆盖：名额上限与先到先得、完成名次、先完成先得奖金、驳回后奖金顺延、
@@ -32,11 +32,11 @@ auth() { echo "Authorization: Bearer $1"; }
 
 echo "== 1. 登录 =="
 TEACHER=$(curl -s -X POST "$BASE/api/v1/auth/login" -H 'Content-Type: application/json' \
-  -d '{"username":"teacher","password":"YesLab-Teacher-2026!"}' | j "['data']['accessToken']")
+  -d '{"username":"teacher","password":"OpenLIMS-Teacher-2026!"}' | j "['data']['accessToken']")
 MEMBER=$(curl -s -X POST "$BASE/api/v1/auth/login" -H 'Content-Type: application/json' \
-  -d '{"username":"member","password":"YesLab-Member-2026!"}' | j "['data']['accessToken']")
+  -d '{"username":"member","password":"OpenLIMS-Member-2026!"}' | j "['data']['accessToken']")
 CORE=$(curl -s -X POST "$BASE/api/v1/auth/login" -H 'Content-Type: application/json' \
-  -d '{"username":"core","password":"YesLab-Core-2026!"}' | j "['data']['accessToken']")
+  -d '{"username":"core","password":"OpenLIMS-Core-2026!"}' | j "['data']['accessToken']")
 check "教师登录" "True" "$([ -n "$TEACHER" ] && echo True)"
 check "普通成员登录" "True" "$([ -n "$MEMBER" ] && echo True)"
 check "核心学生登录" "True" "$([ -n "$CORE" ] && echo True)"

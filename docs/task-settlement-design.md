@@ -1,4 +1,4 @@
-# YES Lab 任务到期结算与到期冻结 · 技术设计
+# OpenLIMS 任务到期结算与到期冻结 · 技术设计
 
 > 本文是横切三类任务的改造设计：**所有任务统一「到期冻结 + 到期结算」**。
 > 需求清单见 [`docs/task-settlement-requirements.md`](task-settlement-requirements.md)；悬赏任务本体见 [`docs/bounty-task-design.md`](bounty-task-design.md)。冲突时以需求清单为准。
@@ -34,14 +34,14 @@
 6. **新手任务的截止按人算**：`OnboardingTaskIssuerService:78` 为 `dueDate = LocalDate.now(LAB_TIME_ZONE).plusDays(durationDays)`；`OnboardingTaskService:191-192` 在时长变更时按「各自发放日 + 新时长」重算所有未通过对象。共享大任务本身不设任务级截止，因此**新手任务的冻结必须按对象 `due_date` 判定**。
 7. **`due_date` 已有写入方法**：`TaskAssignmentEntity.assignDueDate(LocalDate)`（`:170`）。按人延长不需要新的领域方法，只需要新的服务编排与接口。
 8. **新手任务审核走同一套审核端点**：`TaskService.review`（`:225`）按类型分派到 `reviewOnboarding`（`:238`）与 `reviewStandard`（`:616`）。到期守卫加在分派之前即可同时覆盖两类。
-9. **定时任务基础设施已存在**：`YesLabApplication.java:8` 已有 `@EnableScheduling`；既有先例 `recruitment/service/InterviewRetentionScheduler.java:21` 是「`@Component` + `@Scheduled(cron = "${...}", zone = ...)`，**调度器不持事务**，事务在同名 Service（`InterviewRetentionService.purgeExpiredBefore`，`:26-27`）」。结算照抄这套分工。
+9. **定时任务基础设施已存在**：`OpenLIMSApplication.java:8` 已有 `@EnableScheduling`；既有先例 `recruitment/service/InterviewRetentionScheduler.java:21` 是「`@Component` + `@Scheduled(cron = "${...}", zone = ...)`，**调度器不持事务**，事务在同名 Service（`InterviewRetentionService.purgeExpiredBefore`，`:26-27`）」。结算照抄这套分工。
 10. **测试有独立的 `backend/src/test/resources/application.yml`**（H2 内存库 + `ddl-auto: create-drop` + Flyway 关闭）。调度必须在测试里关闭：调度线程用独立事务且会**提交**，而 `PointApiTests` 依赖逐用例回滚做绝对断言（`DEVLOG.md` 记录过两次同类隔离事故）。
 11. **生产 `api` 是单实例**：`compose.yaml` 的 `api` 无 `deploy.replicas`。但仍按多实例安全设计。
 12. **`V11` 已上线**：`tasks.points_settled_at` 必须走新增的 `V14`，不得改 `V11`—`V13`（`DEVLOG.md` 2026-09-20 的 checksum 事故）。
 
 ## 3. 统一窗口判定
 
-> **已按本文实现**（第 2 批）：`backend/src/main/java/cn/yeslab/platform/task/model/TaskTiming.java`。
+> **已按本文实现**（第 2 批）：`backend/src/main/java/cn/openlims/platform/task/model/TaskTiming.java`。
 > 实现与下方草稿有一处收敛：没有单独保留 `isConclusiveAllowed`，管理侧守卫直接用 `isExpired`
 > （`TaskService.requireNotExpired`），少一层间接；另外补了任务级的 `isTaskExpired` 供悬赏接取窗口使用。
 
@@ -103,11 +103,11 @@ public final class TaskTiming {
 
 ```java
 @Component
-@ConditionalOnProperty(name = "yeslab.task.settlement.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "openlims.task.settlement.enabled", havingValue = "true", matchIfMissing = true)
 public class TaskSettlementScheduler {
     private final TaskSettlementService settlement;
 
-    @Scheduled(cron = "${yeslab.task.settlement.cron:0 5 * * * *}", zone = "Asia/Shanghai")
+    @Scheduled(cron = "${openlims.task.settlement.cron:0 5 * * * *}", zone = "Asia/Shanghai")
     public void settleDueTasks() {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
         for (UUID taskId : settlement.findDue(today)) {
@@ -138,9 +138,9 @@ public class TaskSettlementService {
 
 要点：
 
-- **调度频率** `0 5 * * * *`（每小时第 5 分钟）足够：到期按 DATE 判定，晚几分钟无影响；cron 走 `yeslab.task.settlement.cron` 配置（环境变量 `YESLAB_TASK_SETTLEMENT_CRON`）。
+- **调度频率** `0 5 * * * *`（每小时第 5 分钟）足够：到期按 DATE 判定，晚几分钟无影响；cron 走 `openlims.task.settlement.cron` 配置（环境变量 `OPENLIMS_TASK_SETTLEMENT_CRON`）。
 - **时区必须显式 `Asia/Shanghai`**：到期判定用实验室时区；既有 interviews 清理用 UTC，这里**有意不同**，代码注释里已说明。
-- **bean 用属性开关包住**，测试 `application.yml` 设 `yeslab.task.settlement.enabled: false`（事实 10）。
+- **bean 用属性开关包住**，测试 `application.yml` 设 `openlims.task.settlement.enabled: false`（事实 10）。
 - **不要在调度方法上标 `@Transactional`**：一个任务失败会连累整批，且长事务持有大量行锁。
 
 ### 4.2 待结算任务查询
@@ -255,8 +255,8 @@ public TaskGrantResult grantForTaskSettlement(
 | `points/service/PointService.java`                | `grantAs` 抽取、`grantForTaskSettlement`、`grantForTask` 去认证化（第 4.5 节）                                                                                                                      |
 | `task/controller/AdminTaskController.java`        | 结束任务时同步触发结算；新增按人延长新手任务截止日期的接口（`TASK_MANAGE`）                                                                                                                         |
 | `task/api/TaskModels.java`                        | 视图补 `expired`、`pointsSettled`、`pointsSettledAt`、`submittedAwaitingReview`、`deadline` 等字段                                                                                                  |
-| `backend/src/test/resources/application.yml`      | 新增 `yeslab.task.settlement.enabled: false`                                                                                                                                                        |
-| `backend/src/main/resources/application.yml`      | 新增 `yeslab.task.settlement-cron`（带默认值，可运维调整）                                                                                                                                          |
+| `backend/src/test/resources/application.yml`      | 新增 `openlims.task.settlement.enabled: false`                                                                                                                                                      |
+| `backend/src/main/resources/application.yml`      | 新增 `openlims.task.settlement-cron`（带默认值，可运维调整）                                                                                                                                        |
 
 **不改动**：`TaskAssignmentEntity` 的状态机（`SUBMITTED → APPROVED/REJECTED` 的形状不变，只是「什么时候允许」变了）；积分模块的校验规则；新手任务的转正核心与建档案逻辑。
 
@@ -383,14 +383,14 @@ PREPARE backfill_settled FROM @stmt; EXECUTE backfill_settled; DEALLOCATE PREPAR
 - `TaskApiTests.approvalGrantsPointsAndIsIdempotentWhileRejectionSkipsThem` → 重命名为 `approvalRecordsResultButPointsAreOnlyGrantedAtSettlement`；
 - `TaskApiTests.ineligibleRecipientsAreSkippedWithReasonAndZeroPointTasksGrantNothing`：三种跳过情形改到结算后核对；其中「不能给自己发放」按新口径改成**完成者即任务创建者**（结算没有审核人）；
 - `scripts/smoke-task-module.sh`：断言「审核通过后总积分增加」的检查点改为「审核通过不写入积分 → 结束任务时结算 → 总积分增加」，并由 53 项增至 **60 项全部通过**；
-- `PointApiTests` 的逐用例回滚隔离保持不变：结算测试同为 `@Transactional`，且调度在测试环境关闭（`yeslab.task.settlement.enabled: false`）；
+- `PointApiTests` 的逐用例回滚隔离保持不变：结算测试同为 `@Transactional`，且调度在测试环境关闭（`openlims.task.settlement.enabled: false`）；
 - 新手任务相关用例确认测试数据的 `due_date` 在未来（默认时长 7 天天然满足），未被新的冻结守卫误伤。
 
 **回归底线**：改造后全量测试 **62 项通过**，且**没有一条断言被放宽**（唯一一处放宽是被明确否决的：曾出现「计数断言受共享上下文影响」的失败，改用按成员显式指派解耦，而不是把 `== 1` 放宽成 `>= 1`）。
 
 ## 10. 上线演练与验收
 
-1. 备份生产 MySQL（禁止 `docker compose down -v`，不得删除 `/srv/yeslab/data`）。
+1. 备份生产 MySQL（禁止 `docker compose down -v`，不得删除 `/srv/openlims/data`）。
 2. 预生产库按 `V1`—`V13` 建库 → 造历史数据：一条**已过期的 `STANDARD` 任务**（含已通过、已发过积分的对象）、一条进行中的 `STANDARD`、一条 `ONBOARDING`（含一个已逾期对象）。
 3. 执行 `V14`：核对 `points_settled_at` 已加上、历史 `STANDARD` 任务已被回填、`ONBOARDING` 未被回填；重复执行确认幂等。
 4. 以 `ddl-auto=validate` 启动后端，确认结构校验通过。
@@ -407,7 +407,7 @@ PREPARE backfill_settled FROM @stmt; EXECUTE backfill_settled; DEALLOCATE PREPAR
 > 断言脚本 `.codex-run/ui-review/verify-settlement-ui.mjs`（**14 项全部通过**）+ 10 张截图
 > （1440/375，`.codex-run/ui-review/settle-*.png`），全部页面 `scrollWidth == innerWidth`。
 
-沿用 `design-system/yes-lab/MASTER.md` 与既有的三条 `ui-ux-pro-max` 规则（剩余数量用 `role="status"` 完整句子播报、不可逆动作二次确认、异步提交期间禁用按钮）+ `Disabled States`（到期/满员的禁用态必须明显区别于可用态）。本次新增的界面要点：
+沿用 `design-system/openlims/MASTER.md` 与既有的三条 `ui-ux-pro-max` 规则（剩余数量用 `role="status"` 完整句子播报、不可逆动作二次确认、异步提交期间禁用按钮）+ `Disabled States`（到期/满员的禁用态必须明显区别于可用态）。本次新增的界面要点：
 
 - **统一显示「截止日期 + 剩余天数」**，到期后替换为「已截止」；成员端提交/放弃/接取按钮进入 `disabled` 且写明原因，不用静默禁用。
 - **可写性由后端裁定**：`MyTaskView` / `MyTaskDetailView` 新增 `expired` / `editable` / `pointsSettled`，
@@ -430,7 +430,7 @@ PREPARE backfill_settled FROM @stmt; EXECUTE backfill_settled; DEALLOCATE PREPAR
 | **新手任务冻结可能堵死招新**                                    | 新增「按人延长」出口；界面在逾期对象上就地给出延长与打回两个动作；三个出口都写审计                       |
 | **结算重复执行（多实例 / 调度重入）**                           | 任务级条件更新认领 + 每人来源编号唯一；`compose.yaml` 当前单实例，但按多实例安全设计                     |
 | **JPA 批量更新与持久化上下文不一致**                            | 认领后重新读取任务，或用 `clearAutomatically`，避免把 `points_settled_at` 写回 `NULL`                    |
-| **调度线程事务提交污染依赖回滚的测试**                          | `yeslab.task.settlement.enabled` 在测试 `application.yml` 关闭；测试直接调用结算 Service                 |
+| **调度线程事务提交污染依赖回滚的测试**                          | `openlims.task.settlement.enabled` 在测试 `application.yml` 关闭；测试直接调用结算 Service               |
 | **`@Scheduled` 时区漏写会算错一天**                             | 显式 `zone = "Asia/Shanghai"`，与到期判定对齐；与既有 interviews 清理的 UTC 有意不同并写明               |
 | **`settleAllDue` 与 `settle` 自调用导致 `@Transactional` 失效** | 通过代理调用或拆独立 bean；用「认领只有一次」的并发断言覆盖                                              |
 | **既有 50 项测试大面积失败**                                    | 按第 9.3 节逐项改造而非删除，且不放宽任何断言；新手任务测试需确认 `due_date` 在未来                      |

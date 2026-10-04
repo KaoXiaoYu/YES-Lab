@@ -1,0 +1,86 @@
+/* Shape/typography vary by preset; business layout and semantics stay shared. */
+:root {
+  font-family: var(--font-body);
+  --radius-card: var(--preset-radius);
+  --radius-control: 8px;
+}
+.portal-page.portal-page--admin {
+  --admin-bg: var(--color-background);
+  --admin-card: var(--color-card);
+  --admin-card-muted: var(--color-surface-soft);
+  --admin-foreground: var(--color-foreground);
+  --admin-muted: var(--color-muted-foreground);
+  --admin-subtle: var(--color-text-secondary);
+  --admin-border: var(--color-border);
+  --admin-border-strong: var(--color-border-strong);
+  --admin-primary: var(--color-primary);
+  --admin-accent: var(--color-secondary);
+  --admin-accent-soft: var(--color-info-surface);
+}
+.portal-page--admin :is(button, select, input:not([type='checkbox']):not([type='radio'])) {
+  min-height: 44px;
+}
+.portal-page--admin button {
+  min-width: 44px;
+}
+.hero h1,
+.portal-heading h1,
+.admin-shell-heading h1,
+.section-heading h2,
+.about-section h2,
+.contact-section h2,
+.auth-panel h1 {
+  font-family: var(--font-heading);
+}
+.portal-card,
+.portal-section,
+.project-card,
+.auth-panel,
+.admin-stat-card {
+  border-radius: var(--preset-radius);
+}
+:root[data-ui-preset='engineering'] .hero {
+  background-image:
+    linear-gradient(var(--color-border-faint) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border-faint) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+:root[data-ui-preset='academic'] .section-heading {
+  border-top: 2px solid var(--color-primary);
+  padding-top: 24px;
+}
+.repository-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding: 20px max(20px, calc((100vw - 1280px) / 2));
+  color: var(--color-text-secondary);
+  background: var(--color-card);
+  border-top: 1px solid var(--color-border);
+  font-size: 13px;
+}
+.repository-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--color-primary);
+  overflow-wrap: anywhere;
+}
+.repository-footer svg {
+  flex-shrink: 0;
+}
+@media (max-width: 760px) {
+  .repository-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+@media (min-width: 961px) {
+  .portal-page--admin + .repository-footer {
+    margin-left: 252px;
+    padding-inline: 32px;
+  }
+}

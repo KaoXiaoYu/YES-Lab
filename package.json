@@ -1,8 +1,8 @@
 {
-  "name": "yes-lab-platform",
+  "name": "openlims-platform",
   "version": "0.1.0",
   "private": true,
-  "description": "YES Lab 实验室展示、成员协作与管理平台",
+  "description": "OpenLIMS 实验室展示、成员协作与管理平台",
   "type": "module",
   "packageManager": "npm@10.9.7",
   "engines": {
@@ -31,7 +31,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@openai/sites-vite-plugin": "^0.2.0",
     "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-vue": "^6.0.2",
     "eslint": "^10.10.0",

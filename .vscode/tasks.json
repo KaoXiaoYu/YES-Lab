@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "YES Lab: 启动后端",
+      "label": "OpenLIMS: 启动后端",
       "type": "shell",
       "command": "task_java_home=$(/usr/libexec/java_home -v 21) && export JAVA_HOME=\"$task_java_home\" && export PATH=\"$JAVA_HOME/bin:$PATH\" && ./mvnw spring-boot:run",
       "options": {
@@ -12,12 +12,12 @@
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",
-        "group": "yes-lab-backend",
+        "group": "openlims-backend",
         "clear": true
       }
     },
     {
-      "label": "YES Lab: 启动前端",
+      "label": "OpenLIMS: 启动前端",
       "type": "shell",
       "command": "npm run dev -- --host 127.0.0.1",
       "options": {
@@ -27,13 +27,13 @@
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",
-        "group": "yes-lab-frontend",
+        "group": "openlims-frontend",
         "clear": true
       }
     },
     {
-      "label": "YES Lab: 一键启动本地开发",
-      "dependsOn": ["YES Lab: 启动后端", "YES Lab: 启动前端"],
+      "label": "OpenLIMS: 一键启动本地开发",
+      "dependsOn": ["OpenLIMS: 启动后端", "OpenLIMS: 启动前端"],
       "dependsOrder": "parallel",
       "problemMatcher": [],
       "group": {

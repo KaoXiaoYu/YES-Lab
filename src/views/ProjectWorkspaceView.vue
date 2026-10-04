@@ -1,4 +1,5 @@
 <script setup>
+import { brand } from '../config/site'
 import {
   CalendarDays,
   ExternalLink,
@@ -457,7 +458,7 @@ async function saveTeam() {
               <div>
                 <p id="project-cover-editor-title">PROJECT COVER</p>
                 <h3>项目主图</h3>
-                <span>推荐 16:10 横图，支持 JPG、PNG、WebP，文件不超过 8MB。未上传时显示 YES Lab 默认图。</span
+                <span>推荐 16:10 横图，支持 JPG、PNG、WebP，文件不超过 8MB。未上传时显示 {{ brand.name }} 默认图。</span
                 ><label class="project-cover-file"
                   >选择图片<input
                     ref="coverInput"

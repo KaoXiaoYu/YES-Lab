@@ -132,7 +132,7 @@ function resume() {
   load()
 }
 function storage(event) {
-  if (event.key === 'yeslab-deadlines-changed') load()
+  if (event.key === 'openlims-deadlines-changed') load()
 }
 watch(
   () => authState.account?.id,
@@ -154,7 +154,7 @@ onMounted(() => {
   }, 60000)
   document.addEventListener('visibilitychange', resume)
   window.addEventListener('focus', resume)
-  window.addEventListener('yeslab:deadlines-changed', load)
+  window.addEventListener('openlims:deadlines-changed', load)
   window.addEventListener('storage', storage)
 })
 onBeforeUnmount(() => {
@@ -164,7 +164,7 @@ onBeforeUnmount(() => {
   clearTimeout(boundaryTimer)
   document.removeEventListener('visibilitychange', resume)
   window.removeEventListener('focus', resume)
-  window.removeEventListener('yeslab:deadlines-changed', load)
+  window.removeEventListener('openlims:deadlines-changed', load)
   window.removeEventListener('storage', storage)
 })
 </script>

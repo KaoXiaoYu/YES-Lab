@@ -1,4 +1,5 @@
 <script setup>
+import { brand } from '../config/site'
 import ThemeToggle from '../components/ThemeToggle.vue'
 import { ArrowLeft, ArrowRight, MessageSquareText, Menu, Reply, X } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
@@ -41,8 +42,8 @@ function formatTime(value) {
   <main class="site-shell public-member-page">
     <a class="skip-link" href="#member-profile">跳到成员资料</a>
     <header class="site-header">
-      <RouterLink class="brand" to="/" aria-label="返回 YES Lab 首页">
-        <img src="/yes-lab-logo.png" alt="YES Lab" width="900" height="506" />
+      <RouterLink class="brand" to="/" :aria-label="`返回 ${brand.name} 首页`">
+        <img :src="brand.logo" :alt="brand.name" width="900" height="300" />
         <span>MEMBER PROFILE</span>
       </RouterLink>
       <nav :class="['top-nav', { open: menuOpen }]" aria-label="成员主页导航">
@@ -73,7 +74,7 @@ function formatTime(value) {
 
     <section id="member-profile" class="public-member-main">
       <header class="public-member-heading">
-        <p>YES LAB / PEOPLE</p>
+        <p>{{ brand.name }} / PEOPLE</p>
         <h1>{{ profile?.name || '成员主页' }}</h1>
         <span>成员公开档案 · 项目、能力与成长记录</span>
       </header>

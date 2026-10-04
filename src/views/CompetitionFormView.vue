@@ -332,7 +332,7 @@ async function submit() {
       throw new Error('后端未确认收到证书，请不要重复提交并联系管理员检查服务日志。')
     if (imageFiles.value.length && item?.images?.length !== imageFiles.value.length)
       throw new Error('后端返回的比赛图片数量与本次上传不一致，请不要重复提交。')
-    window.dispatchEvent(new Event('yeslab:competitions-changed'))
+    window.dispatchEvent(new Event('openlims:competitions-changed'))
     const wasEditing = editing.value
     const savedAssets = [
       registration.value ? '报名截图' : '',

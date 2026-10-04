@@ -21,15 +21,15 @@ const readCount = computed(() => Math.max(0, inbox.value.messages.length - inbox
 
 onMounted(async () => {
   await refresh()
-  window.addEventListener('yeslab:notifications-updated', refresh)
-  window.addEventListener('yeslab:notification-settings-updated', refresh)
-  window.addEventListener('yeslab:notification-appearance-changed', refresh)
+  window.addEventListener('openlims:notifications-updated', refresh)
+  window.addEventListener('openlims:notification-settings-updated', refresh)
+  window.addEventListener('openlims:notification-appearance-changed', refresh)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('yeslab:notifications-updated', refresh)
-  window.removeEventListener('yeslab:notification-settings-updated', refresh)
-  window.removeEventListener('yeslab:notification-appearance-changed', refresh)
+  window.removeEventListener('openlims:notifications-updated', refresh)
+  window.removeEventListener('openlims:notification-settings-updated', refresh)
+  window.removeEventListener('openlims:notification-appearance-changed', refresh)
 })
 
 async function refresh() {
@@ -49,7 +49,7 @@ async function openMessage(message) {
   try {
     if (!message.read) {
       inbox.value = await markNotificationRead(message.id)
-      window.dispatchEvent(new CustomEvent('yeslab:notifications-updated'))
+      window.dispatchEvent(new CustomEvent('openlims:notifications-updated'))
     }
     if (message.targetPath) await router.push(message.targetPath)
   } catch (error) {
@@ -64,7 +64,7 @@ async function readAll() {
   errorMessage.value = ''
   try {
     inbox.value = await markAllNotificationsRead()
-    window.dispatchEvent(new CustomEvent('yeslab:notifications-updated'))
+    window.dispatchEvent(new CustomEvent('openlims:notifications-updated'))
   } catch (error) {
     errorMessage.value = error.message
   } finally {

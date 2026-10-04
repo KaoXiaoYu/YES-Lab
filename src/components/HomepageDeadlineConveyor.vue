@@ -237,7 +237,7 @@ function resume() {
   }
 }
 function storage(event) {
-  if (event.key === 'yeslab-deadlines-changed') load()
+  if (event.key === 'openlims-deadlines-changed') load()
 }
 function mediaChange() {
   reduced.value = media.matches
@@ -266,7 +266,7 @@ onMounted(() => {
   window.addEventListener('focus', resume)
   window.addEventListener('pointerup', releaseTouch)
   window.addEventListener('pointercancel', releaseTouch)
-  window.addEventListener('yeslab:deadlines-changed', load)
+  window.addEventListener('openlims:deadlines-changed', load)
   window.addEventListener('storage', storage)
 })
 onBeforeUnmount(() => {
@@ -282,7 +282,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('focus', resume)
   window.removeEventListener('pointerup', releaseTouch)
   window.removeEventListener('pointercancel', releaseTouch)
-  window.removeEventListener('yeslab:deadlines-changed', load)
+  window.removeEventListener('openlims:deadlines-changed', load)
   window.removeEventListener('storage', storage)
 })
 </script>
