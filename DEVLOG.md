@@ -1741,3 +1741,9 @@
 
 - GitHub 上传进度：本地提交 `d4577eb` 已完成，恢复 C++ 既有执行权限且未提交本机 `.cph` 路径变化；两次实际 HTTPS 推送均被网络 `Empty reply from server` 中断，官方 main 仍为 `43a3b39`，不能报告上传成功。HTTP/1.1 dry-run 连接与快进检查通过。
 - GitHub OAuth 响应确认当前 scopes 为 `gist, read:org, repo`，缺少修改 CI 所需 `workflow`；已请求用户执行 `gh auth refresh -h github.com -s workflow`。本次仅保存已准备的代码与审计记录，等待授权后使用有界日志、缓冲 POST 重试，再核对远端 SHA/Actions。未连接生产，未留下推送后台进程。
+
+## 2026-10-05：开源适配已上传 GitHub
+
+- 用户确认已授权，OAuth scopes 已包含 workflow。通过 HTTP/1.1 和 8 MiB 缓冲 POST 快进推送成功：官方 `YESlab-UAVtech/OpenLIMS` 的 main 从 `43a3b39` 更新到 `ab3d2cbee907cf09c589419e54ac0e6bd148a556`，包含适配代码提交 `d4577eb` 和审计记录；GitHub API 与本地 HEAD 一致，未强推、未改写远端历史。
+- 对官方基线核对全部迁移，Git diff 为空；依赖、环境密钥、截图、临时实例与测试日志未上传。本机 `.cph` 练习路径调整仍单独保留未提交；本轮未改业务代码、未连接生产、未留下后台推送进程。
+- GitHub Actions 仓库权限 enabled、工作流 `Test and publish images` active；首次查询尚无运行记录，不能宣称远端 CI 或 GHCR 镜像已验证。此前本地 115 项后端测试、前端检查与浏览器验收结果不变；MySQL 8.4 实机迁移/并发、生产环境初始化和备份恢复仍按验证文档待验。
