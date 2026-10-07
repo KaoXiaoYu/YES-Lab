@@ -1,19 +1,20 @@
 <script setup>
 import { ArrowLeft, CheckCircle2, ChevronRight, CircleDashed, Gift, TriangleAlert } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import { abandonBounty, claimBounty, getBountyDetail } from '../services/authApi'
+import { celebrate } from '../services/celebrate'
+import { confirmAction } from '../services/confirm'
+import { toast } from '../services/toast'
 
 const route = useRoute()
-const router = useRouter()
 const bounty = ref(null)
 const loading = ref(true)
 const working = ref(false)
 const errorMessage = ref('')
 const actionError = ref('')
-const actionStatus = ref('')
-const confirmingClaim = ref(false)
 
 const myStatusLabels = {
   PENDING: '进行中',
@@ -30,8 +31,8 @@ const headcountText = computed(() => {
     : `已接 ${prize.claimed} / ${prize.headcountLimit}`
 })
 
-async function load() {
-  loading.value = true
+async function load({ quiet = false } = {}) {
+  if (!quiet) loading.value = true
   try {
     bounty.value = await getBountyDetail(route.params.taskId)
   } catch (error) {
@@ -44,13 +45,31 @@ async function load() {
 onMounted(load)
 
 async function claim() {
+  const prize = bounty.value.prize
+  if (
+    !(await confirmAction({
+      title: `接取「${bounty.value.title}」？`,
+      message: '接取会占用一个名额，提交即完成并锁定名次。',
+      details: [
+        prize?.prizeSlots ? `最先完成的 ${prize.prizeSlots} 人获得奖金。` : '这条悬赏没有设置奖金份数。',
+        '放弃后名额会归还，但你不能再次接取。',
+      ],
+      confirmText: '接取',
+    }))
+  )
+    return
   working.value = true
   actionError.value = ''
   try {
     const result = await claimBounty(bounty.value.taskId)
-    confirmingClaim.value = false
-    // 接取后直接进入任务详情页（复用「我的任务」的提交与子任务页面）。
-    await router.push(`/tasks/${result.assignmentId}`)
+    await load({ quiet: true })
+    // 留在悬赏页庆祝，再由成员决定何时开始。
+    celebrate({
+      title: '接取成功',
+      message: `「${bounty.value.title}」已加入你的任务，越早提交名次越靠前。`,
+      actionLabel: '去开始',
+      actionTo: `/tasks/${result.assignmentId}`,
+    })
   } catch (error) {
     actionError.value = error.message
   } finally {
@@ -59,14 +78,22 @@ async function claim() {
 }
 
 async function abandon() {
-  if (!window.confirm('确认放弃这条悬赏？放弃后名额会归还，但你不能再接取它。')) return
+  if (
+    !(await confirmAction({
+      title: '放弃这条悬赏？',
+      message: '放弃后名额会归还，但你不能再接取它。',
+      confirmText: '放弃悬赏',
+      cancelText: '继续完成',
+      tone: 'danger',
+    }))
+  )
+    return
   working.value = true
   actionError.value = ''
-  actionStatus.value = ''
   try {
     const result = await abandonBounty(bounty.value.taskId)
     const title = bounty.value.title
-    await load()
+    await load({ quiet: true })
     const prize = bounty.value.prize
     const prizeStatus = prize.prizeSlots
       ? `奖金已产生 ${prize.prizeIssued} / ${prize.prizeSlots} 份。`
@@ -75,7 +102,7 @@ async function abandon() {
       bounty.value.prize.headcountLimit == null
         ? `已接 ${result.occupied} 人，不限人数`
         : `已接 ${result.occupied} / ${bounty.value.prize.headcountLimit} 人`
-    actionStatus.value = `已放弃「${title}」。当前${headcountStatus}；${prizeStatus}`
+    toast.info(`当前${headcountStatus}；${prizeStatus}`, { title: `已放弃「${title}」` })
   } catch (error) {
     actionError.value = error.message
   } finally {
@@ -85,14 +112,11 @@ async function abandon() {
 </script>
 
 <template>
-  <PortalShell eyebrow="COLLABORATION / BOUNTY" title="悬赏详情" description="查看奖励与名额；接取后提交即完成。">
+  <PortalShell title="悬赏详情" description="查看奖励与名额；接取后提交即完成。">
     <RouterLink class="task-back" to="/bounties"><ArrowLeft :size="16" aria-hidden="true" />返回悬赏榜</RouterLink>
 
-    <div v-if="loading" class="portal-state">正在读取悬赏…</div>
+    <LoadingSkeleton v-if="loading" variant="detail" :rows="3" label="正在读取悬赏" />
     <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
-    <p v-if="actionStatus" class="portal-state success" role="status" aria-atomic="true">
-      {{ actionStatus }}
-    </p>
 
     <template v-if="bounty && !loading && !errorMessage">
       <section class="task-panel" aria-labelledby="bounty-title">
@@ -160,29 +184,9 @@ async function abandon() {
         </p>
 
         <div v-if="!bounty.myAssignmentId" class="task-card-actions">
-          <template v-if="bounty.claimable">
-            <button
-              v-if="!confirmingClaim"
-              class="portal-primary"
-              type="button"
-              :disabled="working"
-              @click="confirmingClaim = true"
-            >
-              <Gift :size="15" aria-hidden="true" />立即接取
-            </button>
-            <Transition name="task-reveal">
-              <div v-if="confirmingClaim" class="bounty-confirm" role="group" aria-label="确认接取">
-                <p>
-                  <TriangleAlert :size="15" aria-hidden="true" />
-                  接取会占用名额；放弃后不能再次接取。
-                </p>
-                <button class="portal-primary" type="button" :disabled="working" @click="claim">
-                  {{ working ? '接取中…' : '确认接取' }}
-                </button>
-                <button class="portal-secondary" type="button" @click="confirmingClaim = false">取消</button>
-              </div>
-            </Transition>
-          </template>
+          <button v-if="bounty.claimable" class="portal-primary" type="button" :disabled="working" @click="claim">
+            <Gift :size="15" aria-hidden="true" />{{ working ? '接取中…' : '接取悬赏' }}
+          </button>
         </div>
 
         <div v-else class="task-card-actions">

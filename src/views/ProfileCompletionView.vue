@@ -1,4 +1,5 @@
 <script setup>
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import { brand } from '../config/site'
 import { LogOut, Save, ShieldCheck } from '@lucide/vue'
 import { onMounted, reactive, ref } from 'vue'
@@ -101,7 +102,6 @@ async function signOut() {
       <header class="profile-completion-heading">
         <span class="profile-completion-icon"><ShieldCheck :size="23" aria-hidden="true" /></span>
         <div>
-          <p>MEMBER PROFILE</p>
           <h1 id="profile-completion-title">完善成员资料</h1>
         </div>
       </header>
@@ -111,7 +111,7 @@ async function signOut() {
         内部编号和能力标签；编号需全站唯一，提交成功后即可进入你原本要访问的页面。
       </p>
 
-      <div v-if="loading" class="portal-state" role="status">正在读取成员资料…</div>
+      <LoadingSkeleton v-if="loading" variant="detail" :rows="3" label="正在读取成员资料" />
       <div v-else-if="!profile && errorMessage" class="profile-completion-error" role="alert">
         <p>{{ errorMessage }}</p>
         <button type="button" class="portal-secondary" @click="loadProfile">重试</button>

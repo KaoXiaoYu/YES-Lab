@@ -1,0 +1,170 @@
+/*
+ * Shared Vue <Transition> classes. Every transition animates only opacity and
+ * transform, uses the motion tokens from tokens.css, and collapses to an instant
+ * change under prefers-reduced-motion (the duration tokens become 1ms there).
+ *
+ *   fade   – overlays, inline status
+ *   rise   – sections and cards appearing in place
+ *   page   – top-level page changes; opacity only, so fixed headers never shift
+ *   route  – admin content changes (leave is short so the next page is never held back)
+ *   reveal – inline panels that open below their trigger
+ *   list   – <TransitionGroup> rows, with smooth reordering
+ *   pop    – small floating elements (badges, menus)
+ */
+.fade-enter-active {
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+.fade-leave-active {
+  transition: opacity var(--duration-fast) var(--ease-in);
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.rise-enter-active,
+.route-enter-active {
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-slow) var(--ease-out);
+}
+.rise-leave-active {
+  transition:
+    opacity var(--duration-fast) var(--ease-in),
+    transform var(--duration-fast) var(--ease-in);
+}
+.route-leave-active {
+  transition: opacity var(--duration-instant) var(--ease-in);
+}
+.rise-enter-from,
+.route-enter-from {
+  opacity: 0;
+  transform: translate3d(0, 8px, 0);
+}
+.rise-leave-to {
+  opacity: 0;
+  transform: translate3d(0, 4px, 0);
+}
+.route-leave-to {
+  opacity: 0;
+}
+
+.reveal-enter-active,
+.task-reveal-enter-active {
+  transform-origin: top center;
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-base) var(--ease-out);
+}
+.reveal-leave-active,
+.task-reveal-leave-active {
+  transform-origin: top center;
+  transition:
+    opacity var(--duration-fast) var(--ease-in),
+    transform var(--duration-fast) var(--ease-in);
+}
+.reveal-enter-from,
+.reveal-leave-to,
+.task-reveal-enter-from,
+.task-reveal-leave-to {
+  opacity: 0;
+  transform: translate3d(0, -4px, 0) scaleY(0.98);
+}
+
+.list-enter-active,
+.task-list-enter-active {
+  transition:
+    opacity var(--duration-base) var(--ease-out),
+    transform var(--duration-slow) var(--ease-out);
+}
+.list-leave-active,
+.task-list-leave-active {
+  transition:
+    opacity var(--duration-fast) var(--ease-in),
+    transform var(--duration-fast) var(--ease-in);
+}
+.list-move,
+.task-list-move {
+  transition: transform var(--duration-slow) var(--ease-out);
+}
+.list-enter-from,
+.task-list-enter-from {
+  opacity: 0;
+  transform: translate3d(0, 8px, 0);
+}
+.list-leave-to,
+.task-list-leave-to {
+  opacity: 0;
+  transform: translate3d(0, 0, 0) scale(0.98);
+}
+
+.pop-enter-active {
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-base) var(--ease-spring);
+}
+.pop-leave-active {
+  transition:
+    opacity var(--duration-instant) var(--ease-in),
+    transform var(--duration-instant) var(--ease-in);
+}
+.pop-enter-from,
+.pop-leave-to {
+  opacity: 0;
+  transform: scale(0.94);
+}
+
+.page-enter-active {
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+.page-leave-active {
+  transition: opacity var(--duration-instant) var(--ease-in);
+}
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+}
+
+/* Member-system pages: the content (not the fixed top bar) rises in on mount. */
+@keyframes ui-content-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+}
+.portal-page:not(.portal-page--admin) > .portal-main {
+  animation: ui-content-in var(--duration-slow) var(--ease-out) both;
+}
+
+/* Highlight a row that was just created or updated. */
+@keyframes ui-flash {
+  from {
+    background-color: var(--color-selected);
+  }
+}
+.ui-flash {
+  animation: ui-flash 1.6s var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise-enter-from,
+  .route-enter-from,
+  .reveal-enter-from,
+  .task-reveal-enter-from,
+  .list-enter-from,
+  .task-list-enter-from,
+  .pop-enter-from,
+  .rise-leave-to,
+  .route-leave-to,
+  .reveal-leave-to,
+  .task-reveal-leave-to,
+  .list-leave-to,
+  .task-list-leave-to,
+  .pop-leave-to {
+    transform: none;
+  }
+  .ui-flash,
+  .portal-page:not(.portal-page--admin) > .portal-main {
+    animation: none;
+  }
+}

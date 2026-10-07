@@ -47,6 +47,7 @@ export async function register(credentials) {
 }
 
 export async function logout() {
+  clearAccountDrafts(authState.account?.id ?? authState.account?.username)
   try {
     await fetch(`${apiBaseUrl}/api/v1/auth/logout`, {
       method: 'POST',
@@ -90,6 +91,9 @@ export async function updateOwnProfile(payload) {
   return profile
 }
 
+export function getAdminOverview() {
+  return apiRequest('/api/v1/admin/overview')
+}
 export function listMembers() {
   return apiRequest('/api/v1/admin/members')
 }
@@ -414,6 +418,11 @@ export function updateDiscussion(postId, payload) {
 export function deleteDiscussion(postId) {
   return apiRequest(`/api/v1/discussions/${postId}`, { method: 'DELETE' })
 }
+export function listDiscussionPage({ sort = 'NEWEST', page = 0, size = 20, q = '' } = {}) {
+  const params = new URLSearchParams({ sort, page, size })
+  if (q.trim()) params.set('q', q.trim())
+  return apiRequest(`/api/v1/discussions/page?${params}`, { optionalAuthentication: true })
+}
 export function toggleDiscussionLike(postId) {
   return apiRequest(`/api/v1/discussions/${postId}/like`, { method: 'PATCH' })
 }
@@ -496,6 +505,19 @@ function syncAccountAvatar(profile) {
   if (!authState.account) return
   authState.account.displayName = profile.name
   authState.account.avatarUrl = profile.avatarUrl
+}
+
+// Unsent drafts (see useDraft) stay in this browser only while their author is signed in.
+function clearAccountDrafts(owner) {
+  if (owner == null) return
+  try {
+    const prefix = `yeslab:draft:${owner}:`
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(prefix))
+      .forEach((key) => localStorage.removeItem(key))
+  } catch {
+    // Storage unavailable; nothing to clear.
+  }
 }
 
 function clearSession() {

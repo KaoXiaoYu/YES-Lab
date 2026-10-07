@@ -2,7 +2,7 @@ import { reactive } from 'vue'
 
 const defaults = {
   open: false,
-  eyebrow: 'SUBMISSION COMPLETE',
+  eyebrow: '',
   title: '提交成功',
   message: '内容已经保存。',
   confirmLabel: '我知道了',

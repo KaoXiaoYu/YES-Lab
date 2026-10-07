@@ -1,0 +1,215 @@
+/*
+ * YES Lab design tokens — the single source of color, elevation, shape and motion.
+ *
+ * Presets in config/appearance.json are injected by vite.config.js as `:root:root`
+ * and override only the brand anchors below. Every other color derives from those
+ * anchors with color-mix(), so each preset automatically gets a coherent neutral
+ * ramp, hover/pressed states and status surfaces in both light and dark themes.
+ * Components should use these semantic names instead of literal colors.
+ */
+:root {
+  color-scheme: light;
+
+  /* Brand anchors (preset-overridable). */
+  --color-primary: #1e3a5f;
+  --color-primary-fill: #1e3a5f;
+  --color-secondary: #1d4ed8;
+  --color-accent: #1d4ed8;
+  --color-accent-fill: #1d4ed8;
+  --color-accent-surface: #eff6ff;
+  --color-accent-highlight: #dbeafe;
+  --color-accent-border: #93c5fd;
+  --color-background: #f8fafc;
+  --color-surface-soft: #f1f5f9;
+  --color-ring: #1d4ed8;
+  --color-on-primary: #ffffff;
+  --color-on-secondary: #ffffff;
+  --color-on-accent: #ffffff;
+
+  /* Neutral ramp, tinted by the preset hue. */
+  --tint: var(--color-primary);
+  --color-card: #ffffff;
+  --color-elevated: #ffffff;
+  --color-surface-subtle: var(--color-surface-soft);
+  --color-surface-muted: color-mix(in oklab, var(--color-surface-soft) 93%, var(--tint));
+  --color-muted: var(--color-surface-muted);
+  --color-foreground: color-mix(in oklab, #0b1220 84%, var(--tint));
+  --color-card-foreground: var(--color-foreground);
+  --color-text-strong: color-mix(in oklab, #273244 86%, var(--tint));
+  --color-text-secondary: color-mix(in oklab, #465467 88%, var(--tint));
+  --color-muted-foreground: var(--color-text-secondary);
+  --color-text-subtle: color-mix(in oklab, #536174 88%, var(--tint));
+  --color-border-faint: color-mix(in oklab, #e4e9f0 93%, var(--tint));
+  --color-border-soft: color-mix(in oklab, #d8dfe8 91%, var(--tint));
+  --color-border: color-mix(in oklab, #c8d1dd 89%, var(--tint));
+  /* Control boundaries keep 3:1 against background, card and muted surfaces (WCAG 1.4.11). */
+  --color-border-strong: color-mix(in oklab, #6f7d91 90%, var(--tint));
+  --color-header: color-mix(in oklab, var(--color-background) 92%, transparent);
+  --color-overlay: color-mix(in oklab, #0b1220 46%, transparent);
+
+  /* Brand interaction states. */
+  --color-primary-hover: color-mix(in oklab, var(--color-primary-fill) 86%, #000);
+  --color-primary-pressed: color-mix(in oklab, var(--color-primary-fill) 76%, #000);
+  --color-primary-soft: color-mix(in oklab, var(--color-primary-fill) 8%, var(--color-card));
+  --color-secondary-soft: color-mix(in oklab, var(--color-secondary) 9%, var(--color-card));
+  --color-secondary-border: color-mix(in oklab, var(--color-secondary) 34%, var(--color-card));
+  --color-hover: color-mix(in oklab, var(--tint) 6%, transparent);
+  --color-pressed: color-mix(in oklab, var(--tint) 11%, transparent);
+  --color-selected: color-mix(in oklab, var(--color-secondary) 10%, var(--color-card));
+
+  /* Inverse surfaces (navigation rail, ink panels) follow the preset hue. */
+  --color-inverse: color-mix(in oklab, var(--color-primary-fill) 34%, #070b12);
+  --color-inverse-raised: color-mix(in oklab, var(--color-primary-fill) 44%, #0e1520);
+  --color-inverse-foreground: #f4f7fb;
+  --color-inverse-muted: color-mix(in oklab, #d6dde7 92%, var(--color-primary-fill));
+  --color-inverse-subtle: color-mix(in oklab, #8693a6 88%, var(--color-primary-fill));
+  --color-inverse-border: color-mix(in oklab, #ffffff 9%, transparent);
+  --color-inverse-accent: color-mix(in oklab, var(--color-secondary) 36%, #ffffff);
+  --color-inverse-border-strong: color-mix(in oklab, #ffffff 22%, transparent);
+  /* Warm highlight used on ink panels (eyebrows, numerals, ranks). */
+  --color-inverse-highlight: #f4cd86;
+  --color-inverse-highlight-strong: #d6a85a;
+
+  /* Status colors: foreground / surface / border. */
+  --color-success: #166534;
+  --color-success-fill: #166534;
+  --color-success-surface: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-warning: #92400e;
+  --color-warning-surface: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-danger: #b91c1c;
+  --color-danger-strong: #991b1b;
+  --color-danger-surface: #fff1f2;
+  --color-danger-soft: #fff7f7;
+  --color-danger-border: #fecaca;
+  --color-destructive: var(--color-danger);
+  --color-on-destructive: #ffffff;
+  --color-info: var(--color-secondary);
+  --color-info-surface: color-mix(in oklab, var(--color-secondary) 7%, var(--color-card));
+  --color-info-border: color-mix(in oklab, var(--color-secondary) 28%, var(--color-card));
+
+  /* Neutral canvas for logos, certificates and documents. */
+  --color-canvas: #ffffff;
+
+  /* Elevation. */
+  --shadow-color: 222 47% 11%;
+  --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.05);
+  --shadow-sm: 0 1px 2px hsl(var(--shadow-color) / 0.06), 0 1px 3px hsl(var(--shadow-color) / 0.04);
+  --shadow-md: 0 2px 4px hsl(var(--shadow-color) / 0.04), 0 8px 20px -6px hsl(var(--shadow-color) / 0.12);
+  --shadow-lg: 0 4px 8px hsl(var(--shadow-color) / 0.04), 0 18px 44px -14px hsl(var(--shadow-color) / 0.2);
+  --shadow-xl: 0 8px 16px hsl(var(--shadow-color) / 0.06), 0 32px 72px -24px hsl(var(--shadow-color) / 0.32);
+  --shadow-card: var(--shadow-sm);
+  --focus-ring: 0 0 0 3px color-mix(in oklab, var(--color-ring) 26%, transparent);
+
+  /* Shape. */
+  --radius-control: 8px;
+  --radius-card: var(--preset-radius, 12px);
+  --radius-panel: calc(var(--preset-radius, 12px) + 4px);
+  --radius-pill: 999px;
+
+  /* Spacing. */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Motion: feedback 90–200ms, panels 280ms; only transform and opacity animate. */
+  --duration-instant: 90ms;
+  --duration-fast: 140ms;
+  --duration-base: 200ms;
+  --duration-slow: 280ms;
+  --duration-slower: 420ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-standard: var(--ease-out);
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+
+  /* Layers. */
+  --z-sticky: 40;
+  --z-header: 60;
+  --z-nav: 70;
+  --z-drawer: 90;
+  --z-dialog: 100;
+  --z-toast: 110;
+
+  --site-header-height: 80px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-primary: #b9d5fb;
+  --color-primary-fill: #284f7e;
+  --color-secondary: #93c5fd;
+  --color-accent: #93c5fd;
+  --color-accent-fill: #1d4ed8;
+  --color-accent-surface: #182f4b;
+  --color-accent-highlight: #243b5b;
+  --color-accent-border: #5b708f;
+  --color-background: #0b1423;
+  --color-surface-soft: #111e31;
+  --color-ring: #93c5fd;
+
+  --color-card: color-mix(in oklab, var(--color-background) 90%, var(--tint));
+  --color-elevated: color-mix(in oklab, var(--color-background) 85%, var(--tint));
+  --color-surface-muted: color-mix(in oklab, var(--color-background) 83%, var(--tint));
+  --color-foreground: color-mix(in oklab, #eef2f7 90%, var(--tint));
+  --color-text-strong: color-mix(in oklab, #d4dce7 88%, var(--tint));
+  --color-text-secondary: color-mix(in oklab, #b3bfce 86%, var(--tint));
+  --color-text-subtle: color-mix(in oklab, #a1aebf 86%, var(--tint));
+  --color-border-faint: color-mix(in oklab, var(--color-background) 82%, var(--tint));
+  --color-border-soft: color-mix(in oklab, var(--color-background) 78%, var(--tint));
+  --color-border: color-mix(in oklab, var(--color-background) 70%, var(--tint));
+  --color-border-strong: color-mix(in oklab, var(--color-background) 40%, var(--tint));
+  --color-overlay: color-mix(in oklab, #000 62%, transparent);
+
+  --color-primary-hover: color-mix(in oklab, var(--color-primary-fill) 84%, #fff);
+  --color-primary-pressed: color-mix(in oklab, var(--color-primary-fill) 88%, #000);
+  --color-primary-soft: color-mix(in oklab, var(--color-primary) 10%, var(--color-card));
+  --color-secondary-soft: color-mix(in oklab, var(--color-secondary) 12%, var(--color-card));
+  --color-secondary-border: color-mix(in oklab, var(--color-secondary) 38%, var(--color-card));
+  --color-hover: color-mix(in oklab, var(--tint) 8%, transparent);
+  --color-pressed: color-mix(in oklab, var(--tint) 14%, transparent);
+  --color-selected: color-mix(in oklab, var(--color-secondary) 14%, var(--color-card));
+
+  --color-inverse: color-mix(in oklab, var(--color-background) 72%, #000);
+  --color-inverse-raised: color-mix(in oklab, var(--color-background) 88%, var(--tint));
+
+  --color-success: #a7e4b8;
+  --color-success-surface: #17352d;
+  --color-success-border: #426c58;
+  --color-warning: #f1c779;
+  --color-warning-surface: #302719;
+  --color-warning-border: #78623d;
+  --color-danger: #fca5a5;
+  --color-danger-strong: #fecaca;
+  --color-danger-surface: #391f2b;
+  --color-danger-soft: #301c29;
+  --color-danger-border: #875061;
+  --color-on-destructive: #1f0b0b;
+  --color-info-surface: color-mix(in oklab, var(--color-secondary) 12%, var(--color-card));
+  --color-info-border: color-mix(in oklab, var(--color-secondary) 36%, var(--color-card));
+
+  --shadow-color: 222 60% 2%;
+  --shadow-xs: 0 1px 2px hsl(var(--shadow-color) / 0.3);
+  --shadow-sm: 0 1px 2px hsl(var(--shadow-color) / 0.35), 0 0 0 1px hsl(0 0% 100% / 0.02);
+  --shadow-md: 0 2px 4px hsl(var(--shadow-color) / 0.3), 0 10px 24px -8px hsl(var(--shadow-color) / 0.55);
+  --shadow-lg: 0 4px 10px hsl(var(--shadow-color) / 0.3), 0 22px 48px -14px hsl(var(--shadow-color) / 0.65);
+  --shadow-xl: 0 10px 20px hsl(var(--shadow-color) / 0.35), 0 36px 80px -24px hsl(var(--shadow-color) / 0.75);
+  --focus-ring: 0 0 0 3px color-mix(in oklab, var(--color-ring) 34%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 1ms;
+    --duration-fast: 1ms;
+    --duration-base: 1ms;
+    --duration-slow: 1ms;
+    --duration-slower: 1ms;
+  }
+}

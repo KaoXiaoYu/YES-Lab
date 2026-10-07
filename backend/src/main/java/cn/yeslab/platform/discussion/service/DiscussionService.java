@@ -75,6 +75,33 @@ public class DiscussionService {
         return views.stream().sorted(postComparator(sort)).toList();
     }
 
+    /** Search covers the whole history, rather than only posts already loaded by the browser. */
+    @Transactional
+    public DiscussionModels.PostPage page(Authentication authentication, DiscussionModels.SortMode sort,
+                                          int page, int size, String query) {
+        int safeSize = Math.max(1, Math.min(size, 50));
+        int safePage = Math.max(0, page);
+        List<String> terms = query == null ? List.of() : java.util.Arrays.stream(query.trim().toLowerCase(java.util.Locale.ROOT).split("\\s+"))
+                .filter(term -> !term.isBlank()).toList();
+        List<DiscussionModels.PostView> all = list(authentication, sort);
+        List<DiscussionModels.PostView> pinned = all.stream().filter(DiscussionModels.PostView::pinned).toList();
+        List<DiscussionModels.PostView> matching = all.stream()
+                .filter(post -> terms.isEmpty() || matchesAll(post, terms))
+                .toList();
+        int from = (int) Math.min(matching.size(), (long) safePage * safeSize);
+        int to = (int) Math.min(matching.size(), (long) from + safeSize);
+        return new DiscussionModels.PostPage(matching.subList(from, to), terms.isEmpty() ? pinned : List.of(),
+                matching.size(), safePage, safeSize, to < matching.size());
+    }
+
+    private static boolean matchesAll(DiscussionModels.PostView post, List<String> terms) {
+        String number = String.valueOf(post.contentNumber());
+        String padded = "d" + "0".repeat(Math.max(0, 6 - number.length())) + number;
+        String text = (post.title() + " " + post.content().replaceAll("<[^>]+>", " ") + " " + number + " " + padded + " #" + padded)
+                .toLowerCase(java.util.Locale.ROOT);
+        return terms.stream().allMatch(text::contains);
+    }
+
     @Transactional
     public List<DiscussionModels.ContributionView> contributions(UUID profileId) {
         MemberProfileEntity profile = profiles.findById(profileId)

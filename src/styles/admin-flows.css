@@ -1,0 +1,420 @@
+/* Shared admin workflow pieces: heading actions, filter chips, counts, notes, danger zone. */
+
+.portal-page--admin .portal-heading.has-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 24px;
+}
+.portal-page--admin .portal-heading.has-actions > :not(.portal-heading-actions) {
+  grid-column: 1;
+}
+.portal-page--admin .portal-heading.has-actions > p {
+  grid-row: 1;
+}
+.portal-page--admin .portal-heading.has-actions > h1 {
+  grid-row: 2;
+}
+.portal-page--admin .portal-heading.has-actions > span {
+  grid-row: 3;
+}
+.portal-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  align-self: end;
+  justify-content: flex-end;
+  gap: 8px;
+}
+@media (max-width: 760px) {
+  .portal-page--admin .portal-heading.has-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .portal-heading-actions {
+    grid-column: 1;
+    grid-row: 4;
+    justify-content: flex-start;
+    margin-top: 16px;
+  }
+}
+
+.portal-page--admin .admin-count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 10px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-pill);
+  color: var(--admin-foreground);
+  background: var(--admin-card-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+.portal-page--admin .admin-count small {
+  color: var(--admin-subtle);
+  font-weight: 500;
+}
+
+/* Segmented filter chips with counts. */
+.admin-chip-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-card-muted);
+}
+.portal-page--admin .admin-chip-filters button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 4px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-pill);
+  color: var(--admin-muted);
+  background: var(--admin-card);
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+.admin-chip-filters button span {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  color: var(--admin-subtle);
+  background: var(--admin-card-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.portal-page--admin .admin-chip-filters button.active {
+  border-color: var(--admin-primary);
+  color: var(--admin-on-primary);
+  background: var(--admin-primary);
+}
+.admin-chip-filters button.active span {
+  color: var(--admin-on-primary);
+  background: color-mix(in oklab, var(--admin-on-primary) 18%, transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .portal-page--admin .admin-chip-filters button:not(.active):hover {
+    border-color: var(--admin-border-strong);
+    color: var(--admin-foreground);
+  }
+}
+
+/* Member rows: status pills follow status colors; keyboard focus is visible. */
+.portal-page--admin .member-admin-rows {
+  position: relative;
+}
+.portal-page--admin .member-admin-rows i {
+  border-color: var(--admin-border);
+  font-size: 11px;
+}
+.portal-page--admin .member-admin-rows i.status-official {
+  border-color: var(--color-success-border);
+  color: var(--color-success);
+  background: var(--color-success-surface);
+}
+.portal-page--admin .member-admin-rows i.status-trial {
+  border-color: var(--color-warning-border);
+  color: var(--color-warning);
+  background: var(--color-warning-surface);
+}
+.portal-page--admin .member-admin-rows > button:focus-visible {
+  outline-offset: -2px;
+}
+.portal-page--admin .mini-avatar {
+  color: var(--admin-accent);
+  background: var(--admin-accent-soft);
+}
+
+.admin-inline-note,
+.admin-form-hint {
+  margin: 10px 0 0;
+  color: var(--admin-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.admin-inline-note {
+  padding: 8px 12px;
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-control);
+  color: var(--color-warning);
+  background: var(--color-warning-surface);
+}
+.admin-form-hint {
+  margin-top: 18px;
+}
+
+.portal-page--admin .avatar-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Collapsible danger zone at the end of a detail panel. */
+.admin-danger-zone {
+  margin-top: 28px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-card);
+  background: var(--admin-card);
+}
+.admin-danger-zone > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 10px 16px;
+  color: var(--color-danger);
+  cursor: pointer;
+  list-style: none;
+}
+.admin-danger-zone > summary::-webkit-details-marker {
+  display: none;
+}
+.admin-danger-zone > summary > span {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+}
+.admin-danger-zone > summary strong {
+  color: var(--admin-foreground);
+  font-size: 13px;
+}
+.admin-danger-zone > summary small {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.admin-disclosure-icon {
+  color: var(--admin-subtle);
+  transition: transform var(--duration-base) var(--ease-out);
+}
+details[open] > summary .admin-disclosure-icon {
+  transform: rotate(180deg);
+}
+.admin-danger-zone > .default-password-reset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  padding: 4px 16px 16px;
+  animation: ui-content-in var(--duration-base) var(--ease-out);
+}
+.admin-danger-zone > .default-password-reset p {
+  flex: 1 1 320px;
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* Embedded settings panels inside drawers drop their own card chrome. */
+.ui-drawer .melina-visibility-manager.is-embedded {
+  margin: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.ui-drawer .melina-visibility-manager.is-embedded > header {
+  display: none;
+}
+.portal-page--admin .ui-drawer .melina-visibility-manager.is-embedded > form {
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0;
+}
+
+/* Drawer forms reuse admin fieldsets without the outer page spacing. */
+.ui-drawer .member-admin-form > fieldset:first-of-type {
+  margin-top: 0;
+}
+.ui-drawer .admin-permission-notice p + p {
+  margin-top: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-danger-zone > .default-password-reset {
+    animation: none;
+  }
+}
+
+/* Form cards moved into drawers lose their card chrome; the drawer is the surface. */
+.ui-drawer .admin-form-card {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.ui-drawer .admin-form-card > .portal-state.error {
+  margin-bottom: 16px;
+}
+.admin-page-note {
+  margin: -8px 0 20px;
+  color: var(--admin-muted);
+  font-size: 13px;
+}
+
+/* Page-level view switcher (e.g. 报名审核 / 面试场次). */
+.admin-view-tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 20px;
+  padding: 4px;
+  border: 1px solid var(--admin-border);
+  border-radius: calc(var(--radius-control) + 4px);
+  background: var(--admin-card-muted);
+}
+.portal-page--admin .admin-view-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--admin-muted);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 620;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+.portal-page--admin .admin-view-tabs button.active {
+  color: var(--admin-foreground);
+  background: var(--admin-card);
+  box-shadow: var(--shadow-sm);
+}
+.portal-page--admin .admin-view-tabs button:not(.active):hover {
+  color: var(--admin-foreground);
+}
+.admin-attention-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  color: var(--color-warning);
+  background: var(--color-warning-surface);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.portal-page--admin .news-admin-layout.is-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+.portal-page--admin .news-admin-list > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ui-drawer .competition-form-grid {
+  margin: 0;
+}
+
+/* Points rules collapse into a one-line disclosure above the grant form. */
+.points-rules-disclosure {
+  margin-bottom: 20px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius-card);
+  background: var(--admin-card);
+}
+.points-rules-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 8px 16px;
+  color: var(--admin-accent);
+  cursor: pointer;
+  list-style: none;
+}
+.points-rules-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.points-rules-disclosure > summary > span {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.points-rules-disclosure > summary strong {
+  color: var(--admin-foreground);
+  font-size: 13px;
+}
+.points-rules-disclosure > summary small {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+.points-rules-disclosure > .points-rule-grid {
+  margin: 0;
+  padding: 0 16px 16px;
+  animation: ui-content-in var(--duration-base) var(--ease-out);
+}
+
+/* Homepage editor: sections with unsaved edits carry a dot; the save bar reflects state. */
+.homepage-editor-nav > button {
+  position: relative;
+}
+.homepage-dirty-dot {
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--color-warning);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-warning) 18%, transparent);
+  animation: pop-in var(--duration-base) var(--ease-spring);
+}
+@keyframes pop-in {
+  from {
+    transform: scale(0);
+  }
+}
+.portal-page--admin .homepage-save-bar.dirty {
+  border-color: var(--color-warning-border);
+}
+.portal-page--admin .homepage-save-bar.dirty strong::before {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--color-warning);
+  content: '';
+  vertical-align: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .homepage-dirty-dot {
+    animation: none;
+  }
+}
+
+/* Chip filters used inline inside a content card (no list-panel chrome). */
+.admin-chip-filters.is-inline {
+  margin: 12px 0 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.task-row-list {
+  display: grid;
+  gap: inherit;
+}
+
+.portal-page--admin :is(.applicant-list, .achievement-admin-list, .member-admin-rows) > .empty-note {
+  padding: 16px 18px;
+}

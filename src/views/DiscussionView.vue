@@ -1,4 +1,8 @@
 <script setup>
+import { useDraft } from '../composables/useDraft'
+import { useUnsavedGuard } from '../composables/useUnsavedGuard'
+import { toast } from '../services/toast'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import {
   ArrowDownWideNarrow,
   ChevronDown,
@@ -16,7 +20,7 @@ import {
   UserPlus,
   X,
 } from '@lucide/vue'
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import DiscussionCollapsibleContent from '../components/DiscussionCollapsibleContent.vue'
 import DiscussionRichTextEditor from '../components/DiscussionRichTextEditor.vue'
@@ -27,13 +31,14 @@ import {
   createDiscussionReply,
   deleteDiscussion,
   deleteDiscussionReply,
-  listDiscussions,
+  listDiscussionPage,
   toggleDiscussionLike,
   toggleDiscussionPin,
   toggleDiscussionReplyLike,
   updateDiscussion,
   updateDiscussionReply,
 } from '../services/authApi'
+import { confirmAction } from '../services/confirm'
 
 const router = useRouter()
 const route = useRoute()
@@ -41,7 +46,6 @@ const posts = ref([])
 const loading = ref(true)
 const working = ref(false)
 const errorMessage = ref('')
-const successMessage = ref('')
 const form = reactive({ title: '', content: '', announcement: false, length: { text: 0, html: 0 } })
 const replyDrafts = reactive({})
 const replyLengths = reactive({})
@@ -53,7 +57,28 @@ const editingReply = reactive({ content: '', length: { text: 0, html: 0 } })
 const gate = reactive({ open: false, guest: false, title: '', message: '' })
 const gatePrimary = ref(null)
 const pinsExpanded = ref(false)
+const editingOriginal = ref('')
+const editorsDirty = computed(() => {
+  if (editingPostId.value != null)
+    return JSON.stringify([editingPost.title, editingPost.content]) !== editingOriginal.value
+  if (editingReplyId.value != null) return editingReply.content !== editingOriginal.value
+  return false
+})
+useUnsavedGuard(editorsDirty)
+const postDraft = useDraft('discussion-new', () => ({
+  title: form.title,
+  content: form.content,
+  announcement: form.announcement,
+}))
+const replyDraftStore = useDraft('discussion-replies', () => ({ ...replyDrafts }))
 const searchQuery = ref('')
+const serverPinned = ref([])
+const nextPage = ref(0)
+const hasMore = ref(false)
+const totalCount = ref(0)
+const loadingMore = ref(false)
+const pageSize = 20
+let searchTimer = null
 let gateReturnFocus = null
 
 const participatingRoles = ['TEACHER', 'CORE_STUDENT', 'MEMBER']
@@ -69,7 +94,10 @@ const validSortModes = new Set(sortOptions.map((option) => option.value))
 const sortMode = ref(validSortModes.has(route.query.sort) ? route.query.sort : 'NEWEST')
 const canParticipate = computed(() => participatingRoles.includes(authState.account?.role))
 const pinnedPosts = computed(() =>
-  posts.value
+  [
+    ...serverPinned.value.map((pinned) => posts.value.find((post) => post.id === pinned.id) || pinned),
+    ...posts.value.filter((post) => post.pinned && !serverPinned.value.some((pinned) => pinned.id === post.id)),
+  ]
     .filter((post) => post.pinned)
     .sort(
       (left, right) => new Date(right.pinnedAt) - new Date(left.pinnedAt) || right.contentNumber - left.contentNumber,
@@ -89,19 +117,44 @@ const filteredPosts = computed(() => {
 const roleLabels = { TEACHER: '指导老师', CORE_STUDENT: '核心成员', MEMBER: '成员' }
 
 onMounted(async () => {
+  if (participatingRoles.includes(authState.account?.role)) {
+    postDraft.restore((value) => Object.assign(form, value))
+    replyDraftStore.restore((value) => Object.assign(replyDrafts, value), { announce: false })
+  }
   await refresh()
   await nextTick()
-  if (window.location.hash) document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: 'start' })
+  if (window.location.hash) {
+    const targetId = window.location.hash.slice(1)
+    // A notification may point at an older post; keep loading pages until it is on screen.
+    for (let attempts = 0; attempts < 20 && !document.getElementById(targetId) && hasMore.value; attempts += 1) {
+      await loadMore()
+      await nextTick()
+    }
+    document.getElementById(targetId)?.scrollIntoView({ block: 'start' })
+  }
 })
 
+watch(searchQuery, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(refresh, 300)
+})
+
+let hasLoaded = false
 async function refresh() {
-  loading.value = true
+  // Keep current content on screen while refreshing after an action.
+  if (!hasLoaded) loading.value = true
   errorMessage.value = ''
   try {
-    posts.value = await listDiscussions(sortMode.value)
+    const result = await listDiscussionPage({ sort: sortMode.value, page: 0, size: pageSize, q: searchQuery.value })
+    posts.value = result.items
+    if (!searchQuery.value.trim()) serverPinned.value = result.pinned
+    hasMore.value = result.hasMore
+    totalCount.value = result.totalCount
+    nextPage.value = 1
   } catch (error) {
     errorMessage.value = error.message
   } finally {
+    hasLoaded = true
     loading.value = false
   }
 }
@@ -109,7 +162,15 @@ async function refresh() {
 async function submitPost() {
   if (!requireParticipation()) return
   if (!validRichContent(form.content, form.length, 5000)) return
-  if (form.announcement && !window.confirm('公告发布后不能修改，并会向所有站内账号发送通知。确认发布吗？')) return
+  if (
+    form.announcement &&
+    !(await confirmAction({
+      title: '发布为公告？',
+      message: '公告发布后不能修改，并会向所有站内账号发送通知。',
+      confirmText: '发布公告',
+    }))
+  )
+    return
   await run(async () => {
     const created = await createDiscussion({
       title: form.title.trim(),
@@ -117,12 +178,14 @@ async function submitPost() {
       announcement: form.announcement,
     })
     posts.value.push(created)
+    totalCount.value += 1
     sortPosts()
     form.title = ''
     form.content = ''
     form.announcement = false
     form.length = { text: 0, html: 0 }
-    successMessage.value = created.announcement ? '公告已发布，正在向站内账号发送通知。' : '讨论已发布。'
+    postDraft.clear()
+    toast.success(created.announcement ? '公告已发布，正在向站内账号发送通知。' : '讨论已发布。')
   })
 }
 
@@ -132,6 +195,7 @@ function startPostEdit(post) {
   editingPost.title = post.title
   editingPost.content = post.content
   editingPost.length = { text: 0, html: post.content.length }
+  editingOriginal.value = JSON.stringify([post.title, post.content])
 }
 
 async function savePost(post) {
@@ -139,17 +203,27 @@ async function savePost(post) {
   await run(async () => {
     replacePost(await updateDiscussion(post.id, { title: editingPost.title.trim(), content: editingPost.content }))
     editingPostId.value = null
-    successMessage.value = '讨论内容已保存。'
+    toast.success('讨论内容已保存。')
   })
 }
 
 async function removePost(post) {
   if (!requireParticipation()) return
-  if (!window.confirm(`确认删除《${post.title}》及其全部回复吗？`)) return
+  if (
+    !(await confirmAction({
+      title: '删除这篇讨论？',
+      message: `《${post.title}》及其全部回复将被删除，且无法恢复。`,
+      confirmText: '删除讨论',
+      tone: 'danger',
+    }))
+  )
+    return
   await run(async () => {
     await deleteDiscussion(post.id)
     posts.value = posts.value.filter((item) => item.id !== post.id)
-    successMessage.value = '讨论及其回复已删除。'
+    serverPinned.value = serverPinned.value.filter((item) => item.id !== post.id)
+    totalCount.value = Math.max(0, totalCount.value - 1)
+    toast.success('讨论及其回复已删除。')
   })
 }
 
@@ -176,7 +250,7 @@ async function submitReply(post) {
     replyDrafts[post.id] = ''
     replyLengths[post.id] = { text: 0, html: 0 }
     replyingPostId.value = null
-    successMessage.value = '回复已发布。'
+    toast.success('回复已发布。')
   })
 }
 
@@ -185,6 +259,7 @@ function startReplyEdit(reply) {
   editingReplyId.value = reply.id
   editingReply.content = reply.content
   editingReply.length = { text: 0, html: reply.content.length }
+  editingOriginal.value = reply.content
 }
 
 async function saveReply(reply) {
@@ -192,16 +267,24 @@ async function saveReply(reply) {
   await run(async () => {
     replacePost(await updateDiscussionReply(reply.id, { content: editingReply.content }))
     editingReplyId.value = null
-    successMessage.value = '回复内容已保存。'
+    toast.success('回复内容已保存。')
   })
 }
 
 async function removeReply(reply) {
   if (!requireParticipation()) return
-  if (!window.confirm('确认删除这条回复吗？')) return
+  if (
+    !(await confirmAction({
+      title: '删除这条回复？',
+      message: '删除后无法恢复。',
+      confirmText: '删除回复',
+      tone: 'danger',
+    }))
+  )
+    return
   await run(async () => {
     replacePost(await deleteDiscussionReply(reply.id))
-    successMessage.value = '回复已删除。'
+    toast.success('回复已删除。')
   })
 }
 
@@ -213,7 +296,6 @@ async function likeReply(reply) {
 async function run(action) {
   working.value = true
   errorMessage.value = ''
-  successMessage.value = ''
   try {
     await action()
   } catch (error) {
@@ -259,8 +341,33 @@ async function goRegister() {
   await router.push({ path: '/register', query: { redirect: '/discussions' } })
 }
 
+async function loadMore() {
+  if (loadingMore.value || !hasMore.value) return
+  loadingMore.value = true
+  try {
+    const result = await listDiscussionPage({
+      sort: sortMode.value,
+      page: nextPage.value,
+      size: pageSize,
+      q: searchQuery.value,
+    })
+    const known = new Set(posts.value.map((post) => post.id))
+    posts.value = [...posts.value, ...result.items.filter((post) => !known.has(post.id))]
+    hasMore.value = result.hasMore
+    totalCount.value = result.totalCount
+    nextPage.value += 1
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    loadingMore.value = false
+  }
+}
+
 function replacePost(updated) {
   posts.value = posts.value.map((post) => (post.id === updated.id ? updated : post))
+  const pinnedIndex = serverPinned.value.findIndex((post) => post.id === updated.id)
+  if (pinnedIndex >= 0) serverPinned.value = serverPinned.value.map((post) => (post.id === updated.id ? updated : post))
+  else if (updated.pinned) serverPinned.value = [...serverPinned.value, updated]
   sortPosts()
 }
 
@@ -302,15 +409,13 @@ function plainText(value) {
 </script>
 
 <template>
-  <PortalShell eyebrow="PUBLIC / DISCUSSION" title="讨论板">
-    <div v-if="successMessage" class="save-message" role="status">{{ successMessage }}</div>
+  <PortalShell title="讨论板">
     <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
 
     <section class="discussion-compose">
       <header>
         <MessageCircle :size="22" aria-hidden="true" />
         <div>
-          <p>NEW TOPIC</p>
           <h2>发起讨论</h2>
         </div>
       </header>
@@ -354,7 +459,6 @@ function plainText(value) {
       <header>
         <span><Pin :size="20" aria-hidden="true" /></span>
         <div>
-          <p>PINNED</p>
           <h2 id="discussion-pinned-title">置顶内容</h2>
         </div>
         <b>{{ pinnedPosts.length }}</b>
@@ -408,8 +512,8 @@ function plainText(value) {
       </div>
     </section>
 
-    <div v-if="loading" class="portal-state">正在读取讨论…</div>
-    <div v-else-if="!posts.length" class="portal-state">还没有讨论。</div>
+    <LoadingSkeleton v-if="loading" variant="list" :rows="5" label="正在读取讨论" />
+    <div v-else-if="!posts.length && !searchQuery.trim()" class="portal-state">还没有讨论。</div>
     <div v-else-if="!filteredPosts.length" class="portal-state discussion-search-empty">
       没有找到相关讨论。<button type="button" @click="searchQuery = ''">清除搜索</button>
     </div>
@@ -604,6 +708,12 @@ function plainText(value) {
         </section>
       </article>
     </section>
+    <div v-if="!loading && posts.length && (hasMore || totalCount > pageSize)" class="discussion-more">
+      <span>已显示 {{ posts.length }} / {{ totalCount }} 条</span>
+      <button v-if="hasMore" class="portal-secondary" type="button" :disabled="loadingMore" @click="loadMore">
+        {{ loadingMore ? '加载中…' : '加载更多' }}
+      </button>
+    </div>
 
     <div v-if="gate.open" class="discussion-gate-overlay" @click.self="closeGate()" @keydown.esc="closeGate()">
       <section

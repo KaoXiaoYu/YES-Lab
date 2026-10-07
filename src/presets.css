@@ -1,21 +1,6 @@
 /* Shape/typography vary by preset; business layout and semantics stay shared. */
 :root {
   font-family: var(--font-body);
-  --radius-card: var(--preset-radius);
-  --radius-control: 8px;
-}
-.portal-page.portal-page--admin {
-  --admin-bg: var(--color-background);
-  --admin-card: var(--color-card);
-  --admin-card-muted: var(--color-surface-soft);
-  --admin-foreground: var(--color-foreground);
-  --admin-muted: var(--color-muted-foreground);
-  --admin-subtle: var(--color-text-secondary);
-  --admin-border: var(--color-border);
-  --admin-border-strong: var(--color-border-strong);
-  --admin-primary: var(--color-primary);
-  --admin-accent: var(--color-secondary);
-  --admin-accent-soft: var(--color-info-surface);
 }
 .portal-page--admin :is(button, select, input:not([type='checkbox']):not([type='radio'])) {
   min-height: 44px;
@@ -82,5 +67,9 @@
   .portal-page--admin + .repository-footer {
     margin-left: 252px;
     padding-inline: 32px;
+    transition: margin-left var(--duration-base) var(--ease-out);
+  }
+  .portal-page--admin.is-rail + .repository-footer {
+    margin-left: 76px;
   }
 }

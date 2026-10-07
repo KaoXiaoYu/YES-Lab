@@ -63,6 +63,16 @@ public final class DiscussionModels {
             List<ReplyView> replies
     ) { }
 
+    /** Pinned posts accompany each unfiltered page so the board can keep them visible. */
+    public record PostPage(
+            List<PostView> items,
+            List<PostView> pinned,
+            long totalCount,
+            int page,
+            int size,
+            boolean hasMore
+    ) { }
+
     public record ContributionView(
             long contentNumber,
             String type,

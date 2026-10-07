@@ -1,8 +1,13 @@
 <script setup>
 import TaskSubmissionProgress from './TaskSubmissionProgress.vue'
+import LoadingSkeleton from './LoadingSkeleton.vue'
 import { CheckCircle2, ChevronRight, CircleDashed, Clock3, TriangleAlert } from '@lucide/vue'
 import { computed, ref } from 'vue'
-import { submitOnboardingTask } from '../services/authApi'
+import AdminDrawer from './AdminDrawer.vue'
+import SubtaskWorkspace from './SubtaskWorkspace.vue'
+import { useDraft } from '../composables/useDraft'
+import { getOnboardingSubtask, submitOnboardingSubtask, submitOnboardingTask } from '../services/authApi'
+import { celebrate } from '../services/celebrate'
 
 const props = defineProps({
   task: { type: Object, default: null },
@@ -16,6 +21,9 @@ const emit = defineEmits(['refresh'])
 const working = ref(false)
 const actionError = ref('')
 const note = ref('')
+const openSubtask = ref(null)
+const noteDraft = useDraft('onboarding-note', () => note.value)
+noteDraft.restore((value) => (note.value = value), { announce: false })
 const statusLabels = {
   PENDING: '待完成',
   SUBMITTED: '等待管理员确认',
@@ -59,6 +67,8 @@ async function submit() {
   try {
     await submitOnboardingTask(note.value.trim())
     note.value = ''
+    noteDraft.clear()
+    celebrate({ title: '新手任务已提交', message: '管理员审核通过后，你会直接成为正式成员。' })
     emit('refresh')
   } catch (error) {
     actionError.value = error.message
@@ -73,12 +83,11 @@ async function submit() {
     <header>
       <CircleDashed :size="22" aria-hidden="true" />
       <div>
-        <p>ONBOARDING TASK</p>
         <h2 id="onboarding-task-title">新手任务</h2>
       </div>
     </header>
 
-    <div v-if="loading" class="empty-note">正在读取新手任务…</div>
+    <LoadingSkeleton v-if="loading" variant="detail" :rows="3" label="正在读取新手任务" />
     <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <div v-else-if="!task" class="empty-note">
       目前没有新手任务。通过面试后会在此处收到新手任务，完成后经管理员确认即可转为正式成员。
@@ -111,7 +120,11 @@ async function submit() {
       <h3 class="task-subtask-entries-title">子任务（已提交 {{ submittedCount }} / {{ totalCount }}）</h3>
       <ul class="task-subtask-entries">
         <li v-for="subtask in task.subtasks" :key="subtask.id">
-          <RouterLink v-if="canOpenSubtasks" :to="`/application/subtasks/${subtask.id}`">
+          <a
+            v-if="canOpenSubtasks"
+            :href="`/application/subtasks/${subtask.id}`"
+            @click.exact.prevent="openSubtask = subtask"
+          >
             <CheckCircle2 v-if="subtask.submitted" :size="18" aria-hidden="true" />
             <CircleDashed v-else :size="18" aria-hidden="true" />
             <span class="task-subtask-entry-title">{{ subtask.title }}</span>
@@ -120,7 +133,7 @@ async function submit() {
               <template v-if="subtask.hasContent"> · 有说明</template>
             </span>
             <ChevronRight :size="16" aria-hidden="true" />
-          </RouterLink>
+          </a>
           <div v-else class="task-subtask-entry-static">
             <CheckCircle2 v-if="subtask.submitted" :size="18" aria-hidden="true" />
             <CircleDashed v-else :size="18" aria-hidden="true" />
@@ -158,6 +171,28 @@ async function submit() {
       <p v-else-if="task.status !== 'APPROVED'" class="task-skip" role="status">{{ readOnlyReason }}</p>
 
       <p v-if="actionError" class="portal-state error inline" role="alert">{{ actionError }}</p>
+
+      <AdminDrawer
+        :open="Boolean(openSubtask)"
+        :title="openSubtask?.title || '子任务'"
+        description="新手任务"
+        size="lg"
+        hide-footer
+        @update:open="(value) => !value && (openSubtask = null)"
+      >
+        <SubtaskWorkspace
+          v-if="openSubtask"
+          :key="openSubtask.id"
+          :draft-key="`onboarding-subtask:${openSubtask.id}`"
+          :load="() => getOnboardingSubtask(openSubtask.id)"
+          :submit="(html) => submitOnboardingSubtask(openSubtask.id, html)"
+          :show-title="false"
+          progress-label="我的进度"
+          locked-message="新手任务已通过，不能再修改提交。"
+          all-done-message="关闭面板，填写完成说明并提交新手任务。"
+          @submitted="emit('refresh')"
+        />
+      </AdminDrawer>
     </template>
   </section>
 </template>

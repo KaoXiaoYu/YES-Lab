@@ -1,4 +1,5 @@
 <script setup>
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import { brand } from '../config/site'
 import ThemeToggle from '../components/ThemeToggle.vue'
 import {
@@ -61,7 +62,6 @@ onMounted(async () => {
       </header>
       <section v-if="item.certificateUrl" class="public-result-certificate" aria-labelledby="certificate-title">
         <header>
-          <p>VERIFIED CERTIFICATE</p>
           <h2 id="certificate-title">获奖证书</h2>
           <span>{{ item.certificateOriginalName }}</span>
         </header>
@@ -131,7 +131,6 @@ onMounted(async () => {
       </section>
       <div class="public-result-layout">
         <article class="public-result-story">
-          <p>ABOUT THE RESULT</p>
           <h2>比赛记录</h2>
           <div>{{ item.description }}</div>
         </article>
@@ -178,7 +177,6 @@ onMounted(async () => {
       </div>
       <section class="public-result-team">
         <header>
-          <p>TEAM MEMBERS</p>
           <h2>参赛成员</h2>
         </header>
         <div>
@@ -209,7 +207,7 @@ onMounted(async () => {
       </section>
     </main>
     <main v-else class="public-result-main">
-      <div v-if="loading" class="portal-state">正在读取比赛详情…</div>
+      <LoadingSkeleton v-if="loading" variant="detail" :rows="3" label="正在读取比赛详情" />
       <div v-else class="portal-state error" role="alert">
         {{ errorMessage }}<RouterLink to="/">返回首页</RouterLink>
       </div>

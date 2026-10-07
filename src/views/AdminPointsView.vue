@@ -1,7 +1,12 @@
 <script setup>
-import { BadgePlus, CircleAlert, Plus, RotateCcw, Trash2 } from '@lucide/vue'
+import { BadgePlus, ChevronDown, CircleAlert, Info, Plus, RotateCcw, Trash2 } from '@lucide/vue'
 import { computed, onMounted, nextTick, reactive, ref, watch } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
+import { confirmAction } from '../services/confirm'
+import { toast } from '../services/toast'
+import { useToastFeedback } from '../composables/useToastFeedback'
+import { useUnsavedGuard } from '../composables/useUnsavedGuard'
 import {
   authState,
   grantPoints,
@@ -11,7 +16,6 @@ import {
   getPointRules,
   reversePointGrant,
 } from '../services/authApi'
-import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const rules = ref([])
 const members = ref([])
@@ -28,6 +32,8 @@ const sources = ref({ competitions: [], projects: [] })
 const sourceSearch = ref('')
 const refreshingSources = ref(false)
 const errorSummary = ref(null)
+const flashId = ref(null)
+useToastFeedback({ success: message })
 let requestKey = crypto.randomUUID()
 let requestSignature = ''
 const today = localDateString()
@@ -83,6 +89,16 @@ const allocationValid = computed(() => {
   }
   return allocatedPoints.value === Number(form.itemTotalPoints)
 })
+const grantDirty = computed(() => Boolean(form.title.trim() || form.allocations.length || form.description.trim()))
+useUnsavedGuard(grantDirty, { message: '积分事项还没有发放，离开后填写的内容将丢失。' })
+
+function highlight(id) {
+  flashId.value = null
+  nextTick(() => {
+    flashId.value = id
+  })
+}
+
 const canSubmit = computed(
   () =>
     Boolean(
@@ -179,7 +195,21 @@ function removeMember(memberProfileId) {
 }
 
 async function submitGrant() {
-  if (!canSubmit.value) return
+  if (!canSubmit.value || saving.value) return
+  const confirmed = await confirmAction({
+    title: `向 ${form.allocations.length} 名成员发放积分？`,
+    message: `「${form.title.trim()}」共计 ${allocatedPoints.value} 分。`,
+    details: [
+      ...form.allocations.slice(0, 6).map((item) => {
+        const member = members.value.find((entry) => entry.id === item.memberProfileId)
+        return `${member?.name || '成员'}：${item.points} 分`
+      }),
+      ...(form.allocations.length > 6 ? [`另有 ${form.allocations.length - 6} 名成员…`] : []),
+      '发放后不能修改，只能整批撤销并保留反向流水。',
+    ],
+    confirmText: '确认发放',
+  })
+  if (!confirmed) return
   saving.value = true
   errorMessage.value = ''
   message.value = ''
@@ -208,12 +238,13 @@ async function submitGrant() {
       if (member) member.totalPoints = allocation.currentTotalPoints
     })
     resetGrantForm()
-    showSubmissionFeedback({
-      eyebrow: 'POINTS GRANTED',
-      title: '积分已发放',
-      message: `${saved.title}已向 ${saved.allocations.length} 名成员完成记分，积分编号：${saved.sourceReference}。`,
-      confirmLabel: '查看积分流水',
-    })
+    highlight(saved.id)
+    toast.success(
+      `${saved.title}已向 ${saved.allocations.length} 名成员完成记分，积分编号：${saved.sourceReference}。`,
+      {
+        title: '积分已发放',
+      },
+    )
   } catch (error) {
     errorMessage.value = error.message
     await nextTick()
@@ -258,6 +289,7 @@ async function submitReversal(grant) {
     })
     if (!grants.value.some((item) => item.id === saved.id)) grants.value.unshift(saved)
     cancelReversal()
+    highlight(saved.id)
     message.value = `${grant.title}已撤销，原始记录和反向流水均已保留。`
   } catch (error) {
     errorMessage.value = error.message
@@ -284,32 +316,38 @@ function localDateString() {
 
 <template>
   <PortalShell
-    eyebrow="ADMIN / POINTS"
     title="积分管理"
     description="关联库内事项发放，系统自动生成积分编号；错误记录通过整批撤销更正，不直接覆盖历史。"
   >
-    <div v-if="loading" class="portal-state">正在读取积分规则与流水…</div>
+    <LoadingSkeleton v-if="loading" variant="cards" :rows="3" label="正在读取积分规则与流水" />
     <div v-else-if="errorMessage && !rules.length" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <template v-else>
-      <div v-if="message" class="save-message" role="status">{{ message }}</div>
       <div v-if="errorMessage" ref="errorSummary" class="form-alert" role="alert" tabindex="-1">{{ errorMessage }}</div>
 
-      <section class="points-rule-grid" aria-label="积分规则">
-        <article v-for="rule in rules" :key="rule.subcategory">
-          <span>{{ rule.categoryLabel }}</span>
-          <strong>{{ rule.subcategoryLabel }}</strong>
-          <small>
-            {{ rule.allocationPolicy === 'PER_MEMBER' ? '每位成员全额计分' : '事项总分由成员分配' }}
-            · {{ rule.monthlyCap ? `每月上限 ${rule.monthlyCap} 分` : '不设月度上限' }}
-          </small>
-        </article>
-      </section>
+      <details class="points-rules-disclosure">
+        <summary>
+          <Info :size="17" aria-hidden="true" />
+          <span
+            ><strong>积分规则</strong><small>{{ rules.length }} 类事项 · 计分方式与月度上限</small></span
+          >
+          <ChevronDown class="admin-disclosure-icon" :size="17" aria-hidden="true" />
+        </summary>
+        <section class="points-rule-grid" aria-label="积分规则">
+          <article v-for="rule in rules" :key="rule.subcategory">
+            <span>{{ rule.categoryLabel }}</span>
+            <strong>{{ rule.subcategoryLabel }}</strong>
+            <small>
+              {{ rule.allocationPolicy === 'PER_MEMBER' ? '每位成员全额计分' : '事项总分由成员分配' }}
+              · {{ rule.monthlyCap ? `每月上限 ${rule.monthlyCap} 分` : '不设月度上限' }}
+            </small>
+          </article>
+        </section>
+      </details>
 
       <div class="points-admin-layout">
         <section class="points-grant-card" aria-labelledby="points-grant-title">
           <header>
             <div>
-              <p>NEW GRANT</p>
               <h2 id="points-grant-title">新增积分事项</h2>
             </div>
             <BadgePlus :size="24" aria-hidden="true" />
@@ -443,13 +481,17 @@ function localDateString() {
         <section class="points-ledger-card" aria-labelledby="points-ledger-title">
           <header>
             <div>
-              <p>AUDIT LEDGER</p>
               <h2 id="points-ledger-title">最近流水</h2>
             </div>
             <span>{{ grants.length }}</span>
           </header>
-          <div v-if="grants.length" class="points-ledger-list">
-            <article v-for="grant in grants" :key="grant.id" :data-type="grant.type">
+          <TransitionGroup v-if="grants.length" tag="div" name="list" class="points-ledger-list">
+            <article
+              v-for="grant in grants"
+              :key="grant.id"
+              :data-type="grant.type"
+              :class="{ 'ui-flash': flashId === grant.id }"
+            >
               <header>
                 <div>
                   <span>{{ grant.categoryLabel }} · {{ grant.subcategoryLabel }}</span>
@@ -510,7 +552,7 @@ function localDateString() {
                 </div>
               </form>
             </article>
-          </div>
+          </TransitionGroup>
           <div v-else class="points-ledger-empty">暂无积分发放记录。</div>
         </section>
       </div>

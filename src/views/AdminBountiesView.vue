@@ -1,7 +1,12 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { Gift, Pencil, Plus, Send, Square, Trash2 } from '@lucide/vue'
 import PortalShell from '../components/PortalShell.vue'
+import AdminDrawer from '../components/AdminDrawer.vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
+import { confirmAction } from '../services/confirm'
+import { toast } from '../services/toast'
+import { useUnsavedGuard } from '../composables/useUnsavedGuard'
 import DiscussionRichTextEditor from '../components/DiscussionRichTextEditor.vue'
 import TaskSubtaskEditor from '../components/TaskSubtaskEditor.vue'
 import {
@@ -19,8 +24,10 @@ const bounties = ref([])
 const loading = ref(true)
 const working = ref(false)
 const errorMessage = ref('')
-const successMessage = ref('')
 const showForm = ref(false)
+const formSnapshot = ref('')
+const detailLoading = ref(false)
+const flashId = ref(null)
 const editingId = ref('')
 const fieldErrors = ref({})
 const listFilter = ref('ALL')
@@ -63,6 +70,20 @@ function buildRules() {
   splitList(form.gradesText).forEach((value) => rules.push({ dimension: 'GRADE', value }))
   splitList(form.tagsText).forEach((value) => rules.push({ dimension: 'SKILL_TAG', value }))
   return rules
+}
+
+const dirty = computed(() => showForm.value && !detailLoading.value && JSON.stringify(form) !== formSnapshot.value)
+useUnsavedGuard(dirty)
+
+function takeSnapshot() {
+  formSnapshot.value = JSON.stringify(form)
+}
+
+function highlight(id) {
+  flashId.value = null
+  nextTick(() => {
+    flashId.value = id
+  })
 }
 
 const published = computed(() => bounties.value.find((item) => item.id === editingId.value)?.status === 'PUBLISHED')
@@ -169,13 +190,16 @@ function onHeadcountModeChange() {
   errorMessage.value = summaryOf(rest)
 }
 
+let hasLoaded = false
 async function load() {
-  loading.value = true
+  // Keep current content on screen while refreshing after an action.
+  if (!hasLoaded) loading.value = true
   try {
     bounties.value = await listBounties()
   } catch (error) {
-    errorMessage.value = error.message
+    toast.error(error.message, { title: '悬赏列表读取失败' })
   } finally {
+    hasLoaded = true
     loading.value = false
   }
 }
@@ -203,9 +227,9 @@ function resetForm() {
 function openCreate() {
   resetForm()
   editingId.value = ''
-  showForm.value = true
   errorMessage.value = ''
-  successMessage.value = ''
+  takeSnapshot()
+  showForm.value = true
 }
 
 function openEdit(item) {
@@ -220,14 +244,15 @@ function openEdit(item) {
   form.unlimitedHeadcount = item.headcountLimit == null
   form.startDate = item.startDate || ''
   form.endDate = item.endDate || ''
-  showForm.value = true
   errorMessage.value = ''
-  successMessage.value = ''
+  takeSnapshot()
+  showForm.value = true
   // 正文、子任务与接取条件属于详情接口，按需拉取（列表不返回富文本）。
   loadDetail(item.id)
 }
 
 async function loadDetail(taskId) {
+  detailLoading.value = true
   try {
     const detail = await getBountyClaims(taskId)
     form.contentHtml = detail.task.contentHtml
@@ -250,6 +275,9 @@ async function loadDetail(taskId) {
       .join('、')
   } catch (error) {
     errorMessage.value = error.message
+  } finally {
+    takeSnapshot()
+    detailLoading.value = false
   }
 }
 
@@ -291,8 +319,8 @@ async function buildPayload() {
 }
 
 async function save() {
+  if (working.value) return
   errorMessage.value = ''
-  successMessage.value = ''
   const errors = validateForm()
   if (Object.keys(errors).length) {
     fieldErrors.value = errors
@@ -304,15 +332,12 @@ async function save() {
   working.value = true
   try {
     const body = await buildPayload()
-    if (editingId.value) {
-      await updateBounty(editingId.value, body)
-      successMessage.value = '已保存悬赏。'
-    } else {
-      await createBounty(body)
-      successMessage.value = '已创建悬赏草稿。'
-    }
+    const saved = editingId.value ? await updateBounty(editingId.value, body) : await createBounty(body)
+    toast.success(editingId.value ? '悬赏修改已保存。' : '悬赏草稿已创建，确认后即可发布。', { title: body.title })
+    takeSnapshot()
     showForm.value = false
     await load()
+    highlight(saved?.id || editingId.value)
   } catch (error) {
     // 后端把字段级原因放在 fields 里：逐字段就近显示，没有明细时才退回 message。
     const fields = error.fields || {}
@@ -328,21 +353,58 @@ async function save() {
   }
 }
 
-async function runAction(action, item, message) {
-  if (message && !window.confirm(message)) return
+async function runAction(action, item, options, doneMessage) {
+  if (!(await confirmAction(options))) return
   working.value = true
-  errorMessage.value = ''
-  successMessage.value = ''
   try {
     await action(item.id)
     await load()
-    successMessage.value = '操作已完成。'
+    highlight(item.id)
+    toast.success(doneMessage, { title: item.title })
   } catch (error) {
-    errorMessage.value = error.message
+    toast.error(error.message, { title: '操作失败' })
   } finally {
     working.value = false
   }
 }
+
+const publishItem = (item) =>
+  runAction(
+    publishBounty,
+    item,
+    {
+      title: '发布悬赏？',
+      message: `确认发布「${item.title}」？`,
+      details: ['发布后接取条件与奖励口径将锁定。', '人数上限和奖金份数之后只可增加，截止日只可延长。'],
+      confirmText: '确认发布',
+    },
+    '悬赏已发布，成员现在可以接取。',
+  )
+const closeItem = (item) =>
+  runAction(
+    closeBounty,
+    item,
+    {
+      title: '结束悬赏？',
+      message: `确认结束「${item.title}」？`,
+      details: ['结束后到期即结算，不能再接取或驳回。', '此操作不可撤销。'],
+      confirmText: '结束悬赏',
+      tone: 'danger',
+    },
+    '悬赏已结束。',
+  )
+const deleteItem = (item) =>
+  runAction(
+    deleteBounty,
+    item,
+    {
+      title: '删除草稿？',
+      message: `确认删除草稿「${item.title}」？删除后无法恢复。`,
+      confirmText: '删除草稿',
+      tone: 'danger',
+    },
+    '草稿已删除。',
+  )
 
 function loadSubtaskContent(subtaskId) {
   if (!editingId.value) return Promise.resolve({ contentHtml: null })
@@ -351,28 +413,26 @@ function loadSubtaskContent(subtaskId) {
 </script>
 
 <template>
-  <PortalShell eyebrow="ADMIN / BOUNTY" title="悬赏管理" description="创建悬赏，管理接取、完成与奖金发放。">
-    <section class="task-toolbar" aria-label="悬赏操作">
-      <p class="task-toolbar-note">奖金线下发放；系统记录发放与领取状态。</p>
-      <div class="task-toolbar-actions">
-        <button class="portal-primary" type="button" @click="openCreate">
-          <Plus :size="17" aria-hidden="true" />创建悬赏
-        </button>
-      </div>
-    </section>
+  <PortalShell title="悬赏管理" description="创建悬赏，管理接取、完成与奖金发放。">
+    <template #actions>
+      <button class="ui-btn ui-btn--primary" type="button" @click="openCreate">
+        <Plus :size="17" aria-hidden="true" />创建悬赏
+      </button>
+    </template>
+    <p class="task-toolbar-note admin-page-note">奖金线下发放；系统记录发放与领取状态。</p>
 
-    <p v-if="errorMessage" class="portal-state inline error" role="alert">{{ errorMessage }}</p>
-    <p v-if="successMessage" class="portal-state success" role="status">{{ successMessage }}</p>
-
-    <Transition name="task-reveal">
-      <section v-if="showForm" class="admin-form-card" aria-labelledby="bounty-form-title">
-        <header>
-          <Gift :size="22" aria-hidden="true" />
-          <div>
-            <p>{{ editingId ? 'EDIT BOUNTY' : 'NEW BOUNTY' }}</p>
-            <h3 id="bounty-form-title">{{ editingId ? '编辑悬赏' : '创建悬赏' }}</h3>
-          </div>
-        </header>
+    <AdminDrawer
+      v-model:open="showForm"
+      :title="editingId ? '编辑悬赏' : '创建悬赏'"
+      :description="editingId ? form.title : '保存为草稿，确认无误后再发布。'"
+      size="lg"
+      :dirty="dirty"
+      :busy="working"
+      submit-text="保存悬赏"
+      @submit="save"
+    >
+      <div class="admin-form-card bounty-drawer-form" :aria-busy="detailLoading">
+        <p v-if="errorMessage" class="portal-state inline error" role="alert">{{ errorMessage }}</p>
         <p v-if="published" class="task-locked-note" role="status">
           已发布：资格、奖励与积分已锁定；人数上限和奖金份数只可增加，截止日只可延长。延长已结算悬赏会重新待结算。
         </p>
@@ -546,17 +606,10 @@ function loadSubtaskContent(subtaskId) {
             :load-content="loadSubtaskContent"
           />
         </div>
+      </div>
+    </AdminDrawer>
 
-        <div class="task-form-actions">
-          <button class="portal-primary" type="button" :disabled="working" @click="save">
-            {{ working ? '保存中…' : '保存悬赏' }}
-          </button>
-          <button class="portal-secondary" type="button" @click="showForm = false">取消</button>
-        </div>
-      </section>
-    </Transition>
-
-    <div v-if="loading" class="portal-state">正在读取悬赏…</div>
+    <LoadingSkeleton v-if="loading" variant="cards" :rows="3" label="正在读取悬赏" />
     <div v-else-if="!bounties.length" class="portal-state project-empty">
       <Gift :size="28" aria-hidden="true" /><strong>还没有悬赏</strong><span>创建悬赏并发布后，成员即可接取。</span>
     </div>
@@ -587,7 +640,12 @@ function loadSubtaskContent(subtaskId) {
       class="task-card-grid"
       aria-label="悬赏列表"
     >
-      <article v-for="item in filteredBounties" :key="item.id" class="task-card bounty-card">
+      <article
+        v-for="item in filteredBounties"
+        :key="item.id"
+        class="task-card bounty-card"
+        :class="{ 'ui-flash': flashId === item.id }"
+      >
         <header>
           <span :data-status="item.status">{{ statusLabels[item.status] }}</span>
           <b>{{ item.points > 0 ? `+${item.points} 积分` : '不计积分' }}</b>
@@ -627,26 +685,10 @@ function loadSubtaskContent(subtaskId) {
           <button type="button" :disabled="working" @click="openEdit(item)">
             <Pencil :size="15" aria-hidden="true" />编辑
           </button>
-          <button
-            v-if="item.status === 'DRAFT'"
-            type="button"
-            :disabled="working"
-            @click="runAction(publishBounty, item, `确认发布「${item.title}」？发布后接取条件与奖励口径将锁定。`)"
-          >
+          <button v-if="item.status === 'DRAFT'" type="button" :disabled="working" @click="publishItem(item)">
             <Send :size="15" aria-hidden="true" />发布
           </button>
-          <button
-            v-if="item.status === 'PUBLISHED'"
-            type="button"
-            :disabled="working"
-            @click="
-              runAction(
-                closeBounty,
-                item,
-                `确认结束「${item.title}」？结束后到期即结算，不能再接取或驳回，且不可撤销。`,
-              )
-            "
-          >
+          <button v-if="item.status === 'PUBLISHED'" type="button" :disabled="working" @click="closeItem(item)">
             <Square :size="15" aria-hidden="true" />结束
           </button>
           <button
@@ -654,7 +696,7 @@ function loadSubtaskContent(subtaskId) {
             type="button"
             class="danger"
             :disabled="working"
-            @click="runAction(deleteBounty, item, `确认删除草稿「${item.title}」？`)"
+            @click="deleteItem(item)"
           >
             <Trash2 :size="15" aria-hidden="true" />删除
           </button>

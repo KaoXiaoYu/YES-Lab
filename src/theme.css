@@ -1,72 +1,4 @@
 /* Shared light/dark colors. Images retain their original colors. */
-:root {
-  color-scheme: light;
-  --color-header: rgba(248, 250, 252, 0.96);
-  --color-text-secondary: #475569;
-  --color-text-subtle: #5b6b80;
-  --color-accent-surface: #fffbeb;
-  --color-accent-fill: #a16207;
-  --color-border-faint: #e2e8f0;
-  --color-surface-soft: #f4f7fb;
-  --color-surface-muted: #e8edf3;
-  --color-text-strong: #334155;
-  --color-danger: #b91c1c;
-  --color-accent-highlight: #fef3c7;
-  --color-primary-fill: #1e3a5f;
-  --color-danger-strong: #991b1b;
-  --color-danger-border: #fecaca;
-  --color-danger-soft: #fff7f7;
-  --color-danger-surface: #fff1f2;
-  --color-success: #166534;
-  --color-success-border: #bbf7d0;
-  --color-success-surface: #f0fdf4;
-  --color-info-surface: #eff6ff;
-  --color-border-soft: #dbe2ea;
-  /* 交互控件边界：与 #f8fafc / #ffffff / #e8edf3 均达 3:1（WCAG 1.4.11） */
-  --color-border-strong: #74849a;
-  --color-surface-subtle: #f1f5f9;
-  --color-warning: #92400e;
-  --color-accent-border: #fde68a;
-}
-:root[data-theme='dark'] {
-  color-scheme: dark;
-  --color-ring: #93c5fd;
-  --color-secondary: #93c5fd;
-  --color-header: rgba(11, 20, 35, 0.96);
-  --color-text-secondary: #a4b5cd;
-  --color-text-subtle: #9aaec8;
-  --color-accent-surface: #302719;
-  --color-card: #15243a;
-  --color-background: #0b1423;
-  --color-accent-fill: #a16207;
-  --color-border-faint: #32465f;
-  --color-foreground: #e5edf7;
-  --color-surface-soft: #111e31;
-  --color-border: #435772;
-  /* 暗色交互控件边界：与 #0b1423 / #15243a 均达 3:1 */
-  --color-border-strong: #5b708f;
-  --color-accent: #f1c779;
-  --color-primary: #b9d5fb;
-  --color-surface-muted: #24354b;
-  --color-text-strong: #cbd8e8;
-  --color-muted-foreground: #b5c3d5;
-  --color-danger: #fca5a5;
-  --color-accent-highlight: #42351e;
-  --color-primary-fill: #284f7e;
-  --color-danger-strong: #fecaca;
-  --color-danger-border: #875061;
-  --color-danger-soft: #301c29;
-  --color-danger-surface: #391f2b;
-  --color-success: #a7e4b8;
-  --color-success-border: #426c58;
-  --color-success-surface: #17352d;
-  --color-info-surface: #182f4b;
-  --color-border-soft: #32465f;
-  --color-surface-subtle: #1b2a40;
-  --color-warning: #f1c779;
-  --color-accent-border: #78623d;
-  --color-muted: #24354b;
-}
 .theme-toggle {
   display: inline-flex;
   align-items: center;
@@ -84,9 +16,9 @@
   font-size: 12px;
   cursor: pointer;
   transition:
-    color 220ms ease,
-    background-color 220ms ease,
-    transform 160ms ease-out;
+    color var(--duration-base) var(--ease-out),
+    background-color var(--duration-base) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
 .theme-toggle-icon {
   display: grid;
@@ -168,7 +100,7 @@
   object-fit: contain;
   padding: 12px;
   border-radius: 6px;
-  background: #fff;
+  background: var(--color-canvas);
 }
 .sponsor-upload > label {
   flex: 1;
@@ -210,7 +142,7 @@ input:autofill {
 /* Brand logos and document previews keep a neutral image canvas. */
 .sponsor-logo,
 .public-result-certificate figure {
-  background: #fff;
+  background: var(--color-canvas);
 }
 :root[data-theme='dark'] .public-result-certificate .public-image-status {
   color: #475569;

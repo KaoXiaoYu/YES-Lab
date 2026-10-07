@@ -1,4 +1,5 @@
 <script setup>
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import { Eye, EyeOff, KeyRound } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -66,7 +67,6 @@ async function submitPasswordChange() {
     await logout()
     await router.replace('/login')
     showSubmissionFeedback({
-      eyebrow: 'PASSWORD UPDATED',
       title: '密码已修改',
       message: '当前账号已经安全退出，其他设备也无法继续续期。请使用新密码重新登录。',
       confirmLabel: '返回登录',
@@ -82,12 +82,8 @@ async function submitPasswordChange() {
 </script>
 
 <template>
-  <PortalShell
-    eyebrow="MEMBER / PROFILE"
-    title="个人主页"
-    description="查看你的成员档案与公开主页；需要修改时再进入独立编辑页面。"
-  >
-    <div v-if="loading" class="portal-state">正在读取成员资料…</div>
+  <PortalShell title="个人主页" description="查看你的成员档案与公开主页；需要修改时再进入独立编辑页面。">
+    <LoadingSkeleton v-if="loading" variant="detail" :rows="3" label="正在读取成员资料" />
     <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <template v-else-if="profile">
       <DeadlinePanel personal />
@@ -96,7 +92,6 @@ async function submitPasswordChange() {
       <section class="password-settings-card profile-password-card" aria-labelledby="profile-password-title">
         <header>
           <div>
-            <p>ACCOUNT SECURITY</p>
             <h2 id="profile-password-title">修改登录密码</h2>
           </div>
           <span>修改成功后会退出当前账号，并撤销其他设备的续期登录状态。</span>

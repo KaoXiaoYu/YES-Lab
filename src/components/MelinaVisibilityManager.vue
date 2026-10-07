@@ -84,7 +84,6 @@ async function save() {
     <header>
       <span aria-hidden="true"><Bot :size="22" /></span>
       <div>
-        <p>COMPANION / SETTINGS</p>
         <h2 id="melina-visibility-title">吉祥物与展示设置</h2>
         <small>仅指导老师可修改。按账号选择梅琳娜或奶龙，也可以单独设置显示范围。</small>
       </div>

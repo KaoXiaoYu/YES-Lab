@@ -1,4 +1,5 @@
 <script setup>
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import { brand } from '../config/site'
 import ThemeToggle from '../components/ThemeToggle.vue'
 import { ArrowLeft, ArrowRight, MessageSquareText, Menu, Reply, X } from '@lucide/vue'
@@ -15,7 +16,7 @@ const discussionActivity = ref([])
 const loading = ref(true)
 const errorMessage = ref('')
 const menuOpen = ref(false)
-const accountDestination = computed(() => (authState.account?.role === 'VISITOR' ? '/application' : '/profile'))
+const accountDestination = computed(() => (authState.account?.role === 'VISITOR' ? '/application' : '/today'))
 const accountName = computed(() => authState.account?.displayName || authState.account?.username || '')
 
 onMounted(async () => {
@@ -44,7 +45,6 @@ function formatTime(value) {
     <header class="site-header">
       <RouterLink class="brand" to="/" :aria-label="`返回 ${brand.name} 首页`">
         <img :src="brand.logo" :alt="brand.name" width="900" height="300" />
-        <span>MEMBER PROFILE</span>
       </RouterLink>
       <nav :class="['top-nav', { open: menuOpen }]" aria-label="成员主页导航">
         <RouterLink class="public-back-link" to="/"><ArrowLeft :size="17" aria-hidden="true" />返回公开首页</RouterLink>
@@ -78,7 +78,7 @@ function formatTime(value) {
         <h1>{{ profile?.name || '成员主页' }}</h1>
         <span>成员公开档案 · 项目、能力与成长记录</span>
       </header>
-      <div v-if="loading" class="portal-state">正在读取公开成员资料…</div>
+      <LoadingSkeleton v-if="loading" variant="detail" :rows="3" label="正在读取公开成员资料" />
       <div v-else-if="errorMessage" class="portal-state error" role="alert">
         {{ errorMessage }}<RouterLink to="/">返回首页</RouterLink>
       </div>
@@ -87,7 +87,6 @@ function formatTime(value) {
         <section class="profile-discussion-card" aria-labelledby="profile-discussion-title">
           <header>
             <div>
-              <p>DISCUSSION ACTIVITY</p>
               <h2 id="profile-discussion-title">讨论板内容</h2>
             </div>
             <span>{{ discussionActivity.length }} 条公开内容</span>

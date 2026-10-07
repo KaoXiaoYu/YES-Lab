@@ -1,11 +1,14 @@
 <script setup>
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
+import { celebrate } from '../services/celebrate'
 import { ArrowLeft, Check, Save, Search, UsersRound } from '@lucide/vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
 import SearchableMemberSelect from '../components/SearchableMemberSelect.vue'
 import { createProject, listProjectMemberOptions } from '../services/authApi'
-import { showSubmissionFeedback } from '../services/submissionFeedback'
+import { useDraft } from '../composables/useDraft'
+import { useUnsavedGuard } from '../composables/useUnsavedGuard'
 
 const router = useRouter()
 const members = ref([])
@@ -34,6 +37,12 @@ const form = reactive({
   documentUrl: '',
   externallyVisible: false,
 })
+
+const pristine = ref(JSON.stringify(form))
+const dirty = computed(() => JSON.stringify(form) !== pristine.value)
+const draft = useDraft('project-create', () => JSON.parse(JSON.stringify(form)))
+draft.restore((value) => Object.assign(form, value))
+useUnsavedGuard(dirty)
 
 const teachers = computed(() => members.value.filter((member) => member.role === 'TEACHER'))
 const selectedMemberIds = computed(() => new Set(form.memberProfileIds))
@@ -115,12 +124,12 @@ async function submit() {
       requiredSkillTagsText: undefined,
       stageGoalsText: undefined,
     })
+    draft.clear()
+    pristine.value = JSON.stringify(form)
     await router.push(`/projects/${project.id}`)
-    showSubmissionFeedback({
-      eyebrow: 'PROJECT CREATED',
+    celebrate({
       title: '项目团队已创建',
-      message: `${project.projectName} 已建立。你可以继续完善项目资料、上传主图并安排团队角色。`,
-      confirmLabel: '进入团队空间',
+      message: `${project.projectName} 已建立。继续完善项目资料、上传主图并安排团队角色。`,
     })
   } catch (error) {
     errorMessage.value = error.message
@@ -132,14 +141,13 @@ async function submit() {
 
 <template>
   <PortalShell
-    eyebrow="ADMIN / PROJECT CREATE"
     title="创建项目"
     description="建立项目团队、指定负责人和指导老师。负责人创建后可继续维护成员与项目管理员。"
   >
     <RouterLink class="profile-back-link project-back-link" to="/projects"
       ><ArrowLeft :size="16" aria-hidden="true" />返回项目列表</RouterLink
     >
-    <div v-if="loading" class="portal-state">正在读取可选成员…</div>
+    <LoadingSkeleton v-if="loading" variant="detail" :rows="3" label="正在读取可选成员" />
     <div v-else-if="errorMessage && !members.length" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <form v-else class="project-form" @submit.prevent="submit">
       <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
@@ -148,7 +156,6 @@ async function submit() {
         <header>
           <span>01</span>
           <div>
-            <p>PROJECT IDENTITY</p>
             <h2>项目与团队</h2>
           </div>
         </header>
@@ -196,7 +203,6 @@ async function submit() {
         <header>
           <span>02</span>
           <div>
-            <p>OWNERSHIP & TEAM</p>
             <h2>负责人和成员</h2>
           </div>
         </header>
@@ -269,7 +275,6 @@ async function submit() {
         <header>
           <span>03</span>
           <div>
-            <p>PLAN & OUTPUT</p>
             <h2>计划与成果</h2>
           </div>
         </header>

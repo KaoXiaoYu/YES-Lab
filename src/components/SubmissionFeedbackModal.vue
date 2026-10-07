@@ -85,7 +85,7 @@ function handleKeydown(event) {
             <X :size="19" aria-hidden="true" />
           </button>
           <div class="submission-feedback-mark" aria-hidden="true"><CircleCheck :size="32" /></div>
-          <p>{{ submissionFeedbackState.eyebrow }}</p>
+          <p v-if="submissionFeedbackState.eyebrow">{{ submissionFeedbackState.eyebrow }}</p>
           <h2 id="submission-feedback-title">{{ submissionFeedbackState.title }}</h2>
           <span id="submission-feedback-message">{{ submissionFeedbackState.message }}</span>
           <button

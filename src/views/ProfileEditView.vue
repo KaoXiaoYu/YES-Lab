@@ -1,4 +1,6 @@
 <script setup>
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
+import { toast } from '../services/toast'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import {
@@ -23,6 +25,9 @@ import {
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
+import SaveBar from '../components/SaveBar.vue'
+import { useDraft } from '../composables/useDraft'
+import { useUnsavedGuard } from '../composables/useUnsavedGuard'
 import {
   deleteOwnAvatar,
   getOwnProfile,
@@ -31,7 +36,7 @@ import {
   updateOwnProfile,
   updateOwnShowcase,
 } from '../services/authApi'
-import { showSubmissionFeedback } from '../services/submissionFeedback'
+import { confirmAction } from '../services/confirm'
 
 const router = useRouter()
 const profile = ref(null)
@@ -52,11 +57,55 @@ const selectedAchievements = computed(() =>
   orderedOptions(showcase.value.achievementOptions, showcase.value.featuredCompetitionIds),
 )
 
+const profileHtml = ref('')
 const editor = useEditor({
   extensions: [StarterKit],
   content: '<p>正在加载个人主页…</p>',
   editorProps: { attributes: { 'aria-label': '个人主页富文本内容', class: 'profile-editor-content' } },
+  onUpdate: ({ editor: instance }) => (profileHtml.value = instance.getHTML()),
 })
+
+const snapshot = () => ({
+  internalContact: form.internalContact,
+  headline: form.headline,
+  profileHtml: profileHtml.value,
+  featuredProjectIds: [...(showcase.value.featuredProjectIds || [])],
+  featuredCompetitionIds: [...(showcase.value.featuredCompetitionIds || [])],
+})
+const baseline = ref('')
+const dirty = computed(() => !loading.value && baseline.value !== '' && JSON.stringify(snapshot()) !== baseline.value)
+const draft = useDraft('profile-edit', snapshot)
+useUnsavedGuard(dirty)
+
+function applySnapshot(value) {
+  form.internalContact = value.internalContact ?? ''
+  form.headline = value.headline ?? ''
+  showcase.value.featuredProjectIds = value.featuredProjectIds || []
+  showcase.value.featuredCompetitionIds = value.featuredCompetitionIds || []
+  profileHtml.value = value.profileHtml || '<p></p>'
+  editor.value?.commands.setContent(profileHtml.value, { emitUpdate: false })
+}
+
+function resetFromProfile() {
+  applySnapshot({
+    internalContact: profile.value.internalContact || '',
+    headline: profile.value.headline || '',
+    profileHtml: profile.value.profileHtml || '<p></p>',
+    featuredProjectIds: showcase.value.featuredProjectIds,
+    featuredCompetitionIds: showcase.value.featuredCompetitionIds,
+  })
+  baseline.value = JSON.stringify(snapshot())
+}
+
+async function discardChanges() {
+  try {
+    showcase.value = await getOwnShowcase()
+  } catch {
+    // Keep the current selection if the showcase cannot be re-read.
+  }
+  resetFromProfile()
+  draft.clear()
+}
 
 onMounted(async () => {
   try {
@@ -64,9 +113,8 @@ onMounted(async () => {
     profile.value = profileData
     showcase.value = showcaseData
     form.avatarUrl = profile.value.avatarUrl || ''
-    form.internalContact = profile.value.internalContact || ''
-    form.headline = profile.value.headline || ''
-    editor.value?.commands.setContent(profile.value.profileHtml || '<p></p>')
+    resetFromProfile()
+    draft.restore(applySnapshot)
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -109,7 +157,7 @@ async function uploadAvatar() {
     releaseAvatarPreview()
     avatarFile.value = null
     if (avatarInput.value) avatarInput.value.value = ''
-    message.value = '头像已更新。'
+    toast.success('头像已更新。')
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -118,7 +166,15 @@ async function uploadAvatar() {
 }
 
 async function removeAvatar() {
-  if (!window.confirm('确定移除当前头像吗？')) return
+  if (
+    !(await confirmAction({
+      title: '移除当前头像？',
+      message: '移除后将显示姓名首字，你可以随时重新上传。',
+      confirmText: '移除头像',
+      tone: 'danger',
+    }))
+  )
+    return
   avatarSaving.value = true
   message.value = ''
   errorMessage.value = ''
@@ -128,7 +184,7 @@ async function removeAvatar() {
     releaseAvatarPreview()
     avatarFile.value = null
     if (avatarInput.value) avatarInput.value.value = ''
-    message.value = '头像已移除。'
+    toast.success('头像已移除。')
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -177,13 +233,10 @@ async function saveProfile() {
     ])
     profile.value = profileData
     showcase.value = showcaseData
+    draft.clear()
+    baseline.value = JSON.stringify(snapshot())
     await router.push('/profile')
-    showSubmissionFeedback({
-      eyebrow: 'PROFILE UPDATED',
-      title: '个人主页已保存',
-      message: '你的主页标语、公开介绍和展示内容已经更新。',
-      confirmLabel: '查看个人主页',
-    })
+    toast.success('主页标语、公开介绍和展示内容已经更新。', { title: '个人主页已保存' })
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -199,17 +252,15 @@ function toggle(command) {
 
 <template>
   <PortalShell
-    eyebrow="MEMBER / PROFILE EDIT"
     title="编辑个人主页"
     description="修改头像、内部联系方式、主页标语和公开介绍；成员固定字段由管理员维护。"
   >
-    <div v-if="loading" class="portal-state">正在读取成员资料…</div>
+    <LoadingSkeleton v-if="loading" variant="detail" :rows="3" label="正在读取成员资料" />
     <div v-else-if="errorMessage && !profile" class="portal-state error" role="alert">{{ errorMessage }}</div>
 
     <section v-else-if="profile" class="profile-edit-card standalone-editor">
       <header>
         <div>
-          <p>PUBLIC PROFILE EDITOR</p>
           <h2>主页内容</h2>
         </div>
         <RouterLink class="profile-back-link" to="/profile"
@@ -267,7 +318,6 @@ function toggle(command) {
       <section class="profile-showcase-editor" aria-labelledby="profile-showcase-title">
         <header>
           <div>
-            <p>PUBLIC RECORDS</p>
             <h3 id="profile-showcase-title">主页展示内容</h3>
           </div>
           <span><Eye :size="16" aria-hidden="true" />只显示已公开项目和审核通过的奖项</span>
@@ -455,5 +505,6 @@ function toggle(command) {
         </button>
       </div>
     </section>
+    <SaveBar :show="dirty" :busy="saving" save-text="保存主页" @save="saveProfile" @discard="discardChanges" />
   </PortalShell>
 </template>

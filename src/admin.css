@@ -11,45 +11,28 @@
 .portal-page--admin {
   --admin-sidebar-width: 252px;
   --admin-topbar-height: 64px;
-  --admin-bg: #f6f7f9;
-  --admin-card: #ffffff;
-  --admin-card-muted: #f9fafb;
-  --admin-foreground: #18181b;
-  --admin-muted: #667085;
-  --admin-subtle: #5b6b80;
-  --admin-border: #e4e7ec;
-  --admin-border-strong: #74849a;
-  --admin-primary: #172033;
-  --admin-primary-hover: #25314a;
-  --admin-accent: #2563eb;
-  --admin-accent-soft: #eff6ff;
-  --admin-danger: #b42318;
-  --admin-danger-soft: #fff4f2;
-  --admin-success: #067647;
-  --admin-success-soft: #ecfdf3;
+  --admin-bg: var(--color-background);
+  --admin-card: var(--color-card);
+  --admin-card-muted: var(--color-surface-soft);
+  --admin-foreground: var(--color-foreground);
+  --admin-muted: var(--color-text-secondary);
+  --admin-subtle: var(--color-text-subtle);
+  --admin-border: var(--color-border-faint);
+  --admin-border-strong: var(--color-border-strong);
+  --admin-primary: var(--color-primary-fill);
+  --admin-primary-hover: var(--color-primary-hover);
+  --admin-primary-text: var(--color-primary);
+  --admin-on-primary: var(--color-on-primary);
+  --admin-accent: var(--color-secondary);
+  --admin-accent-soft: var(--color-secondary-soft);
+  --admin-danger: var(--color-danger);
+  --admin-danger-soft: var(--color-danger-surface);
+  --admin-success: var(--color-success);
+  --admin-success-soft: var(--color-success-surface);
   min-height: 100vh;
   color: var(--admin-foreground);
   background: var(--admin-bg);
   font-family: var(--font-body);
-}
-
-:root[data-theme='dark'] .portal-page--admin {
-  --admin-bg: #0d1117;
-  --admin-card: #141a23;
-  --admin-card-muted: #10161f;
-  --admin-foreground: #f2f4f7;
-  --admin-muted: #aab4c3;
-  --admin-subtle: #7c899b;
-  --admin-border: #2a3442;
-  --admin-border-strong: #5b708f;
-  --admin-primary: #edf2f7;
-  --admin-primary-hover: #ffffff;
-  --admin-accent: #7cb5ff;
-  --admin-accent-soft: #172b48;
-  --admin-danger: #fda29b;
-  --admin-danger-soft: #351b1f;
-  --admin-success: #75e0a7;
-  --admin-success-soft: #143329;
 }
 
 .portal-page--admin *,
@@ -64,9 +47,9 @@
   inset: 0 auto 0 0;
   width: var(--admin-sidebar-width);
   padding: 18px 14px 14px;
-  color: #d6deea;
-  background: #101725;
-  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--color-inverse-muted);
+  background: var(--color-inverse);
+  border-right: 1px solid var(--color-inverse-border);
 }
 
 .admin-shell-sidebar-head {
@@ -81,7 +64,7 @@
 .admin-shell-brand {
   min-width: 0;
   gap: 10px;
-  color: #fff;
+  color: var(--color-inverse-foreground);
   text-decoration: none;
 }
 
@@ -96,7 +79,7 @@
   gap: 1px;
   min-width: 0;
   padding-left: 10px;
-  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  border-left: 1px solid color-mix(in oklab, var(--color-inverse-foreground) 16%, transparent);
 }
 
 .admin-shell-brand b {
@@ -106,7 +89,7 @@
 }
 
 .admin-shell-brand small {
-  color: #8491a5;
+  color: var(--color-inverse-subtle);
   font-size: 10px;
   line-height: 1.2;
 }
@@ -118,13 +101,13 @@
   place-items: center;
   border: 0;
   border-radius: 8px;
-  color: #aab4c3;
+  color: var(--color-inverse-muted);
   background: transparent;
 }
 
 .admin-shell-nav-label {
   margin: 0 10px 8px;
-  color: #66748a;
+  color: var(--color-inverse-subtle);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.09em;
@@ -147,42 +130,42 @@
   min-height: 42px;
   padding: 9px 11px;
   border-radius: 8px;
-  color: #aab4c3;
+  color: var(--color-inverse-muted);
   font-size: 13px;
   font-weight: 560;
   text-decoration: none;
   transition:
-    color 150ms ease,
-    background-color 150ms ease;
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
 }
 
 .admin-shell-nav a svg {
   flex: 0 0 auto;
-  color: #7f8ca1;
+  color: var(--color-inverse-subtle);
   stroke-width: 1.8;
 }
 
-.admin-shell-nav a.router-link-active {
-  color: #fff;
-  background: #25314a;
+.admin-shell-nav a.is-current {
+  color: var(--color-inverse-foreground);
+  background: var(--color-inverse-raised);
 }
 
-.admin-shell-nav a.router-link-active::before {
+.admin-shell-nav a.is-current::before {
   position: absolute;
   left: -4px;
   width: 3px;
   height: 18px;
   border-radius: 999px;
-  background: #7cb5ff;
+  background: var(--color-inverse-accent);
   content: '';
 }
 
-.admin-shell-nav a.router-link-active svg {
-  color: #fff;
+.admin-shell-nav a.is-current svg {
+  color: var(--color-inverse-foreground);
 }
 
 .admin-shell-nav--secondary a {
-  color: #8794a8;
+  color: var(--color-inverse-subtle);
 }
 
 .admin-shell-user {
@@ -193,7 +176,7 @@
   margin-top: auto;
   min-height: auto;
   padding: 14px 8px 2px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--color-inverse-border);
   background: transparent;
 }
 
@@ -209,8 +192,8 @@
 .admin-shell-user-avatar {
   width: 36px;
   height: 36px;
-  color: #dce7f7;
-  background: #2a3852;
+  color: var(--color-inverse-foreground);
+  background: var(--color-inverse-raised);
 }
 
 .admin-shell-user-avatar img,
@@ -239,13 +222,13 @@
 }
 
 .admin-shell-user strong {
-  color: #f3f6fb;
+  color: var(--color-inverse-foreground);
   font-size: 12px;
 }
 
 .admin-shell-user small {
-  color: #7f8ca1;
-  font-size: 9px;
+  color: var(--color-inverse-subtle);
+  font-size: 11px;
 }
 
 .admin-shell-user > button {
@@ -255,7 +238,7 @@
   place-items: center;
   border: 0;
   border-radius: 8px;
-  color: #8390a3;
+  color: var(--color-inverse-subtle);
   background: transparent;
 }
 
@@ -287,16 +270,34 @@
 }
 
 .admin-shell-context {
-  display: grid;
-  gap: 1px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
+  color: var(--admin-subtle);
 }
 
-.admin-shell-context small {
-  color: var(--admin-subtle);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+.admin-shell-context a {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  margin-left: -6px;
+  border-radius: 6px;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 560;
+  text-decoration: none;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.admin-shell-context a:hover {
+  color: var(--admin-foreground);
+  background: var(--color-hover);
+}
+
+.admin-shell-context svg {
+  flex: 0 0 auto;
 }
 
 .admin-shell-context strong {
@@ -331,7 +332,7 @@
   width: 36px;
   height: 36px;
   margin-left: 2px;
-  color: var(--admin-primary);
+  color: var(--admin-primary-text);
   border: 1px solid var(--admin-border);
   background: var(--admin-card-muted);
 }
@@ -401,7 +402,7 @@
   border: 1px solid var(--admin-border);
   border-radius: 12px;
   background: var(--admin-card);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
+  box-shadow: var(--shadow-xs);
 }
 
 .portal-page--admin .portal-state {
@@ -429,26 +430,19 @@
   padding: 9px 14px;
   border: 1px solid var(--admin-primary);
   border-radius: 8px;
-  color: var(--admin-card);
+  color: var(--admin-on-primary);
   background: var(--admin-primary);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
+  box-shadow: var(--shadow-sm);
   font-size: 12px;
   font-weight: 650;
   transition:
-    background-color 150ms ease,
-    border-color 150ms ease,
-    transform 120ms ease-out;
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
 
 .portal-page--admin .detail-actions button.interview-rejection-revoke {
   min-height: 44px;
-}
-
-:root[data-theme='dark'] .portal-page--admin .portal-primary,
-:root[data-theme='dark']
-  .portal-page--admin
-  :is(.member-admin-submit button, .detail-actions button:not(.danger), .review-approve) {
-  color: #111827;
 }
 
 /* 次要按钮在后台的作用域样式：与 .portal-primary 同一套尺寸与过渡 */
@@ -459,13 +453,13 @@
   border-radius: 8px;
   color: var(--admin-foreground);
   background: var(--admin-card);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  box-shadow: var(--shadow-xs);
   font-size: 12px;
   font-weight: 650;
   transition:
-    background-color 150ms ease,
-    border-color 150ms ease,
-    transform 120ms ease-out;
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
 }
 
 .portal-page--admin button:active,
@@ -485,12 +479,12 @@
   border-radius: 8px;
   color: var(--admin-foreground);
   background: var(--admin-card);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.025);
+  box-shadow: var(--shadow-xs);
   font: inherit;
   font-size: 13px;
   transition:
-    border-color 150ms ease,
-    box-shadow 150ms ease;
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 
 .portal-page--admin :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), textarea, select):focus {
@@ -518,7 +512,7 @@
   border: 1px solid var(--admin-border);
   border-radius: 12px;
   background: var(--admin-card);
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.035);
+  box-shadow: var(--shadow-xs);
 }
 
 .portal-page--admin .melina-visibility-manager > header {
@@ -539,7 +533,7 @@
 .portal-page--admin .melina-visibility-manager > header p {
   margin-bottom: 3px;
   color: var(--admin-subtle);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.08em;
 }
 
@@ -599,7 +593,7 @@
 .portal-page--admin .melina-role-options small,
 .portal-page--admin .melina-account-list small {
   color: var(--admin-muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .portal-page--admin .melina-account-search {
@@ -647,7 +641,7 @@
   min-height: 40px;
   padding: 8px 13px;
   border-color: var(--admin-primary);
-  color: var(--admin-card);
+  color: var(--admin-on-primary);
   background: var(--admin-primary);
 }
 
@@ -688,7 +682,7 @@
   ) {
   margin: 0 0 4px;
   color: var(--admin-subtle);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.08em;
 }
 
@@ -710,7 +704,7 @@
   width: 38px;
   height: 38px;
   border-color: var(--admin-primary);
-  color: var(--admin-card);
+  color: var(--admin-on-primary);
   background: var(--admin-primary);
 }
 
@@ -740,7 +734,7 @@
   border-bottom-color: var(--admin-border);
   color: var(--admin-foreground);
   background: var(--admin-card);
-  transition: background-color 140ms ease;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 
 .portal-page--admin
@@ -1012,7 +1006,7 @@
 .portal-page--admin .achievement-admin-tabs button.active {
   color: var(--admin-foreground);
   background: var(--admin-card);
-  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+  box-shadow: var(--shadow-sm);
 }
 
 .portal-page--admin .achievement-detail-grid {
@@ -1067,8 +1061,13 @@
 }
 
 .portal-page--admin .homepage-editor-nav > header h2 {
+  color: var(--admin-foreground);
   font-family: var(--font-body);
   font-size: 16px;
+}
+
+.portal-page--admin .homepage-editor-nav > header p {
+  color: var(--admin-subtle);
 }
 
 .portal-page--admin .homepage-editor-nav > button {
@@ -1081,8 +1080,8 @@
   background: transparent;
   font-size: 12px;
   transition:
-    color 140ms ease,
-    background-color 140ms ease;
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
 }
 
 .portal-page--admin .homepage-editor-nav > button.active {
@@ -1140,7 +1139,7 @@
   border: 1px solid var(--admin-border);
   border-radius: 10px;
   background: color-mix(in srgb, var(--admin-card) 94%, transparent);
-  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.1);
+  box-shadow: var(--shadow-md);
   backdrop-filter: blur(14px);
 }
 
@@ -1152,8 +1151,8 @@
   .admin-shell-nav a:hover,
   .admin-shell-user > button:hover,
   .admin-shell-sidebar-head > button:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.07);
+    color: var(--color-inverse-foreground);
+    background: color-mix(in oklab, var(--color-inverse-foreground) 8%, transparent);
   }
 
   .portal-page--admin .portal-primary:hover,
@@ -1163,8 +1162,8 @@
   }
 
   .portal-page--admin .portal-secondary:hover {
-    border-color: var(--admin-primary);
-    color: var(--admin-primary);
+    border-color: var(--admin-primary-text);
+    color: var(--admin-primary-text);
     background: var(--admin-card-muted);
   }
 
@@ -1217,14 +1216,20 @@
     overflow-x: visible;
   }
 
-  .admin-shell-sidebar {
+  .admin-shell-sidebar,
+  .portal-page--admin.is-rail .admin-shell-sidebar {
     width: min(86vw, 288px);
-    transform: translateX(-100%);
-    transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
+    transform: translate3d(-100%, 0, 0);
+    transition: transform var(--duration-slow) var(--ease-out);
+  }
+
+  .admin-rail-toggle {
+    display: none !important;
   }
 
   .admin-shell-sidebar.open {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
+    box-shadow: var(--shadow-xl);
   }
 
   .admin-shell-sidebar-head > button,
@@ -1238,16 +1243,18 @@
     inset: 0;
     display: block;
     border: 0;
-    background: rgba(12, 18, 28, 0.52);
+    background: var(--color-overlay);
     backdrop-filter: blur(2px);
   }
 
-  .admin-shell-topbar {
+  .admin-shell-topbar,
+  .portal-page--admin.is-rail .admin-shell-topbar {
     left: 0;
     padding-inline: 18px;
   }
 
-  .portal-page--admin > .portal-main {
+  .portal-page--admin > .portal-main,
+  .portal-page--admin.is-rail > .portal-main {
     margin-left: 0;
     padding-inline: 20px;
   }
@@ -1445,4 +1452,123 @@
   :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), textarea, select, button):focus-visible {
   outline: 2px solid var(--admin-accent);
   outline-offset: 2px;
+}
+
+/* Persistent shell: scrollable navigation, collapsible icon rail on desktop. */
+.admin-shell-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 -6px;
+  padding: 0 6px 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-inverse-border) transparent;
+}
+
+.admin-shell-nav a span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.admin-shell-nav a.is-current::before {
+  animation: admin-indicator-in var(--duration-base) var(--ease-out);
+}
+
+@keyframes admin-indicator-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0.4);
+  }
+}
+
+.admin-rail-toggle {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  min-height: 36px !important;
+  min-width: 36px !important;
+  margin-left: -8px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: var(--admin-muted);
+  background: transparent;
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.admin-rail-toggle:hover {
+  color: var(--admin-foreground);
+  background: var(--color-hover);
+}
+
+@media (min-width: 961px) {
+  .admin-shell-sidebar,
+  .admin-shell-topbar,
+  .portal-page--admin > .portal-main {
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out);
+  }
+
+  .admin-shell-sidebar {
+    overflow: hidden;
+    transition-property: width;
+  }
+
+  .admin-shell-topbar {
+    transition-property: left;
+  }
+
+  .portal-page--admin > .portal-main {
+    transition-property: margin-left;
+  }
+
+  .portal-page--admin.is-rail {
+    --admin-sidebar-width: 76px;
+  }
+
+  .is-rail :is(.admin-shell-brand span, .admin-shell-nav a span, .admin-shell-user > span) {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .is-rail .admin-shell-nav-label {
+    height: 1px;
+    margin: 0 10px 12px;
+    overflow: hidden;
+    color: transparent;
+    background: var(--color-inverse-border);
+  }
+
+  .is-rail .admin-shell-nav-label.secondary {
+    margin-top: 20px;
+  }
+
+  .is-rail .admin-shell-sidebar-head {
+    padding: 0;
+  }
+
+  .is-rail .admin-shell-brand span {
+    display: none;
+  }
+
+  .is-rail .admin-shell-user {
+    grid-template-columns: 36px;
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .is-rail .admin-shell-user > span {
+    display: none;
+  }
+}
+
+@media (min-width: 961px) {
+  .is-rail .admin-shell-brand img {
+    width: 48px;
+  }
 }

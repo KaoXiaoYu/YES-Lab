@@ -16,7 +16,7 @@ import {
   Undo2,
   Unlink,
 } from '@lucide/vue'
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -75,36 +75,59 @@ function toggle(command) {
   if (chain) command(chain).run()
 }
 
-function editLink() {
-  const current = editor.value?.getAttributes('link').href || ''
-  const value = window.prompt('请输入链接地址（仅支持 http 或 https）', current)
-  if (value === null) return
-  const href = value.trim()
-  if (!href) {
-    editor.value?.chain().focus().extendMarkRange('link').unsetLink().run()
-    return
-  }
-  if (!/^https?:\/\//i.test(href)) {
-    validationMessage.value = '链接必须以 http:// 或 https:// 开头。'
-    return
-  }
-  editor.value?.chain().focus().extendMarkRange('link').setLink({ href }).run()
+// Link and image details are entered in a small panel under the toolbar (no browser prompts).
+const insertPanel = ref(null)
+const panelUrl = ref('')
+const panelAlt = ref('')
+const panelError = ref('')
+const panelUrlInput = ref(null)
+let panelTrigger = null
+
+async function openPanel(kind, event) {
+  panelTrigger = event?.currentTarget || null
+  insertPanel.value = kind
+  panelError.value = ''
+  panelUrl.value = kind === 'link' ? editor.value?.getAttributes('link').href || '' : ''
+  panelAlt.value = ''
+  await nextTick()
+  panelUrlInput.value?.focus()
+  panelUrlInput.value?.select()
 }
 
-function insertImage() {
-  const value = window.prompt('请输入图片地址（仅支持 http 或 https）')
-  if (value === null) return
-  const src = value.trim()
-  if (!/^https?:\/\//i.test(src)) {
-    validationMessage.value = '图片地址必须以 http:// 或 https:// 开头。'
+function closePanel({ restoreFocus = true } = {}) {
+  insertPanel.value = null
+  panelError.value = ''
+  if (restoreFocus) panelTrigger?.focus()
+  panelTrigger = null
+}
+
+function applyPanel() {
+  const url = panelUrl.value.trim()
+  if (insertPanel.value === 'link') {
+    if (!url) {
+      editor.value?.chain().focus().extendMarkRange('link').unsetLink().run()
+      closePanel({ restoreFocus: false })
+      return
+    }
+    if (!/^https?:\/\//i.test(url)) {
+      panelError.value = '链接需要以 http:// 或 https:// 开头。'
+      return
+    }
+    editor.value?.chain().focus().extendMarkRange('link').setLink({ href: url }).run()
+    closePanel({ restoreFocus: false })
     return
   }
-  const alt = window.prompt('请输入图片说明，方便无法查看图片的用户理解内容')?.trim()
+  if (!/^https?:\/\//i.test(url)) {
+    panelError.value = '图片地址需要以 http:// 或 https:// 开头。'
+    return
+  }
+  const alt = panelAlt.value.trim()
   if (!alt) {
-    validationMessage.value = '请为图片填写说明文字。'
+    panelError.value = '写一句图片说明，方便无法查看图片的读者理解内容。'
     return
   }
-  editor.value?.chain().focus().setImage({ src, alt, title: alt }).run()
+  editor.value?.chain().focus().setImage({ src: url, alt, title: alt }).run()
+  closePanel({ restoreFocus: false })
 }
 </script>
 
@@ -199,7 +222,8 @@ function insertImage() {
         :aria-pressed="editor.isActive('link')"
         aria-label="添加或修改链接"
         title="添加链接"
-        @click="editLink"
+        :aria-expanded="insertPanel === 'link'"
+        @click="(event) => (insertPanel === 'link' ? closePanel() : openPanel('link', event))"
       >
         <Link :size="17" aria-hidden="true" />
       </button>
@@ -212,7 +236,13 @@ function insertImage() {
       >
         <Unlink :size="17" aria-hidden="true" />
       </button>
-      <button type="button" aria-label="插入网络图片" title="插入网络图片" @click="insertImage">
+      <button
+        type="button"
+        aria-label="插入网络图片"
+        title="插入网络图片"
+        :aria-expanded="insertPanel === 'image'"
+        @click="(event) => (insertPanel === 'image' ? closePanel() : openPanel('image', event))"
+      >
         <ImagePlus :size="17" aria-hidden="true" />
       </button>
       <span aria-hidden="true"></span>
@@ -235,6 +265,44 @@ function insertImage() {
         <Redo2 :size="17" aria-hidden="true" />
       </button>
     </div>
+    <Transition name="reveal">
+      <div
+        v-if="insertPanel"
+        class="editor-insert-panel"
+        role="group"
+        :aria-label="insertPanel === 'link' ? '添加链接' : '插入网络图片'"
+        @keydown.esc.stop.prevent="closePanel()"
+      >
+        <label>
+          {{ insertPanel === 'link' ? '链接地址' : '图片地址' }}
+          <input
+            ref="panelUrlInput"
+            v-model="panelUrl"
+            type="url"
+            inputmode="url"
+            placeholder="https://"
+            @keydown.enter.prevent="applyPanel"
+          />
+        </label>
+        <label v-if="insertPanel === 'image'">
+          图片说明
+          <input
+            v-model="panelAlt"
+            type="text"
+            maxlength="120"
+            placeholder="例如：机器狗在走廊避障"
+            @keydown.enter.prevent="applyPanel"
+          />
+        </label>
+        <div class="editor-insert-actions">
+          <button type="button" class="portal-primary" @click="applyPanel">
+            {{ insertPanel === 'link' ? (panelUrl.trim() ? '应用链接' : '移除链接') : '插入图片' }}
+          </button>
+          <button type="button" class="portal-secondary" @click="closePanel()">取消</button>
+        </div>
+        <p v-if="panelError" class="discussion-editor-error" role="alert">{{ panelError }}</p>
+      </div>
+    </Transition>
     <EditorContent :editor="editor" />
     <p v-if="validationMessage" class="discussion-editor-error" role="alert">{{ validationMessage }}</p>
     <p class="discussion-editor-help">

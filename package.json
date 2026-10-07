@@ -9,7 +9,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/start-dev.js",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --max-warnings=0",
@@ -25,6 +25,7 @@
     "@tiptap/pm": "3.31.3",
     "@tiptap/starter-kit": "3.31.3",
     "@tiptap/vue-3": "3.31.3",
+    "motion": "^12.43.0",
     "three": "^0.185.1",
     "vue": "^3.5.13",
     "vue-router": "^5.2.0"

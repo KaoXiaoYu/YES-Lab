@@ -231,3 +231,7 @@ function initialsFor(name = '') {
   const compact = name.trim().replace(/\s+/g, '')
   return compact.slice(0, 2).toUpperCase() || 'YL'
 }
+
+export async function fetchPublicMemberDirectory() {
+  return fetchPublicData('/api/v1/public/member-profiles')
+}

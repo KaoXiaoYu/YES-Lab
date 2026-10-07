@@ -63,7 +63,7 @@ const isTeacher = computed(() => props.profile.role === 'TEACHER')
       <div class="growth-grid">
         <template v-if="!isTeacher">
           <article>
-            <span>POINTS</span><strong>{{ profile.totalPoints }}</strong
+            <span>积分</span><strong>{{ profile.totalPoints }}</strong
             ><small>来自已审计的积分流水</small>
           </article>
           <article>
@@ -72,11 +72,11 @@ const isTeacher = computed(() => props.profile.role === 'TEACHER')
           </article>
         </template>
         <article>
-          <span>PROJECTS</span><strong>{{ profile.projectRecords?.length || 0 }}</strong
+          <span>项目</span><strong>{{ profile.projectRecords?.length || 0 }}</strong
           ><small>项目记录</small>
         </article>
         <article>
-          <span>RESULTS</span><strong>{{ profile.achievementRecords?.length || 0 }}</strong
+          <span>成果</span><strong>{{ profile.achievementRecords?.length || 0 }}</strong
           ><small>比赛与成果</small>
         </article>
       </div>
@@ -85,7 +85,6 @@ const isTeacher = computed(() => props.profile.role === 'TEACHER')
     <section class="profile-story-card">
       <header>
         <div>
-          <p>MEMBER PROFILE</p>
           <h2>研究与成长档案</h2>
         </div>
         <span>由成员本人维护的公开介绍</span>

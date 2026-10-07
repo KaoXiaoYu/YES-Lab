@@ -473,7 +473,7 @@ onBeforeUnmount(() => {
         <button v-if="failed" type="button" @click="retryModel"><RotateCw :size="14" aria-hidden="true" />重试</button>
       </div>
       <div v-if="activeModel" class="product-scene-caption" aria-live="off">
-        <span v-if="hasMultipleModels">MODEL {{ activeIndex + 1 }} / {{ enabledModels.length }}</span>
+        <span v-if="hasMultipleModels">模型 {{ activeIndex + 1 }} / {{ enabledModels.length }}</span>
         <strong>{{ activeModel.title }}</strong>
         <small>{{ activeModel.description }}</small>
       </div>
@@ -564,7 +564,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   opacity: 0;
-  transition: opacity 0.35s ease;
+  transition: opacity var(--duration-slow) var(--ease-out);
   cursor: grab;
 }
 .product-scene-canvas:active {
@@ -757,6 +757,10 @@ onBeforeUnmount(() => {
   }
   .product-scene-heading {
     padding-inline: 4px;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    text-align: left;
+    overflow-wrap: anywhere;
   }
   .product-scene-caption {
     bottom: 8px;

@@ -1,13 +1,7 @@
 /* YES Lab visual refresh: shared surfaces, research canvas and restrained motion. */
 :root {
-  --radius-card: 16px;
-  --radius-control: 10px;
-  --lab-ink: #0c1b30;
-  --lab-line: #31445e;
-  --lab-light: #f2f6fc;
-  --lab-muted: #b7c7dc;
-  --lab-gold: #f1c779;
-  --shadow-card: 0 12px 36px -24px rgba(15, 35, 64, 0.3);
+  --lab-ink: var(--color-inverse);
+  --lab-muted: var(--color-inverse-muted);
 }
 body {
   font-family: var(--font-body);
@@ -78,7 +72,7 @@ body {
   background: var(--color-primary);
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform 220ms var(--ease-standard);
+  transition: transform var(--duration-base) var(--ease-out);
 }
 .header-account {
   justify-self: end;
@@ -256,7 +250,7 @@ body {
 .hero .primary-action {
   padding-inline: 24px;
   border-color: var(--color-primary-fill);
-  color: #fff;
+  color: var(--color-on-primary);
   background: var(--color-primary-fill);
   box-shadow: none;
 }
@@ -682,13 +676,13 @@ body {
   border-radius: 12px;
 }
 .project-graphic img {
-  transition: transform 500ms var(--ease-standard);
+  transition: transform var(--duration-slower) var(--ease-out);
 }
 .project-graphic b {
   padding: 5px 8px;
   border-radius: 5px;
-  color: #fff;
-  background: #102139;
+  color: var(--color-inverse-foreground);
+  background: var(--color-inverse-raised);
   font-size: 11px;
 }
 .project-copy h3 {
@@ -717,7 +711,7 @@ body {
   flex-shrink: 0;
 }
 .about-section {
-  background: #132c48;
+  background: var(--color-inverse-raised);
 }
 .about-grid {
   gap: clamp(32px, 7vw, 100px);
@@ -810,7 +804,7 @@ body {
 }
 .sponsor-logo {
   min-width: 0;
-  background: #fff;
+  background: var(--color-canvas);
 }
 .sponsor-copy {
   padding: 40px;
@@ -868,12 +862,6 @@ body {
 }
 
 /* Homepage content hierarchy: one navy section, open member and result surfaces. */
-.site-shell {
-  --color-accent: #275cb6;
-}
-:root[data-theme='dark'] .site-shell {
-  --color-accent: #93c5fd;
-}
 .site-shell .section h2 {
   font-size: clamp(32px, 3.3vw, 48px);
   font-weight: 600;
@@ -891,13 +879,13 @@ body {
   font-size: clamp(23px, 2vw, 28px);
 }
 .site-shell .project-graphic.is-default {
-  background: #edf1f7;
+  background: var(--color-surface-muted);
 }
 .site-shell .project-graphic.is-default img {
   padding: 20%;
 }
 .site-shell .about-section {
-  background: #132c48;
+  background: var(--color-inverse-raised);
 }
 .site-shell .about-feature-board {
   border: 0;
@@ -979,8 +967,8 @@ body {
   background: var(--color-background);
 }
 .site-shell .contact-section {
-  color: #f2f6fc;
-  background: #132c48;
+  color: var(--color-inverse-foreground);
+  background: var(--color-inverse-raised);
 }
 .site-shell .contact-section h2 {
   font-weight: 500;
@@ -994,7 +982,7 @@ body {
     background: var(--color-surface-muted);
   }
   .header-account .auth-entry .header-register:hover {
-    background: #244b78;
+    background: var(--color-primary-hover);
   }
   .site-shell .member-card-link:hover h3 {
     color: var(--color-secondary);
@@ -1095,8 +1083,8 @@ body {
 }
 .portal-page :is(input, textarea, select) {
   transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease;
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
 }
 .portal-page :is(input, textarea, select):focus-visible {
   outline: 2px solid var(--color-ring);
@@ -1378,15 +1366,15 @@ body {
   }
   [data-reveal] {
     transition:
-      opacity 650ms var(--ease-standard),
-      transform 650ms var(--ease-standard);
+      opacity var(--duration-slower) var(--ease-out),
+      transform var(--duration-slower) var(--ease-out);
   }
   .primary-action svg,
   .text-action svg,
   .project-card-foot svg,
   .hero-directory svg,
   .auth-submit svg {
-    transition: transform 220ms var(--ease-standard);
+    transition: transform var(--duration-base) var(--ease-out);
   }
 }
 @media (hover: hover) and (pointer: fine) {
@@ -1399,8 +1387,8 @@ body {
     background: var(--color-surface-muted);
   }
   .hero .primary-action:hover {
-    color: #fff;
-    background: #244b78;
+    color: var(--color-on-primary);
+    background: var(--color-primary-hover);
     box-shadow: 0 6px 18px rgba(30, 58, 95, 0.16);
   }
   .hero .text-action:hover {
@@ -1718,7 +1706,7 @@ body {
   *,
   *::before,
   *::after {
-    transition-duration: 0.01ms !important;
+    transition-duration: 0var (--duration-instant) !important;
   }
   .project-card:hover,
   .project-card:hover .project-graphic img {
@@ -1780,9 +1768,9 @@ body {
     visibility: hidden;
     transform: translateY(-8px);
     transition:
-      opacity 180ms ease,
-      transform 220ms ease,
-      visibility 180ms;
+      opacity var(--duration-fast) var(--ease-out),
+      transform var(--duration-base) var(--ease-out),
+      visibility var(--duration-fast);
     max-height: calc(100dvh - var(--site-header-height) - 20px);
     overflow-y: auto;
   }
@@ -1929,7 +1917,7 @@ body {
   color: var(--color-foreground);
   font-size: 12px;
   text-decoration: none;
-  transition: color 180ms ease;
+  transition: color var(--duration-fast) var(--ease-out);
 }
 .footer-repository:hover {
   color: var(--color-accent);
@@ -1957,4 +1945,21 @@ body {
   .footer-repository {
     align-items: flex-start;
   }
+}
+
+/* Light theme: the homepage "about" and "contact" bands are light surfaces instead of
+   navy blocks, so the page reads as one continuous light canvas. Remapping the inverse
+   tokens locally keeps every nested rule (eyebrows, dividers, links) consistent. */
+:root:not([data-theme='dark']) .site-shell :is(.about-section, .contact-section) {
+  --color-inverse: var(--color-surface-soft);
+  --color-inverse-raised: var(--color-surface-soft);
+  --color-inverse-foreground: var(--color-foreground);
+  --color-inverse-muted: var(--color-text-secondary);
+  --color-inverse-subtle: var(--color-text-subtle);
+  --color-inverse-border: var(--color-border-faint);
+  --color-inverse-border-strong: var(--color-border);
+  --color-inverse-highlight: var(--color-accent);
+  --color-inverse-highlight-strong: var(--color-accent);
+  --color-inverse-accent: var(--color-secondary);
+  border-block: 1px solid var(--color-border-faint);
 }

@@ -4,7 +4,14 @@ import { ArrowLeft, CheckCircle2, ChevronRight, CircleDashed, Clock3, Gift, Tria
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
-import { confirmBountyPrizeReceived, getMyTask, submitMyTask } from '../services/authApi'
+import AdminDrawer from '../components/AdminDrawer.vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
+import SubtaskWorkspace from '../components/SubtaskWorkspace.vue'
+import { useDraft } from '../composables/useDraft'
+import { confirmBountyPrizeReceived, getMySubtask, getMyTask, submitMySubtask, submitMyTask } from '../services/authApi'
+import { celebrate } from '../services/celebrate'
+import { confirmAction } from '../services/confirm'
+import { toast } from '../services/toast'
 
 const route = useRoute()
 const task = ref(null)
@@ -13,6 +20,12 @@ const working = ref(false)
 const errorMessage = ref('')
 const actionError = ref('')
 const note = ref('')
+const savedNote = ref('')
+const openSubtask = ref(null)
+const noteDraft = useDraft(
+  () => `task-note:${route.params.assignmentId}`,
+  () => note.value,
+)
 
 const statusLabels = {
   PENDING: '待完成',
@@ -65,6 +78,8 @@ async function load() {
   try {
     task.value = await getMyTask(route.params.assignmentId)
     note.value = task.value.completionNote || ''
+    savedNote.value = note.value
+    if (task.value.editable) noteDraft.restore((value) => (note.value = value))
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -78,8 +93,24 @@ async function submit() {
   if (!note.value.trim()) return
   working.value = true
   actionError.value = ''
+  const resubmitting = task.value.status === 'SUBMITTED'
   try {
     task.value = await submitMyTask(task.value.assignmentId, note.value.trim())
+    savedNote.value = task.value.completionNote || note.value.trim()
+    note.value = savedNote.value
+    noteDraft.clear()
+    if (isBounty.value && task.value.status === 'APPROVED') {
+      celebrate({
+        title: task.value.completionRank ? `悬赏完成，第 ${task.value.completionRank} 名` : '悬赏已完成',
+        message: task.value.prizeAwarded
+          ? '你进入了获奖名次，管理员会登记线下发放。'
+          : '名次已锁定，管理员会事后复核。',
+      })
+    } else if (resubmitting) {
+      toast.success('完成说明已更新。')
+    } else {
+      celebrate({ title: '任务已提交', message: '管理员确认后会通知你；积分在任务到期后统一结算。' })
+    }
   } catch (error) {
     actionError.value = error.message
   } finally {
@@ -87,12 +118,35 @@ async function submit() {
   }
 }
 
+function openSubtaskSheet(subtask) {
+  openSubtask.value = subtask
+}
+
+async function onSubtaskSubmitted() {
+  // Refresh progress in place; the member stays on the task.
+  try {
+    const fresh = await getMyTask(route.params.assignmentId)
+    task.value = { ...fresh, completionNote: task.value.completionNote }
+  } catch {
+    // The subtask itself saved; a stale counter is harmless until the next visit.
+  }
+}
+
 async function confirmPrizeReceived() {
-  if (!window.confirm('请确认你已实际收到这份线下奖金。确认后将记录你的账号和时间，不能撤销。')) return
+  if (
+    !(await confirmAction({
+      title: '确认已收到奖金？',
+      message: '请确认你已实际收到这份线下奖金。',
+      details: ['确认后将记录你的账号和时间。', '此操作不能撤销。'],
+      confirmText: '确认已收到',
+    }))
+  )
+    return
   working.value = true
   actionError.value = ''
   try {
     task.value = await confirmBountyPrizeReceived(task.value.assignmentId)
+    toast.success('已登记你收到这份奖金。')
   } catch (error) {
     actionError.value = error.message
   } finally {
@@ -103,17 +157,12 @@ async function confirmPrizeReceived() {
 
 <template>
   <PortalShell
-    eyebrow="COLLABORATION / TASK"
     title="任务详情"
-    :description="
-      isBounty
-        ? '查看完成名次、奖金状态与截止时间。'
-        : '查看任务说明，逐个子任务提交完成内容后填写总完成说明，等待管理员人工确认。'
-    "
+    :description="isBounty ? '查看完成名次、奖金状态与截止时间。' : '逐个提交子任务，再填写完成说明，等待管理员确认。'"
   >
     <RouterLink class="task-back" to="/tasks"><ArrowLeft :size="16" aria-hidden="true" />返回我的任务</RouterLink>
 
-    <div v-if="loading" class="portal-state">正在读取任务…</div>
+    <LoadingSkeleton v-if="loading" variant="detail" :rows="4" label="正在读取任务" />
     <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
 
     <template v-else-if="task">
@@ -184,7 +233,10 @@ async function confirmPrizeReceived() {
         </h3>
         <ul v-if="totalCount" class="task-subtask-entries">
           <li v-for="subtask in task.subtasks" :key="subtask.id">
-            <RouterLink :to="`/tasks/${task.assignmentId}/subtasks/${subtask.id}`">
+            <a
+              :href="`/tasks/${task.assignmentId}/subtasks/${subtask.id}`"
+              @click.exact.prevent="openSubtaskSheet(subtask)"
+            >
               <CheckCircle2 v-if="subtask.submitted" :size="18" aria-hidden="true" />
               <CircleDashed v-else :size="18" aria-hidden="true" />
               <span class="task-subtask-entry-title">{{ subtask.title }}</span>
@@ -193,7 +245,7 @@ async function confirmPrizeReceived() {
                 <template v-if="subtask.hasContent"> · 有说明</template>
               </span>
               <ChevronRight :size="16" aria-hidden="true" />
-            </RouterLink>
+            </a>
           </li>
         </ul>
         <p v-else class="empty-note">本任务没有子任务，直接填写完成说明提交即可。</p>
@@ -248,6 +300,26 @@ async function confirmPrizeReceived() {
 
         <p v-if="actionError" class="portal-state error inline" role="alert">{{ actionError }}</p>
       </section>
+
+      <AdminDrawer
+        :open="Boolean(openSubtask)"
+        :title="openSubtask?.title || '子任务'"
+        :description="task.title"
+        size="lg"
+        hide-footer
+        @update:open="(value) => !value && (openSubtask = null)"
+      >
+        <SubtaskWorkspace
+          v-if="openSubtask"
+          :key="openSubtask.id"
+          :draft-key="`subtask:${task.assignmentId}:${openSubtask.id}`"
+          :load="() => getMySubtask(task.assignmentId, openSubtask.id)"
+          :submit="(html) => submitMySubtask(task.assignmentId, openSubtask.id, html)"
+          :show-title="false"
+          all-done-message="关闭面板，在任务页填写完成说明并提交。"
+          @submitted="onSubtaskSubmitted"
+        />
+      </AdminDrawer>
     </template>
   </PortalShell>
 </template>

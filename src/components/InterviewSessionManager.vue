@@ -26,6 +26,8 @@ import {
   startScheduledInterview,
   updateInterviewSession,
 } from '../services/authApi'
+import { confirmAction } from '../services/confirm'
+import { useToastFeedback } from '../composables/useToastFeedback'
 import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const props = defineProps({ interviewers: { type: Array, default: () => [] } })
@@ -35,6 +37,7 @@ const loading = ref(true)
 const working = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+useToastFeedback({ success: successMessage })
 const editingId = ref(null)
 const showForm = ref(false)
 const resultTarget = ref(null)
@@ -122,7 +125,16 @@ async function saveSession() {
 }
 
 async function cancelSession(session) {
-  if (!window.confirm('确认取消该面试场次吗？已预约人员会收到重新预约的站内通知。')) return
+  if (
+    !(await confirmAction({
+      title: '取消该面试场次？',
+      message: '已预约人员会收到重新预约的站内通知。',
+      confirmText: '取消场次',
+      cancelText: '保留',
+      tone: 'danger',
+    }))
+  )
+    return
   await run(async () => {
     await cancelInterviewSession(session.id)
     await refreshQuietly()
@@ -169,7 +181,15 @@ async function submitResult() {
 }
 
 async function endEarly(session) {
-  if (!window.confirm('确认提前结束该场面试吗？队列中尚未完成的预约会全部释放。')) return
+  if (
+    !(await confirmAction({
+      title: '提前结束本场面试？',
+      message: '队列中尚未完成的预约会全部释放，等待人员会收到重新预约通知。',
+      confirmText: '提前结束',
+      tone: 'danger',
+    }))
+  )
+    return
   await sessionAction(() => endInterviewSessionEarly(session.id), '面试已提前结束，等待人员已收到重新预约通知。')
 }
 
@@ -236,7 +256,6 @@ function toLocalInput(value) {
   <section class="interview-manager">
     <header class="interview-manager-head">
       <div>
-        <p>INTERVIEW SESSIONS</p>
         <h2>面试场次与叫号</h2>
         <span>仅线下面试；发布者必须参加，每次叫号 1 人。</span>
       </div>

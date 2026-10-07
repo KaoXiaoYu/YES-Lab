@@ -247,3 +247,12 @@ Before delivering any UI code, verify:
 - config/appearance.json 为运行中的配色、字体及圆角配置，默认 general（蓝灰/系统字体/12px）；academic（靛蓝纸面/衬线首页标题/6px）、engineering（青蓝网格/等宽首页标题/4px）、life-science（森林绿/系统字体/20px）为构建选项。现有字型覆盖范围沿用源代码，登录页标题仍为系统字型。
 - Vite 注入明暗语义变量与 data-ui-preset，presets.css 管理形状/首页标题/工程网格；页脚指向 YES Lab 仓库。导航、路由、权限与任务业务保持现有实现，本地 TaskSubmissionProgress、补发折叠和审核排序保留。
 - 保留源码配置的 YES Lab 名称/Logo、首页既有文案与 API 存储内容；浏览器主题/认证/变更事件继续使用 yeslab 键。部署镜像和数据路径不更名。
+
+## OpenLIMS 最新页面同步（2026-10-07，用户批准）
+
+- 固定 a2df1b6 上游页面、语义 tokens、统一 motion、持久 AdminLayout、抽屉/确认/Toast/SaveBar、工作总览与讨论搜索/本地草稿。默认 general 与四预设、YES Lab 身份和原内容保持；新版页面布局覆盖旧布局描述，业务规则不变。
+- ui-ux-pro-max 查询 `drawer focus trap escape unsaved form reduced motion --domain ux`：采纳 Reduced Motion、Excessive Motion 与表单反馈规则。仅在 transform/opacity 上做受控过渡；系统 reduce 时关闭非必要动效；抽屉/对话框验证 Escape、焦点约束/返回与未保存保护。
+- 全部任务页面继续共用 TaskSubmissionProgress 的 12px 条高、灰色未交齐/绿色交齐与无子任务 0/100 边界。最新子任务工作区同样使用它；审核列表新增状态筛选但保持原优先级和组内提交率降序，补发折叠和选择不丢失。
+- 本轮以当前源码真机截图核对 1440/1024/768/375 明暗、公开/讨论/后台/任务页面，以及其他三预设的桌面手机明暗；核心控件按 44px、可见焦点、正文 AA、无横向溢出验收。
+
+- 同步验收适配：浅色首页渐变标题使用较深色段，保持暗色渐变；导航/确认/抽屉/筛选/关闭等控件至少 44px。YES Lab 原长标题在手机使用 36px 起的字号，hero 网格采用 minmax(0, 1fr)，模型标题允许换行，避免根节点 overflow: clip 掩盖内部文案与控件裁切。

@@ -95,14 +95,41 @@ async function refresh(firstLoad) {
       (message) =>
         !message.read && previousUnread.get(message.id) !== `${message.aggregationCount}:${message.updatedAt}`,
     )
-    if ((firstLoad && unread.value.length) || (!firstLoad && fresh.length)) {
-      showToast(firstLoad ? unread.value : fresh)
+    // Each unread message is announced once per browser session, not on every page the member opens.
+    const unannounced = (firstLoad ? unread.value : fresh).filter((message) => !wasAnnounced(message))
+    if (unannounced.length) {
+      rememberAnnounced(unannounced)
+      showToast(unannounced)
     }
     initialized.value = true
   } catch {
     initialized.value = true
   } finally {
     refreshing = false
+  }
+}
+
+const announcedKey = 'yeslab-announced-notifications'
+function announcedSignatures() {
+  try {
+    return new Set(JSON.parse(sessionStorage.getItem(announcedKey) || '[]'))
+  } catch {
+    return new Set()
+  }
+}
+function signature(message) {
+  return `${message.id}:${message.aggregationCount}:${message.updatedAt}`
+}
+function wasAnnounced(message) {
+  return announcedSignatures().has(signature(message))
+}
+function rememberAnnounced(messages) {
+  const known = announcedSignatures()
+  messages.forEach((message) => known.add(signature(message)))
+  try {
+    sessionStorage.setItem(announcedKey, JSON.stringify([...known].slice(-200)))
+  } catch {
+    // Without storage the reminder may repeat, which is harmless.
   }
 }
 

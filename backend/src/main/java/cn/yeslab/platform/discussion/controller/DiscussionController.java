@@ -31,6 +31,15 @@ public class DiscussionController {
         return ApiResponse.ok(service.list(authentication, sort));
     }
 
+    @GetMapping("/page")
+    public ApiResponse<DiscussionModels.PostPage> page(Authentication authentication,
+            @RequestParam(defaultValue = "NEWEST") DiscussionModels.SortMode sort,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String q) {
+        return ApiResponse.ok(service.page(authentication, sort, page, size, q));
+    }
+
     @GetMapping("/authors/{profileId}")
     public ApiResponse<List<DiscussionModels.ContributionView>> contributions(@PathVariable UUID profileId) {
         return ApiResponse.ok(service.contributions(profileId));

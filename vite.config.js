@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => {
     .map(([key, value]) => `--color-${key}:${value};`)
     .join('')
   return {
+    clearScreen: false,
     plugins: [
       vue(),
       tailwindcss(),
@@ -55,6 +56,8 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       host: '0.0.0.0',
+      port: 5173,
+      strictPort: true,
       watch: { ignored: ['**/.codex-run/**'] },
       proxy: {
         '/api': 'http://127.0.0.1:8080',

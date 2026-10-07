@@ -1,4 +1,5 @@
 <script setup>
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import { ArrowRight, CalendarDays, CheckCircle2, Clock3, Medal, Plus, ShieldCheck, UsersRound } from '@lucide/vue'
 import { competitionState, competitionOutcome } from '../services/competitionStatus'
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue'
@@ -68,7 +69,6 @@ onMounted(async () => {
 
 <template>
   <PortalShell
-    eyebrow="ACHIEVEMENTS / COMPETITIONS"
     title="比赛管理"
     description="队长提交参赛记录；已结束比赛经管理员核验证书后，才能进入公开成果与成员主页。"
   >
@@ -88,7 +88,7 @@ onMounted(async () => {
         >
       </div>
     </section>
-    <div v-if="loading" class="portal-state">正在读取比赛记录…</div>
+    <LoadingSkeleton v-if="loading" variant="cards" :rows="3" label="正在读取比赛记录" />
     <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <div v-else-if="!filtered.length" class="portal-state achievement-empty">
       <Medal :size="28" aria-hidden="true" /><strong>暂无比赛记录</strong

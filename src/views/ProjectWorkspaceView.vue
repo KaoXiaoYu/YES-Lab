@@ -1,4 +1,5 @@
 <script setup>
+import { toast } from '../services/toast'
 import { brand } from '../config/site'
 import {
   CalendarDays,
@@ -195,7 +196,7 @@ async function uploadCover() {
   coverError.value = ''
   try {
     project.value = await replaceProjectCover(project.value.id, coverFile.value)
-    message.value = '项目主图已更新。'
+    toast.success('项目主图已更新。')
     resetCoverSelection()
   } catch (error) {
     coverError.value = error.message
@@ -225,7 +226,7 @@ async function saveDetails() {
       externallyVisible: detailForm.externallyVisible,
     })
     editMode.value = null
-    message.value = '项目资料已更新。'
+    toast.success('项目资料已更新。')
     fillForms()
   } catch (error) {
     errorMessage.value = error.message
@@ -240,7 +241,7 @@ async function saveTeam() {
   try {
     project.value = await updateProjectTeam(project.value.id, { ...teamForm })
     editMode.value = null
-    message.value = '团队成员与角色已更新。'
+    toast.success('团队成员与角色已更新。')
     fillForms()
   } catch (error) {
     errorMessage.value = error.message
@@ -252,7 +253,6 @@ async function saveTeam() {
 
 <template>
   <PortalShell
-    eyebrow="PROJECT / TEAM SPACE"
     :title="project?.teamName || '项目团队空间'"
     description="项目资料、角色与成员的统一协作入口。当前版本不包含即时聊天。"
   >
@@ -288,7 +288,6 @@ async function saveTeam() {
       <div class="project-workspace-layout">
         <aside class="project-roster">
           <header>
-            <p>TEAM ROSTER</p>
             <h2>团队成员</h2>
             <span>{{ project.members.length }}</span>
           </header>
@@ -372,7 +371,6 @@ async function saveTeam() {
           </section>
           <section class="project-content-card">
             <header>
-              <p>REQUIRED CAPABILITIES</p>
               <h2>所需能力</h2>
             </header>
             <ul class="portal-project-tag-list">
@@ -382,7 +380,6 @@ async function saveTeam() {
           </section>
           <section class="project-content-card">
             <header>
-              <p>MILESTONES</p>
               <h2>阶段目标</h2>
             </header>
             <ol class="project-goals">
@@ -396,14 +393,12 @@ async function saveTeam() {
           <section class="project-content-split">
             <article class="project-content-card">
               <header>
-                <p>PROGRESS</p>
                 <h2>进度说明</h2>
               </header>
               <div>{{ project.progressDescription || '暂未更新进度。' }}</div>
             </article>
             <article class="project-content-card">
               <header>
-                <p>OUTCOMES</p>
                 <h2>项目成果</h2>
               </header>
               <div>{{ project.outcomes || '暂未登记成果。' }}</div>
@@ -415,11 +410,10 @@ async function saveTeam() {
               :href="project.gitRepositoryUrl"
               target="_blank"
               rel="noopener noreferrer"
-              ><GitBranch :size="20" aria-hidden="true" /><span><small>SOURCE</small><strong>Git 仓库</strong></span
+              ><GitBranch :size="20" aria-hidden="true" /><span><small>源码</small><strong>Git 仓库</strong></span
               ><ExternalLink :size="16" aria-hidden="true" /></a
             ><a v-if="project.documentUrl" :href="project.documentUrl" target="_blank" rel="noopener noreferrer"
-              ><FileText :size="20" aria-hidden="true" /><span
-                ><small>DOCUMENTATION</small><strong>项目文档</strong></span
+              ><FileText :size="20" aria-hidden="true" /><span><small>文档</small><strong>项目文档</strong></span
               ><ExternalLink :size="16" aria-hidden="true"
             /></a>
           </section>
@@ -456,7 +450,7 @@ async function saveTeam() {
                 />
               </div>
               <div>
-                <p id="project-cover-editor-title">PROJECT COVER</p>
+                <p id="project-cover-editor-title">主图设置</p>
                 <h3>项目主图</h3>
                 <span>推荐 16:10 横图，支持 JPG、PNG、WebP，文件不超过 8MB。未上传时显示 {{ brand.name }} 默认图。</span
                 ><label class="project-cover-file"

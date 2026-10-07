@@ -1,17 +1,17 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { Gift, ListChecks, TriangleAlert } from '@lucide/vue'
+import { Gift, ListChecks } from '@lucide/vue'
 import PortalShell from '../components/PortalShell.vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import { claimBounty, getBountyBoard } from '../services/authApi'
+import { celebrate } from '../services/celebrate'
+import { confirmAction } from '../services/confirm'
 
 const items = ref([])
 const loading = ref(true)
 const working = ref(false)
 const errorMessage = ref('')
 const actionError = ref('')
-const actionStatus = ref('')
-/** 同时只对一条悬赏做接取确认，避免多处弹确认框。 */
-const confirmingId = ref('')
 const filter = ref('ALL')
 const searchQuery = ref('')
 
@@ -59,8 +59,8 @@ function headcountText(item) {
     : `已接 ${prize.claimed} / ${prize.headcountLimit}`
 }
 
-async function load() {
-  loading.value = true
+async function load({ quiet = false } = {}) {
+  if (!quiet) loading.value = true
   try {
     items.value = await getBountyBoard()
   } catch (error) {
@@ -73,20 +73,29 @@ async function load() {
 onMounted(load)
 
 async function confirmClaim(item) {
+  if (
+    !(await confirmAction({
+      title: `接取「${item.title}」？`,
+      message: '接取会占用一个名额，提交即完成并锁定名次。',
+      details: [
+        item.prize.prizeSlots ? `最先完成的 ${item.prize.prizeSlots} 人获得奖金。` : '这条悬赏没有设置奖金份数。',
+        '放弃后名额会归还，但你不能再次接取。',
+      ],
+      confirmText: '接取',
+    }))
+  )
+    return
   working.value = true
   actionError.value = ''
-  actionStatus.value = ''
   try {
     const claimResult = await claimBounty(item.taskId)
-    confirmingId.value = ''
-    await load()
-    const updated = items.value.find((entry) => entry.taskId === item.taskId)
-    if (updated) {
-      const prize = updated.prize.prizeSlots
-        ? `奖金已产生 ${updated.prize.prizeIssued} / ${updated.prize.prizeSlots} 份。`
-        : '该悬赏未设置奖金份数。'
-      actionStatus.value = `已接取「${updated.title}」。当前已接取 ${claimResult.claimed} 人；${prize}`
-    }
+    await load({ quiet: true })
+    celebrate({
+      title: '接取成功',
+      message: `「${item.title}」已加入你的任务，当前共 ${claimResult.claimed} 人接取。`,
+      actionLabel: '去开始',
+      actionTo: `/tasks/${claimResult.assignmentId}`,
+    })
   } catch (error) {
     actionError.value = error.message
   } finally {
@@ -96,11 +105,7 @@ async function confirmClaim(item) {
 </script>
 
 <template>
-  <PortalShell
-    eyebrow="COLLABORATION / BOUNTY"
-    title="悬赏榜"
-    description="浏览悬赏、查看名额与奖励；接取后按要求提交即可完成。"
-  >
+  <PortalShell title="悬赏榜" description="浏览悬赏、查看名额与奖励；接取后按要求提交即可完成。">
     <section class="bounty-list-tools" aria-label="悬赏筛选与搜索">
       <label class="bounty-search">
         搜索悬赏
@@ -120,11 +125,8 @@ async function confirmClaim(item) {
     </section>
 
     <p v-if="actionError" class="portal-state error inline" role="alert">{{ actionError }}</p>
-    <p v-if="actionStatus" class="portal-state success" role="status" aria-atomic="true">
-      {{ actionStatus }}
-    </p>
 
-    <div v-if="loading" class="portal-state">正在读取悬赏…</div>
+    <LoadingSkeleton v-if="loading" variant="cards" :rows="4" label="正在读取悬赏" />
     <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <div v-else-if="!filtered.length" class="portal-state project-empty">
       <Gift :size="28" aria-hidden="true" /><strong>没有匹配的悬赏</strong><span>换个筛选条件或搜索词试试。</span>
@@ -184,29 +186,15 @@ async function confirmClaim(item) {
           <RouterLink v-if="item.myAssignmentId" class="portal-secondary" :to="`/tasks/${item.myAssignmentId}`">
             <ListChecks :size="15" aria-hidden="true" />进入任务
           </RouterLink>
-          <template v-else-if="item.claimable">
-            <button
-              v-if="confirmingId !== item.taskId"
-              class="portal-primary"
-              type="button"
-              :disabled="working"
-              @click="confirmingId = item.taskId"
-            >
-              <Gift :size="15" aria-hidden="true" />立即接取
-            </button>
-            <Transition name="task-reveal">
-              <div v-if="confirmingId === item.taskId" class="bounty-confirm" role="group" aria-label="确认接取">
-                <p>
-                  <TriangleAlert :size="15" aria-hidden="true" />
-                  接取会占用名额；放弃后不能再次接取。
-                </p>
-                <button class="portal-primary" type="button" :disabled="working" @click="confirmClaim(item)">
-                  {{ working ? '接取中…' : '确认接取' }}
-                </button>
-                <button class="portal-secondary" type="button" @click="confirmingId = ''">取消</button>
-              </div>
-            </Transition>
-          </template>
+          <button
+            v-else-if="item.claimable"
+            class="portal-primary"
+            type="button"
+            :disabled="working"
+            @click="confirmClaim(item)"
+          >
+            <Gift :size="15" aria-hidden="true" />接取
+          </button>
         </div>
       </article>
     </TransitionGroup>

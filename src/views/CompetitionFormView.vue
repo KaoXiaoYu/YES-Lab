@@ -1,4 +1,8 @@
 <script setup>
+import { useDraft } from '../composables/useDraft'
+import { useUnsavedGuard } from '../composables/useUnsavedGuard'
+import { celebrate } from '../services/celebrate'
+import { toast } from '../services/toast'
 import { ArrowLeft, FileBadge, ImagePlus, Plus, Save, Trash2 } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -16,7 +20,7 @@ import {
   replaceCompetitionImages,
   updateCompetition,
 } from '../services/authApi'
-import { showSubmissionFeedback } from '../services/submissionFeedback'
+import { confirmAction } from '../services/confirm'
 
 const route = useRoute()
 const router = useRouter()
@@ -61,6 +65,16 @@ const form = reactive({
   projectId: '',
   participants: [{ displayName: '', linkedProfileId: '' }],
 })
+const pristine = ref('')
+const pendingFiles = computed(() => Boolean(certificate.value || registration.value || imageFiles.value.length))
+const dirty = computed(
+  () => !loading.value && pristine.value !== '' && (JSON.stringify(form) !== pristine.value || pendingFiles.value),
+)
+const draft = useDraft(
+  () => `competition:${route.params.competitionId || 'new'}`,
+  () => JSON.parse(JSON.stringify(form)),
+)
+useUnsavedGuard(dirty)
 const teachers = computed(() => members.value.filter((member) => member.role === 'TEACHER'))
 const finished = computed(() => form.lifecycle === 'FINISHED')
 const awarded = computed(() => finished.value && form.resultStatus === 'AWARDED')
@@ -110,6 +124,8 @@ onMounted(async () => {
       if (item.hasRegistration)
         existingRegistrationUrl.value = await getAuthenticatedFile(`/api/v1/competitions/${item.id}/registration`)
     }
+    pristine.value = JSON.stringify(form)
+    draft.restore((value) => Object.assign(form, value))
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -259,7 +275,15 @@ async function loadExistingImages(item) {
 }
 
 async function removeExistingImage(image) {
-  if (!window.confirm(`确定删除这张比赛图片吗？\n${image.description}`)) return
+  if (
+    !(await confirmAction({
+      title: '删除这张比赛图片？',
+      message: image.description || '删除后无法恢复。',
+      confirmText: '删除图片',
+      tone: 'danger',
+    }))
+  )
+    return
   deletingImageId.value = image.id
   imageError.value = ''
   try {
@@ -339,13 +363,19 @@ async function submit() {
       certificate.value && awarded.value ? '证书' : '',
       imageFiles.value.length ? `${imageFiles.value.length} 张比赛图片` : '',
     ].filter(Boolean)
+    draft.clear()
+    pristine.value = JSON.stringify(form)
+    certificate.value = null
+    registration.value = null
+    imageFiles.value = []
     await router.push('/competitions')
-    showSubmissionFeedback({
-      eyebrow: wasEditing ? 'COMPETITION UPDATED' : 'COMPETITION SUBMITTED',
-      title: wasEditing ? '比赛记录已保存' : '比赛记录已提交',
-      message: `${item.name} 已由后端保存${savedAssets.length ? `，并确认接收${savedAssets.join('和')}` : ''}。${item.resultStatus === 'AWARDED' ? '获奖成果将进入管理员审核。' : '参赛记录已登记。'}`,
-      confirmLabel: '查看比赛列表',
-    })
+    const competitionMessage = `${item.name} 已保存${savedAssets.length ? `，并确认接收${savedAssets.join('和')}` : ''}。${item.resultStatus === 'AWARDED' ? '获奖成果将进入管理员审核。' : '参赛记录已登记。'}`
+    if (wasEditing) toast.success(competitionMessage, { title: '比赛记录已保存' })
+    else
+      celebrate({
+        title: item.resultStatus === 'AWARDED' ? '获奖记录已提交' : '比赛记录已提交',
+        message: competitionMessage,
+      })
   } catch (error) {
     errorMessage.value = error.message
     await nextTick()
@@ -358,7 +388,6 @@ async function submit() {
 
 <template>
   <PortalShell
-    eyebrow="COMPETITION / CAPTAIN SUBMISSION"
     :title="editing ? '编辑比赛记录' : '队长提交比赛'"
     description="提交人将自动成为队长。队员既可关联实验室账号，也可只保留公开展示姓名。"
   >
@@ -372,7 +401,6 @@ async function submit() {
         <header>
           <span>01</span>
           <div>
-            <p>COMPETITION PROFILE</p>
             <h2>比赛信息</h2>
           </div>
         </header>
@@ -457,7 +485,6 @@ async function submit() {
         <header>
           <span>02</span>
           <div>
-            <p>TEAM & RELATIONS</p>
             <h2>队伍与关联</h2>
           </div>
         </header>
@@ -502,7 +529,6 @@ async function submit() {
         <header>
           <span>03</span>
           <div>
-            <p>EVIDENCE & GALLERY</p>
             <h2>证书与比赛图片</h2>
           </div>
         </header>

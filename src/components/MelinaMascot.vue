@@ -213,7 +213,7 @@ onBeforeUnmount(() => {
   background: transparent;
   cursor: pointer;
   touch-action: manipulation;
-  transition: background-color 180ms ease-out;
+  transition: background-color var(--duration-fast) var(--ease-out);
 }
 .melina-mascot svg {
   display: block;
@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
 .melina-reveal-cell {
   transform-box: fill-box;
   transform-origin: center;
-  animation: melina-materialize 240ms ease-out var(--reveal-delay) both;
+  animation: melina-materialize var(--duration-base) var(--ease-out) var(--reveal-delay) both;
 }
 .melina-reveal-finish {
   animation: melina-complete 120ms linear 740ms both;

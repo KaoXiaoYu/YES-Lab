@@ -1,11 +1,11 @@
 <script setup>
+import { celebrate } from '../services/celebrate'
 import { brand } from '../config/site'
 import ThemeToggle from '../components/ThemeToggle.vue'
 import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from '@lucide/vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { login, register } from '../services/authApi'
-import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const route = useRoute()
 const router = useRouter()
@@ -49,13 +49,11 @@ async function submit() {
       ? await register({ username: normalizedUsername.value, password: form.password })
       : await login({ username: form.username.trim(), password: form.password, rememberMe: form.rememberMe })
     const requestedPath = typeof route.query.redirect === 'string' ? route.query.redirect : null
-    await router.push(requestedPath || (account.role === 'VISITOR' ? '/application' : '/profile'))
+    await router.push(requestedPath || (account.role === 'VISITOR' ? '/application' : '/today'))
     if (registering) {
-      showSubmissionFeedback({
-        eyebrow: 'ACCOUNT CREATED',
+      celebrate({
         title: '报名账号已创建',
-        message: `账号注册成功。接下来请填写并提交报名表，向 ${brand.name} 介绍你自己。`,
-        confirmLabel: '开始填写',
+        message: `接下来填写并提交报名表，向 ${brand.name} 介绍你自己。`,
       })
     }
   } catch (error) {

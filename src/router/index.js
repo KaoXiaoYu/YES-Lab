@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { authState, getOwnProfile, restoreSession } from '../services/authApi'
 import PublicHomeView from '../views/PublicHomeView.vue'
+import { afterRouteLeave } from '../services/routeTransition'
 
 const routes = [
   { path: '/', name: 'home', component: PublicHomeView },
@@ -12,6 +13,12 @@ const routes = [
   },
   { path: '/login', name: 'login', component: () => import('../views/AuthView.vue'), meta: { guest: true } },
   { path: '/register', name: 'register', component: () => import('../views/AuthView.vue'), meta: { guest: true } },
+  {
+    path: '/today',
+    name: 'today',
+    component: () => import('../views/TodayView.vue'),
+    meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
+  },
   {
     path: '/profile',
     name: 'profile',
@@ -91,36 +98,6 @@ const routes = [
     meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
   },
   {
-    path: '/admin/bounties',
-    name: 'admin-bounties',
-    component: () => import('../views/AdminBountiesView.vue'),
-    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
-  },
-  {
-    path: '/admin/bounties/:taskId/claims',
-    name: 'admin-bounty-claims',
-    component: () => import('../views/AdminBountyClaimsView.vue'),
-    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
-  },
-  {
-    path: '/admin/tasks',
-    name: 'admin-tasks',
-    component: () => import('../views/AdminTasksView.vue'),
-    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
-  },
-  {
-    path: '/admin/tasks/onboarding',
-    name: 'admin-onboarding-task',
-    component: () => import('../views/AdminOnboardingTaskView.vue'),
-    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
-  },
-  {
-    path: '/admin/tasks/:taskId/progress',
-    name: 'admin-task-progress',
-    component: () => import('../views/AdminTaskProgressView.vue'),
-    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
-  },
-  {
     path: '/competitions',
     name: 'competitions',
     component: () => import('../views/CompetitionsView.vue'),
@@ -158,34 +135,39 @@ const routes = [
     meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER', 'VISITOR'] },
   },
   {
-    path: '/admin/recruitment',
-    name: 'admin-recruitment',
-    component: () => import('../views/AdminRecruitmentView.vue'),
+    // Admin pages share one persistent shell; only the content area transitions.
+    path: '/admin',
+    component: () => import('../components/AdminLayout.vue'),
     meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
-  },
-  {
-    path: '/admin/members',
-    name: 'admin-members',
-    component: () => import('../views/AdminMembersView.vue'),
-    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
-  },
-  {
-    path: '/admin/points',
-    name: 'admin-points',
-    component: () => import('../views/AdminPointsView.vue'),
-    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
-  },
-  {
-    path: '/admin/achievements',
-    name: 'admin-achievements',
-    component: () => import('../views/AdminAchievementsView.vue'),
-    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
-  },
-  {
-    path: '/admin/homepage',
-    name: 'admin-homepage',
-    component: () => import('../views/AdminHomepageView.vue'),
-    meta: { roles: ['TEACHER', 'CORE_STUDENT'] },
+    children: [
+      { path: '', name: 'admin-overview', component: () => import('../views/AdminOverviewView.vue') },
+      { path: 'members', name: 'admin-members', component: () => import('../views/AdminMembersView.vue') },
+      { path: 'points', name: 'admin-points', component: () => import('../views/AdminPointsView.vue') },
+      { path: 'recruitment', name: 'admin-recruitment', component: () => import('../views/AdminRecruitmentView.vue') },
+      { path: 'tasks', name: 'admin-tasks', component: () => import('../views/AdminTasksView.vue') },
+      {
+        path: 'tasks/onboarding',
+        name: 'admin-onboarding-task',
+        component: () => import('../views/AdminOnboardingTaskView.vue'),
+      },
+      {
+        path: 'tasks/:taskId/progress',
+        name: 'admin-task-progress',
+        component: () => import('../views/AdminTaskProgressView.vue'),
+      },
+      { path: 'bounties', name: 'admin-bounties', component: () => import('../views/AdminBountiesView.vue') },
+      {
+        path: 'bounties/:taskId/claims',
+        name: 'admin-bounty-claims',
+        component: () => import('../views/AdminBountyClaimsView.vue'),
+      },
+      {
+        path: 'achievements',
+        name: 'admin-achievements',
+        component: () => import('../views/AdminAchievementsView.vue'),
+      },
+      { path: 'homepage', name: 'admin-homepage', component: () => import('../views/AdminHomepageView.vue') },
+    ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
@@ -193,15 +175,20 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior: () => ({ top: 0 }),
+  async scrollBehavior(to, from, savedPosition) {
+    // Query-only changes (sorting, filters) keep the reader's place.
+    if (to.path === from.path) return false
+    await afterRouteLeave()
+    return savedPosition || { top: 0 }
+  },
 })
 
 router.beforeEach(async (to) => {
   await restoreSession()
   const role = authState.account?.role
-  if (to.meta.guest && authState.account) return role === 'VISITOR' ? '/application' : '/profile'
+  if (to.meta.guest && authState.account) return role === 'VISITOR' ? '/application' : '/today'
   if (to.meta.roles && !authState.account) return { path: '/login', query: { redirect: to.fullPath } }
-  if (to.meta.roles && !to.meta.roles.includes(role)) return role === 'VISITOR' ? '/application' : '/profile'
+  if (to.meta.roles && !to.meta.roles.includes(role)) return role === 'VISITOR' ? '/application' : '/today'
 
   if (role === 'MEMBER' && to.meta.roles?.includes('MEMBER')) {
     if (authState.memberQualificationComplete !== true && to.name !== 'complete-profile') {
@@ -215,7 +202,7 @@ router.beforeEach(async (to) => {
       }
     }
     if (to.name === 'complete-profile' && authState.memberQualificationComplete === true) {
-      return safeMemberRedirect(to.query.redirect) || '/profile'
+      return safeMemberRedirect(to.query.redirect) || '/today'
     }
   }
   return true

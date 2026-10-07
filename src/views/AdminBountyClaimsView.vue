@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { ArrowLeft, Gift, UserMinus, X } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import PortalShell from '../components/PortalShell.vue'
+import { confirmAction } from '../services/confirm'
+import { useToastFeedback } from '../composables/useToastFeedback'
 import { getBountyClaims, issueBountyPrize, removeBountyClaim, revokeBountyClaim } from '../services/authApi'
 
 const route = useRoute()
@@ -32,6 +34,7 @@ const fulfillmentLabels = {
 }
 
 const task = computed(() => claims.value?.task || null)
+useToastFeedback({ success: successMessage, error: errorMessage, keepErrorInline: () => !task.value })
 const claimFilters = [
   { id: 'ALL', label: '全部' },
   { id: 'PENDING', label: '进行中' },
@@ -56,8 +59,10 @@ const filteredRows = computed(() => {
   })
 })
 
+let hasLoaded = false
 async function load() {
-  loading.value = true
+  // Keep current content on screen while refreshing after an action.
+  if (!hasLoaded) loading.value = true
   try {
     claims.value = await getBountyClaims(route.params.taskId)
     return true
@@ -65,6 +70,7 @@ async function load() {
     errorMessage.value = error.message
     return false
   } finally {
+    hasLoaded = true
     loading.value = false
   }
 }
@@ -79,7 +85,15 @@ function openRevoke(assignmentId) {
 /** 驳回即触发奖金顺延：确认文案里写清这一点，避免管理员以为只是改个状态。 */
 async function submitRevoke(row) {
   if (!revokeComment.value.trim()) return
-  if (!window.confirm(`确认驳回 ${row.name} 的完成结果？奖金会自动顺延给下一位完成者。`)) return
+  if (
+    !(await confirmAction({
+      title: `驳回 ${row.name} 的完成结果？`,
+      message: '奖金会自动顺延给下一位完成者。',
+      confirmText: '确认驳回',
+      tone: 'danger',
+    }))
+  )
+    return
   working.value = true
   errorMessage.value = ''
   successMessage.value = ''
@@ -99,7 +113,15 @@ async function submitRevoke(row) {
 }
 
 async function removeClaim(row) {
-  if (!window.confirm(`确认移除 ${row.name} 的接取？名额会归还，且该成员不能再接取这条悬赏。`)) return
+  if (
+    !(await confirmAction({
+      title: `移除 ${row.name} 的接取？`,
+      message: '名额会归还，且该成员不能再接取这条悬赏。',
+      confirmText: '移除接取',
+      tone: 'danger',
+    }))
+  )
+    return
   working.value = true
   errorMessage.value = ''
   successMessage.value = ''
@@ -119,9 +141,12 @@ async function removeClaim(row) {
 
 async function issuePrize(row) {
   if (
-    !window.confirm(
-      `请确认已在线下向 ${row.name} 实际发放「${task.value.prizeDescription}」。登记后该完成结果不能再驳回，且此记录不能撤销。`,
-    )
+    !(await confirmAction({
+      title: `登记向 ${row.name} 发放奖金？`,
+      message: `请确认已在线下实际发放「${task.value.prizeDescription}」。`,
+      details: ['登记后该完成结果不能再驳回。', '此记录不能撤销，成员本人确认领取后完成履约。'],
+      confirmText: '确认已发放',
+    }))
   )
     return
   working.value = true
@@ -151,7 +176,7 @@ function prizeSummary() {
 </script>
 
 <template>
-  <PortalShell eyebrow="ADMIN / BOUNTY CLAIMS" title="悬赏接取名单" description="查看接取、完成与奖金履约记录。">
+  <PortalShell title="悬赏接取名单" description="查看接取、完成与奖金履约记录。">
     <RouterLink class="task-back" to="/admin/bounties"
       ><ArrowLeft :size="16" aria-hidden="true" />返回悬赏管理</RouterLink
     >

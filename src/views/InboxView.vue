@@ -110,7 +110,6 @@ function formatTime(value) {
     <section class="inbox-card" aria-labelledby="inbox-list-title">
       <header>
         <div>
-          <p>MESSAGE ARCHIVE</p>
           <h2 id="inbox-list-title">收件记录</h2>
         </div>
         <div class="inbox-toolbar">

@@ -1,5 +1,6 @@
 <script setup>
 import TaskSubmissionProgress from '../components/TaskSubmissionProgress.vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import { ClipboardCheck, ListChecks } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
@@ -42,7 +43,6 @@ onMounted(async () => {
 
 <template>
   <PortalShell
-    eyebrow="COLLABORATION / TASKS"
     title="我的任务"
     description="查看管理员发放给你的任务，逐项完成子任务后提交完成说明，由管理员人工确认。"
   >
@@ -55,7 +55,7 @@ onMounted(async () => {
       >
     </section>
 
-    <div v-if="loading" class="portal-state">正在读取任务…</div>
+    <LoadingSkeleton v-if="loading" variant="cards" :rows="3" label="正在读取任务" />
     <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <div v-else-if="!filtered.length" class="portal-state project-empty">
       <ListChecks :size="28" aria-hidden="true" /><strong>暂无任务</strong><span>管理员发放任务后会出现在这里。</span>

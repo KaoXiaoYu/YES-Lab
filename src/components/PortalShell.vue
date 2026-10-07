@@ -13,8 +13,10 @@ import {
   LayoutTemplate,
   ListChecks,
   LogOut,
-  Menu,
   Medal,
+  MoreHorizontal,
+  Search,
+  Sun,
   MessageSquareText,
   Newspaper,
   ShieldCheck,
@@ -22,17 +24,25 @@ import {
   UserRound,
   UsersRound,
   Wallet,
-  X,
 } from '@lucide/vue'
-import { computed, ref, watch } from 'vue'
+import { computed, inject, ref, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDismissibleLayer } from '../composables/useDismissibleLayer'
 import { authState, logout } from '../services/authApi'
+import { commandShortcutLabel, openCommandPalette } from '../services/commandPalette'
 
-defineProps({
-  eyebrow: { type: String, required: true },
+const props = defineProps({
+  // Kept for compatibility; page headings no longer show decorative English labels.
+  eyebrow: { type: String, default: '' },
   title: { type: String, required: true },
   description: { type: String, default: '' },
+})
+
+// Inside AdminLayout the sidebar and top bar persist across admin routes;
+// this component then only renders the page heading and content.
+const adminLayout = inject('adminLayout', null)
+watchEffect(() => {
+  if (adminLayout) adminLayout.title = props.title
 })
 
 const router = useRouter()
@@ -45,13 +55,19 @@ const roleLabels = {
 }
 const accountLabel = computed(() => roleLabels[authState.account?.role] || authState.account?.role)
 const accountName = computed(() => authState.account?.displayName || authState.account?.username || '')
-const adminSectionActive = computed(() => route.path.startsWith('/admin/'))
-const isAdminPage = computed(() => route.path.startsWith('/admin/'))
-const adminSidebarOpen = ref(false)
+const adminSectionActive = computed(() => route.path.startsWith('/admin'))
+const isMember = computed(() => Boolean(authState.account && authState.account.role !== 'VISITOR'))
+const morePaths = ['/profile', '/points', '/fund', '/competitions']
+const moreSectionActive = computed(() => morePaths.some((path) => route.path.startsWith(path)))
 const adminMenu = ref(null)
+const moreMenu = ref(null)
 
 function closeAdminMenu() {
   if (adminMenu.value) adminMenu.value.open = false
+}
+
+function closeMoreMenu() {
+  if (moreMenu.value) moreMenu.value.open = false
 }
 
 useDismissibleLayer(adminMenu, {
@@ -60,11 +76,17 @@ useDismissibleLayer(adminMenu, {
   focusTarget: () => adminMenu.value?.querySelector('summary'),
 })
 
+useDismissibleLayer(moreMenu, {
+  isOpen: () => Boolean(moreMenu.value?.open),
+  close: closeMoreMenu,
+  focusTarget: () => moreMenu.value?.querySelector('summary'),
+})
+
 watch(
   () => route.fullPath,
   () => {
-    adminSidebarOpen.value = false
     closeAdminMenu()
+    closeMoreMenu()
   },
 )
 
@@ -75,60 +97,44 @@ async function signOut() {
 </script>
 
 <template>
-  <div class="portal-page" :class="{ 'portal-page--admin': isAdminPage }">
-    <header v-if="!isAdminPage" class="portal-topbar">
+  <main v-if="adminLayout" class="portal-main">
+    <header class="portal-heading" :class="{ 'has-actions': $slots.actions }">
+      <h1>{{ title }}</h1>
+      <span v-if="description">{{ description }}</span>
+      <div v-if="$slots.actions" class="portal-heading-actions"><slot name="actions" /></div>
+    </header>
+    <slot />
+  </main>
+  <div v-else class="portal-page">
+    <header class="portal-topbar">
       <RouterLink class="portal-brand" to="/" :aria-label="`返回 ${brand.name} 公开首页`">
         <img :src="brand.logo" :alt="brand.name" width="900" height="300" />
-        <span>MEMBER SYSTEM</span>
       </RouterLink>
       <nav aria-label="成员系统导航">
-        <RouterLink to="/"><Home :size="17" aria-hidden="true" />公开首页</RouterLink>
-        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/profile"
-          ><UserRound :size="17" aria-hidden="true" />个人主页</RouterLink
-        >
-        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/points"
-          ><Trophy :size="17" aria-hidden="true" />积分榜</RouterLink
-        >
-        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/fund"
-          ><Wallet :size="17" aria-hidden="true" />实验室基金</RouterLink
-        >
-        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/projects"
-          ><FolderKanban :size="17" aria-hidden="true" />项目团队</RouterLink
-        >
-        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/tasks"
-          ><ListChecks :size="17" aria-hidden="true" />我的任务</RouterLink
-        >
-        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/bounties"
-          ><Gift :size="17" aria-hidden="true" />悬赏</RouterLink
-        >
-        <RouterLink v-if="authState.account && authState.account.role !== 'VISITOR'" to="/competitions"
-          ><Medal :size="17" aria-hidden="true" />比赛管理</RouterLink
-        >
-        <RouterLink to="/discussions"><MessageSquareText :size="17" aria-hidden="true" />讨论板</RouterLink>
+        <template v-if="isMember">
+          <RouterLink to="/today"><Sun :size="17" aria-hidden="true" />今日</RouterLink>
+          <RouterLink to="/tasks"><ListChecks :size="17" aria-hidden="true" />任务</RouterLink>
+          <RouterLink to="/bounties"><Gift :size="17" aria-hidden="true" />悬赏</RouterLink>
+          <RouterLink to="/projects"><FolderKanban :size="17" aria-hidden="true" />项目</RouterLink>
+        </template>
         <RouterLink v-if="authState.account?.role === 'VISITOR'" to="/application"
           ><ClipboardList :size="17" aria-hidden="true" />我的报名</RouterLink
         >
-        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/members"
-          ><UsersRound :size="17" aria-hidden="true" />成员管理</RouterLink
+        <RouterLink to="/discussions"><MessageSquareText :size="17" aria-hidden="true" />讨论</RouterLink>
+        <details
+          ref="moreMenu"
+          class="portal-admin-menu portal-more-menu"
+          @click="(event) => event.target.closest('a') && closeMoreMenu()"
         >
-        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/points"
-          ><BadgePlus :size="17" aria-hidden="true" />积分管理</RouterLink
-        >
-        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/recruitment"
-          ><ShieldCheck :size="17" aria-hidden="true" />招新管理</RouterLink
-        >
-        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/tasks"
-          ><ClipboardCheck :size="17" aria-hidden="true" />任务管理</RouterLink
-        >
-        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/bounties"
-          ><Gift :size="17" aria-hidden="true" />悬赏管理</RouterLink
-        >
-        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/achievements"
-          ><Newspaper :size="17" aria-hidden="true" />成果管理</RouterLink
-        >
-        <RouterLink v-if="authState.account?.systemAdmin" class="portal-admin-direct" to="/admin/homepage"
-          ><LayoutTemplate :size="17" aria-hidden="true" />主页编辑</RouterLink
-        >
+          <summary :class="{ active: moreSectionActive }"><MoreHorizontal :size="17" aria-hidden="true" />更多</summary>
+          <div>
+            <RouterLink v-if="isMember" to="/profile"><UserRound :size="17" aria-hidden="true" />个人主页</RouterLink>
+            <RouterLink v-if="isMember" to="/points"><Trophy :size="17" aria-hidden="true" />积分榜</RouterLink>
+            <RouterLink v-if="isMember" to="/fund"><Wallet :size="17" aria-hidden="true" />实验室基金</RouterLink>
+            <RouterLink v-if="isMember" to="/competitions"><Medal :size="17" aria-hidden="true" />比赛管理</RouterLink>
+            <RouterLink to="/"><Home :size="17" aria-hidden="true" />公开首页</RouterLink>
+          </div>
+        </details>
         <details
           v-if="authState.account?.systemAdmin"
           ref="adminMenu"
@@ -139,6 +145,9 @@ async function signOut() {
             <LayoutDashboard :size="17" aria-hidden="true" />后台管理
           </summary>
           <div>
+            <RouterLink to="/admin" exact-active-class="router-link-exact-active"
+              ><LayoutDashboard :size="17" aria-hidden="true" />待处理总览</RouterLink
+            >
             <RouterLink to="/admin/members"><UsersRound :size="17" aria-hidden="true" />成员管理</RouterLink>
             <RouterLink to="/admin/points"><BadgePlus :size="17" aria-hidden="true" />积分管理</RouterLink>
             <RouterLink to="/admin/recruitment"><ShieldCheck :size="17" aria-hidden="true" />招新管理</RouterLink>
@@ -150,6 +159,16 @@ async function signOut() {
         </details>
       </nav>
       <div class="portal-account">
+        <button
+          v-if="authState.account"
+          class="portal-search-trigger"
+          type="button"
+          aria-label="搜索与跳转"
+          aria-keyshortcuts="Meta+K Control+K"
+          @click="openCommandPalette"
+        >
+          <Search :size="16" aria-hidden="true" /><span>搜索</span><kbd>{{ commandShortcutLabel }}</kbd>
+        </button>
         <ThemeToggle /><NotificationCenter v-if="authState.account" />
         <div v-if="!authState.account" class="portal-guest-actions">
           <RouterLink to="/login">登录</RouterLink><RouterLink class="register" to="/register">注册</RouterLink>
@@ -173,103 +192,11 @@ async function signOut() {
       </div>
     </header>
 
-    <template v-else>
-      <button
-        v-if="adminSidebarOpen"
-        class="admin-shell-scrim"
-        type="button"
-        aria-label="关闭后台导航"
-        @click="adminSidebarOpen = false"
-      ></button>
-
-      <aside
-        id="admin-shell-navigation"
-        class="admin-shell-sidebar flex flex-col"
-        :class="{ open: adminSidebarOpen }"
-        aria-label="后台管理导航"
-      >
-        <div class="admin-shell-sidebar-head">
-          <RouterLink class="admin-shell-brand flex items-center" to="/" :aria-label="`返回 ${brand.name} 公开首页`">
-            <img :src="brand.logoOnDark" :alt="brand.name" width="900" height="300" />
-            <span
-              ><b>{{ brand.name }}</b
-              ><small>管理工作台</small></span
-            >
-          </RouterLink>
-          <button type="button" aria-label="关闭后台导航" @click="adminSidebarOpen = false">
-            <X :size="18" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div class="admin-shell-nav-label">后台管理</div>
-        <nav class="admin-shell-nav grid" aria-label="后台管理模块">
-          <RouterLink to="/admin/members"><UsersRound :size="18" aria-hidden="true" />成员管理</RouterLink>
-          <RouterLink to="/admin/points"><BadgePlus :size="18" aria-hidden="true" />积分管理</RouterLink>
-          <RouterLink to="/admin/recruitment"><ShieldCheck :size="18" aria-hidden="true" />招新管理</RouterLink>
-          <RouterLink to="/admin/tasks"><ClipboardCheck :size="18" aria-hidden="true" />任务管理</RouterLink>
-          <RouterLink to="/admin/bounties"><Gift :size="18" aria-hidden="true" />悬赏管理</RouterLink>
-          <RouterLink to="/admin/achievements"><Newspaper :size="18" aria-hidden="true" />成果管理</RouterLink>
-          <RouterLink to="/admin/homepage"><LayoutTemplate :size="18" aria-hidden="true" />主页编辑</RouterLink>
-        </nav>
-
-        <div class="admin-shell-nav-label secondary">成员系统</div>
-        <nav class="admin-shell-nav admin-shell-nav--secondary grid" aria-label="成员系统快捷入口">
-          <RouterLink to="/profile"><UserRound :size="18" aria-hidden="true" />个人主页</RouterLink>
-          <RouterLink to="/projects"><FolderKanban :size="18" aria-hidden="true" />项目团队</RouterLink>
-          <RouterLink to="/tasks"><ListChecks :size="18" aria-hidden="true" />我的任务</RouterLink>
-          <RouterLink to="/bounties"><Gift :size="18" aria-hidden="true" />悬赏榜</RouterLink>
-          <RouterLink to="/competitions"><Medal :size="18" aria-hidden="true" />比赛管理</RouterLink>
-          <RouterLink to="/discussions"><MessageSquareText :size="18" aria-hidden="true" />讨论板</RouterLink>
-        </nav>
-
-        <footer class="admin-shell-user">
-          <RouterLink class="admin-shell-user-avatar" to="/profile" aria-label="打开个人主页">
-            <img v-if="authState.account?.avatarUrl" :src="authState.account.avatarUrl" alt="" />
-            <b v-else>{{ accountName.slice(0, 1) }}</b>
-          </RouterLink>
-          <span
-            ><strong>{{ accountName }}</strong
-            ><small>{{ accountLabel }}</small></span
-          >
-          <button type="button" aria-label="退出登录" @click="signOut">
-            <LogOut :size="18" aria-hidden="true" />
-          </button>
-        </footer>
-      </aside>
-
-      <header class="admin-shell-topbar flex items-center justify-between">
-        <div class="flex items-center">
-          <button
-            class="admin-sidebar-trigger"
-            type="button"
-            :aria-expanded="adminSidebarOpen"
-            aria-controls="admin-shell-navigation"
-            aria-label="打开后台导航"
-            @click="adminSidebarOpen = true"
-          >
-            <Menu :size="20" aria-hidden="true" />
-          </button>
-          <div class="admin-shell-context">
-            <small>{{ brand.name }} / ADMIN</small>
-            <strong>{{ title }}</strong>
-          </div>
-        </div>
-        <div class="admin-shell-actions flex items-center">
-          <ThemeToggle />
-          <NotificationCenter v-if="authState.account" />
-          <RouterLink class="admin-shell-top-avatar" to="/profile" aria-label="打开个人主页">
-            <img v-if="authState.account?.avatarUrl" :src="authState.account.avatarUrl" alt="" />
-            <b v-else>{{ accountName.slice(0, 1) }}</b>
-          </RouterLink>
-        </div>
-      </header>
-    </template>
-
     <main class="portal-main">
-      <header class="portal-heading">
-        <p>{{ eyebrow }}</p>
+      <header class="portal-heading" :class="{ 'has-actions': $slots.actions }">
         <h1>{{ title }}</h1>
-        <span>{{ description }}</span>
+        <span v-if="description">{{ description }}</span>
+        <div v-if="$slots.actions" class="portal-heading-actions"><slot name="actions" /></div>
       </header>
       <slot />
     </main>

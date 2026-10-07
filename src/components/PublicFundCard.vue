@@ -49,7 +49,6 @@ onBeforeUnmount(() => {
   <article class="lab-info-card public-fund-card" :class="{ 'fund-strip': compact }">
     <header v-if="!compact">
       <div>
-        <p>LAB FUND</p>
         <h2><Wallet :size="22" aria-hidden="true" />实验室基金</h2>
       </div>
       <span>人民币</span>

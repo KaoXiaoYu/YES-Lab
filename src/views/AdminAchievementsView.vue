@@ -1,8 +1,12 @@
 <script setup>
-import { Check, ExternalLink, Eye, FileBadge, Newspaper, Pencil, Save, ShieldCheck, Trophy, X } from '@lucide/vue'
+import { Check, ExternalLink, Eye, FileBadge, Newspaper, Pencil, Plus, Save, ShieldCheck, Trophy, X } from '@lucide/vue'
 import { competitionState, competitionOutcome } from '../services/competitionStatus'
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
+import AdminDrawer from '../components/AdminDrawer.vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
+import { toast } from '../services/toast'
+import { useToastFeedback } from '../composables/useToastFeedback'
 import {
   createNews,
   getAuthenticatedFile,
@@ -12,7 +16,6 @@ import {
   updateCompetitionDisplay,
   updateNews,
 } from '../services/authApi'
-import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 const tab = ref('competitions')
 const competitions = ref([])
@@ -27,6 +30,21 @@ const reviewNote = ref('')
 const display = reactive({ featured: false, displayOrder: 100 })
 const newsEditingId = ref(null)
 const newsForm = reactive({ title: '', sourceName: '', sourceUrl: '', summary: '', publishedDate: '', visible: true })
+const newsOpen = ref(false)
+const newsSnapshot = ref('')
+const newsDirty = computed(() => newsOpen.value && JSON.stringify(newsForm) !== newsSnapshot.value)
+const flashId = ref(null)
+useToastFeedback({
+  success: message,
+  error: errorMessage,
+  keepErrorInline: () => !competitions.value.length && !news.value.length,
+})
+const reviewRank = { PENDING: 0, REJECTED: 1, APPROVED: 2, NOT_REQUIRED: 3 }
+const sortedCompetitions = computed(() =>
+  [...competitions.value].sort(
+    (a, b) => (reviewRank[a.verificationStatus] ?? 9) - (reviewRank[b.verificationStatus] ?? 9),
+  ),
+)
 const selected = computed(() => competitions.value.find((item) => item.id === selectedId.value) || null)
 const pendingCount = computed(() => competitions.value.filter((item) => item.verificationStatus === 'PENDING').length)
 const reviewLabels = { NOT_REQUIRED: '参赛记录', PENDING: '待审核', APPROVED: '已认证', REJECTED: '已驳回' }
@@ -76,15 +94,25 @@ async function review(status) {
   errorMessage.value = ''
   try {
     const competitionName = selected.value.name
-    replaceItem(await reviewCompetition(selected.value.id, { status, note: reviewNote.value || null }))
-    showSubmissionFeedback({
-      eyebrow: status === 'APPROVED' ? 'REVIEW APPROVED' : 'REVISION REQUESTED',
-      title: status === 'APPROVED' ? '比赛成果已认证' : '比赛记录已驳回',
-      message:
-        status === 'APPROVED'
-          ? `${competitionName} 已通过管理员认证。`
-          : `${competitionName} 已退回修改，队长会收到查看审核意见的站内通知。`,
-      confirmLabel: '返回成果管理',
+    const reviewedId = selected.value.id
+    replaceItem(await reviewCompetition(reviewedId, { status, note: reviewNote.value || null }))
+    const next = sortedCompetitions.value.find((item) => item.verificationStatus === 'PENDING')
+    toast.success(
+      status === 'APPROVED'
+        ? `${competitionName} 已通过管理员认证。`
+        : `${competitionName} 已退回修改，队长会收到查看审核意见的站内通知。`,
+      {
+        title: next
+          ? `${status === 'APPROVED' ? '已认证' : '已驳回'}，已切换到下一条待审核`
+          : status === 'APPROVED'
+            ? '比赛成果已认证'
+            : '比赛记录已驳回',
+      },
+    )
+    if (next) selectedId.value = next.id
+    flashId.value = null
+    nextTick(() => {
+      flashId.value = reviewedId
     })
   } catch (error) {
     errorMessage.value = error.message
@@ -117,13 +145,28 @@ async function openCertificate(kind = 'certificate') {
 }
 function editNews(item) {
   newsEditingId.value = item.id
-  Object.assign(newsForm, item)
+  Object.assign(newsForm, {
+    title: item.title,
+    sourceName: item.sourceName,
+    sourceUrl: item.sourceUrl,
+    summary: item.summary,
+    publishedDate: item.publishedDate,
+    visible: item.visible,
+  })
+  newsSnapshot.value = JSON.stringify(newsForm)
+  newsOpen.value = true
 }
 function resetNews() {
   newsEditingId.value = null
   Object.assign(newsForm, { title: '', sourceName: '', sourceUrl: '', summary: '', publishedDate: '', visible: true })
+  newsSnapshot.value = JSON.stringify(newsForm)
+}
+function createNewsEntry() {
+  resetNews()
+  newsOpen.value = true
 }
 async function saveNews() {
+  if (saving.value) return
   saving.value = true
   errorMessage.value = ''
   try {
@@ -134,11 +177,13 @@ async function saveNews() {
     else news.value.unshift(saved)
     news.value.sort((a, b) => b.publishedDate.localeCompare(a.publishedDate))
     resetNews()
-    showSubmissionFeedback({
-      eyebrow: wasEditing ? 'NEWS UPDATED' : 'NEWS ADDED',
+    newsOpen.value = false
+    toast.success(`${saved.title} ${saved.visible ? '将在公开首页新闻栏展示。' : '当前保持隐藏。'}`, {
       title: wasEditing ? '新闻引用已更新' : '新闻引用已添加',
-      message: `${saved.title} 已保存，${saved.visible ? '将在公开首页新闻栏展示。' : '当前保持隐藏。'}`,
-      confirmLabel: '查看新闻列表',
+    })
+    flashId.value = null
+    nextTick(() => {
+      flashId.value = saved.id
     })
   } catch (error) {
     errorMessage.value = error.message
@@ -149,11 +194,7 @@ async function saveNews() {
 </script>
 
 <template>
-  <PortalShell
-    eyebrow="ADMIN / ACHIEVEMENTS"
-    title="成果管理"
-    description="审核比赛证书、维护首页比赛排序，并管理引用自学校官网或公众号的相关新闻。"
-  >
+  <PortalShell title="成果管理" description="审核比赛证书、维护首页比赛排序，并管理引用自学校官网或公众号的相关新闻。">
     <div class="achievement-admin-tabs">
       <button :class="{ active: tab === 'competitions' }" type="button" @click="tab = 'competitions'">
         <Trophy :size="17" aria-hidden="true" />比赛审核 <b>{{ pendingCount }}</b></button
@@ -161,24 +202,25 @@ async function saveNews() {
         <Newspaper :size="17" aria-hidden="true" />新闻引用
       </button>
     </div>
-    <div v-if="loading" class="portal-state">正在读取成果管理数据…</div>
-    <div v-if="message" class="save-message" role="status">{{ message }}</div>
-    <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
+    <div v-if="loading" class="achievement-admin-layout">
+      <div class="achievement-admin-list"><LoadingSkeleton :rows="5" /></div>
+      <div class="achievement-admin-detail"><LoadingSkeleton variant="detail" :rows="3" /></div>
+    </div>
+    <div v-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
 
     <div v-if="!loading && tab === 'competitions'" class="achievement-admin-layout">
       <aside class="achievement-admin-list">
         <header>
           <div>
-            <p>COMPETITION QUEUE</p>
             <h2>比赛记录</h2>
           </div>
           <span>{{ competitions.length }}</span>
         </header>
         <button
-          v-for="item in competitions"
+          v-for="item in sortedCompetitions"
           :key="item.id"
           type="button"
-          :class="{ active: selectedId === item.id }"
+          :class="{ active: selectedId === item.id, 'ui-flash': flashId === item.id }"
           @click="selectedId = item.id"
         >
           <span>{{ item.captain.name.slice(0, 1) }}</span>
@@ -291,55 +333,17 @@ async function saveNews() {
       <section v-else class="portal-state">请选择一条比赛记录。</section>
     </div>
 
-    <div v-if="!loading && tab === 'news'" class="news-admin-layout">
-      <section class="news-form-card">
-        <header>
-          <p>EXTERNAL COVERAGE</p>
-          <h2>{{ newsEditingId ? '编辑新闻引用' : '新增新闻引用' }}</h2>
-          <button v-if="newsEditingId" type="button" @click="resetNews">取消编辑</button>
-        </header>
-        <form class="competition-form-grid" @submit.prevent="saveNews">
-          <label class="full">新闻标题<input v-model.trim="newsForm.title" required maxlength="220" /></label
-          ><label
-            >来源网站<input
-              v-model.trim="newsForm.sourceName"
-              required
-              maxlength="120"
-              placeholder="例如：学校官网" /></label
-          ><label>发布日期<input v-model="newsForm.publishedDate" type="date" required /></label
-          ><label class="full"
-            >原文链接<input
-              v-model.trim="newsForm.sourceUrl"
-              type="url"
-              required
-              maxlength="800"
-              placeholder="https://..." /></label
-          ><label class="full"
-            >引用摘要<textarea
-              v-model.trim="newsForm.summary"
-              required
-              rows="6"
-              maxlength="5000"
-              placeholder="概括外部报道与实验室成果的关系，不复制全文。"
-            ></textarea></label
-          ><label class="project-switch full"
-            ><input v-model="newsForm.visible" type="checkbox" /><span
-              ><strong>在首页新闻栏展示</strong><small>公开新闻按发布日期自动倒序。</small></span
-            ></label
-          >
-          <footer class="full">
-            <button class="portal-primary" type="submit" :disabled="saving">
-              <Save :size="16" aria-hidden="true" />保存新闻
-            </button>
-          </footer>
-        </form>
-      </section>
+    <div v-if="!loading && tab === 'news'" class="news-admin-layout is-single">
       <section class="news-admin-list">
         <header>
-          <p>PUBLISHED SOURCES</p>
-          <h2>新闻列表</h2>
+          <div>
+            <h2>新闻列表</h2>
+          </div>
+          <button type="button" class="ui-btn ui-btn--primary" @click="createNewsEntry">
+            <Plus :size="16" aria-hidden="true" />新增新闻引用
+          </button>
         </header>
-        <article v-for="item in news" :key="item.id">
+        <article v-for="item in news" :key="item.id" :class="{ 'ui-flash': flashId === item.id }">
           <time>{{ item.publishedDate }}</time>
           <div>
             <small>{{ item.sourceName }} · {{ item.visible ? '公开' : '隐藏' }}</small>
@@ -357,5 +361,46 @@ async function saveNews() {
         <p v-if="!news.length" class="empty-note">尚未添加外部新闻引用。</p>
       </section>
     </div>
+
+    <AdminDrawer
+      v-model:open="newsOpen"
+      :title="newsEditingId ? '编辑新闻引用' : '新增新闻引用'"
+      description="引用学校官网或公众号报道，只摘要不复制全文。"
+      :dirty="newsDirty"
+      :busy="saving"
+      submit-text="保存新闻"
+      @submit="saveNews"
+    >
+      <div class="competition-form-grid">
+        <label class="full">新闻标题<input v-model.trim="newsForm.title" required maxlength="220" /></label
+        ><label
+          >来源网站<input
+            v-model.trim="newsForm.sourceName"
+            required
+            maxlength="120"
+            placeholder="例如：学校官网" /></label
+        ><label>发布日期<input v-model="newsForm.publishedDate" type="date" required /></label
+        ><label class="full"
+          >原文链接<input
+            v-model.trim="newsForm.sourceUrl"
+            type="url"
+            required
+            maxlength="800"
+            placeholder="https://..." /></label
+        ><label class="full"
+          >引用摘要<textarea
+            v-model.trim="newsForm.summary"
+            required
+            rows="6"
+            maxlength="5000"
+            placeholder="概括外部报道与实验室成果的关系，不复制全文。"
+          ></textarea></label
+        ><label class="project-switch full"
+          ><input v-model="newsForm.visible" type="checkbox" /><span
+            ><strong>在首页新闻栏展示</strong><small>公开新闻按发布日期自动倒序。</small></span
+          ></label
+        >
+      </div>
+    </AdminDrawer>
   </PortalShell>
 </template>

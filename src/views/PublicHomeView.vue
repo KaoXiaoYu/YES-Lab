@@ -5,7 +5,19 @@ import ResearchVisual from '../components/ResearchVisual.vue'
 import CompactLeaderboard from '../components/CompactLeaderboard.vue'
 import PublicFundCard from '../components/PublicFundCard.vue'
 import HomepageDeadlineConveyor from '../components/HomepageDeadlineConveyor.vue'
-import { ArrowDownRight, ArrowRight, ArrowUpRight, BookOpen, Code2, ExternalLink, Menu, X } from '@lucide/vue'
+import { animate } from 'motion'
+import {
+  ArrowRight,
+  ArrowUpRight,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Code2,
+  ExternalLink,
+  Menu,
+  Plus,
+  X,
+} from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { authState } from '../services/authApi'
 import { fetchPublicHome } from '../services/publicApi'
@@ -16,10 +28,22 @@ const selectedProject = ref(null)
 const modalClose = ref(null)
 const homepageReady = ref(false)
 const homeElement = ref(null)
+const heroElement = ref(null)
+const heroProgress = ref(0)
+const peopleRail = ref(null)
+const awardRail = ref(null)
+const selectedProjectIndex = ref(0)
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const useViewTransitions = typeof document !== 'undefined' && typeof document.startViewTransition === 'function'
+const recruitmentSteps = ['报名', '初筛', '面试', '技能测试', '正式成员']
+const personTones = ['#2a6df4', '#e8743b', '#14a37f', '#8b5cf6', '#d4a017', '#0ea5c6']
+let statObserver
+let heroFrame = 0
 let revealObserver
+let revealMutationObserver
 let rankingsRefreshTimer
 let homeUnmounted = false
-const publicHomeSnapshotKey = `yeslab_public_home_snapshot_v4:${brand.name}:${brand.displayName}`
+const publicHomeSnapshotKey = `yeslab_public_home_snapshot_v5:${brand.name}:${brand.displayName}`
 try {
   window.localStorage.removeItem('yeslab_public_home_snapshot_v2')
   window.localStorage.removeItem('yeslab_public_home_snapshot_v3')
@@ -111,7 +135,7 @@ const defaultHomepageContent = {
     { label: '02 / FOCUS', value: '3 个方向', detail: '无人系统与具身智能', metric: 'DIRECTIONS', target: '#projects' },
     { label: '03 / PARTNER', value: 'CUAV', detail: '企业赞助伙伴', metric: 'PARTNERS', target: '#partners' },
     {
-      label: '04 / STATUS',
+      label: '项目状态',
       value: '持续建设',
       detail: '开放、实践、成长',
       metric: 'PROJECT_STATUS',
@@ -244,15 +268,6 @@ const homepageContent = ref(normalizeHomepageContent(defaultHomepageContent))
 
 const projectFilters = computed(() => ['全部', ...new Set(projects.value.map((project) => project.category))])
 const displayOptions = computed(() => homepageContent.value.display)
-const hasSectionNavigation = computed(() =>
-  [
-    displayOptions.value.showProjects,
-    displayOptions.value.showAchievements,
-    displayOptions.value.showAbout,
-    displayOptions.value.showMembers,
-    displayOptions.value.showPartners,
-  ].some(Boolean),
-)
 const filteredProjects = computed(() => {
   if (displayOptions.value.projectSelectionMode === 'HIDDEN') return []
   const selectedProjectIds = homepageContent.value.featuredProjectIds || []
@@ -289,12 +304,26 @@ const showCoreMembersModule = computed(
   () => displayOptions.value.showCoreMembers && displayOptions.value.memberSelectionMode !== 'HIDDEN',
 )
 const showMemberShowcase = computed(() => showAdvisorModule.value || showCoreMembersModule.value)
+const peopleCards = computed(() => {
+  const advisorsList = showAdvisorModule.value
+    ? visibleAdvisors.value.map((advisor) => ({ ...advisor, kind: 'advisor' }))
+    : []
+  const coreList = showCoreMembersModule.value
+    ? coreMembers.value.map((member) => ({ ...member, profileId: member.profileId || member.slug, kind: 'core' }))
+    : []
+  return [...advisorsList, ...coreList].map((person, index) => ({
+    ...person,
+    // A single surname reads better than two characters on the large portrait.
+    initials: /^[\u4e00-\u9fff]/.test(person.name || '') ? person.name.slice(0, 1) : person.initials,
+    tone: personTones[index % personTones.length],
+  }))
+})
 const visibleSponsors = computed(() => sponsors.value.slice(0, displayOptions.value.sponsorLimit))
 const visibleNewsItems = computed(() => newsItems.value.slice(0, displayOptions.value.newsLimit))
 const visibleCompetitionResults = computed(() =>
   competitionResults.value.slice(0, displayOptions.value.competitionLimit),
 )
-const accountDestination = computed(() => (authState.account?.role === 'VISITOR' ? '/application' : '/profile'))
+const accountDestination = computed(() => (authState.account?.role === 'VISITOR' ? '/application' : '/today'))
 const accountName = computed(() => authState.account?.displayName || authState.account?.username || '')
 const enabledExternalLinks = computed(() =>
   (homepageContent.value.externalLinks || []).filter((link) => link.enabled && link.url),
@@ -345,6 +374,20 @@ const liveProofItems = computed(() => {
     target: item.target || '#top',
   }))
 })
+// Older saved homepages still carry decorative English labels; show their Chinese meaning instead.
+const proofMetricLabels = { AWARDS: '获奖', DIRECTIONS: '研究方向', PARTNERS: '合作伙伴', PROJECT_STATUS: '项目状态' }
+const proofLabel = (item) =>
+  /^\d+\s*\/\s*[A-Z][A-Z\s]*$/.test(item.label || '') ? proofMetricLabels[item.metric] || '' : item.label
+const heroKicker = computed(() => {
+  const value = homepageContent.value.profile?.heroEyebrow || ''
+  return /RESEARCH & COLLABORATION$/.test(value) ? `${brand.name} · 研究与协作` : value
+})
+const footerText = computed(() =>
+  (homepageContent.value.sections?.footerText || '').replace(/ · RESEARCH & COLLABORATION$/, ' · 开放实验室平台'),
+)
+const visibleProofItems = computed(() =>
+  liveProofItems.value.filter((item) => item.metric === 'CUSTOM' || !/^0\s/.test(String(item.value))),
+)
 const externalIcon = (platform) => ({ github: Code2, wechat: BookOpen })[platform?.toLowerCase()] || ExternalLink
 
 const scrollTo = (id) => {
@@ -352,7 +395,7 @@ const scrollTo = (id) => {
   const target = document.querySelector(id)
   if (!target) return
 
-  const headerHeight = document.querySelector('.site-header')?.getBoundingClientRect().height ?? 80
+  const headerHeight = document.querySelector('.ah-nav')?.getBoundingClientRect().height ?? 64
   const targetTop = target.getBoundingClientRect().top + window.scrollY - headerHeight
   window.scrollTo({
     top: Math.max(0, targetTop),
@@ -461,8 +504,93 @@ if (cachedPublicHome) {
 
 const handleKeydown = (event) => {
   if (event.key !== 'Escape') return
-  selectedProject.value = null
+  if (selectedProject.value) closeProject()
   menuOpen.value = false
+}
+
+// Project tiles grow into the detail sheet (View Transitions); other browsers fall back to a fade.
+let projectTrigger = null
+function withTransition(update) {
+  if (!useViewTransitions || prefersReducedMotion()) return update()
+  return document.startViewTransition(update).finished
+}
+function setTransitionNames(art, title) {
+  if (art) art.style.viewTransitionName = 'ah-project-art'
+  if (title) title.style.viewTransitionName = 'ah-project-title'
+}
+function clearTransitionNames(...elements) {
+  elements.forEach((element) => element && (element.style.viewTransitionName = ''))
+}
+async function openProject(project, event) {
+  projectTrigger = event?.currentTarget || null
+  const art = projectTrigger?.querySelector('.ah-tile-art')
+  const title = projectTrigger?.querySelector('.ah-tile-title')
+  setTransitionNames(art, title)
+  await withTransition(async () => {
+    clearTransitionNames(art, title)
+    selectedProjectIndex.value = Math.max(0, filteredProjects.value.indexOf(project))
+    selectedProject.value = project
+    await nextTick()
+    setTransitionNames(document.querySelector('.ah-sheet-hero'), document.querySelector('.ah-sheet-hero h2'))
+  })
+  clearTransitionNames(document.querySelector('.ah-sheet-hero'), document.querySelector('.ah-sheet-hero h2'))
+}
+async function closeProject() {
+  if (!selectedProject.value) return
+  const trigger = projectTrigger
+  setTransitionNames(document.querySelector('.ah-sheet-hero'), document.querySelector('.ah-sheet-hero h2'))
+  await withTransition(async () => {
+    selectedProject.value = null
+    await nextTick()
+    setTransitionNames(trigger?.querySelector('.ah-tile-art'), trigger?.querySelector('.ah-tile-title'))
+  })
+  clearTransitionNames(trigger?.querySelector('.ah-tile-art'), trigger?.querySelector('.ah-tile-title'))
+  trigger?.focus({ preventScroll: true })
+}
+
+function scrollRail(element, direction) {
+  if (!element) return
+  element.scrollBy({
+    left: direction * element.clientWidth * 0.8,
+    behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+  })
+}
+
+function updateHeroProgress() {
+  heroFrame = 0
+  const hero = heroElement.value
+  if (!hero) return
+  const rect = hero.getBoundingClientRect()
+  heroProgress.value = Math.min(1, Math.max(0, -rect.top / Math.max(1, rect.height * 0.8)))
+}
+function onHeroScroll() {
+  if (!heroFrame) heroFrame = requestAnimationFrame(updateHeroProgress)
+}
+
+// Figures in the「实验室此刻」strip count up the first time they scroll into view.
+function initializeStatCounters() {
+  if (statObserver || !homeElement.value || prefersReducedMotion() || !('IntersectionObserver' in window)) return
+  statObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return
+        statObserver.unobserve(entry.target)
+        const text = entry.target.dataset.countText || ''
+        const match = text.match(/^(\d+)(.*)$/)
+        if (!match) return
+        const target = Number(match[1])
+        const suffix = match[2]
+        if (!target) return
+        animate(0, target, {
+          duration: 1.1,
+          ease: [0.22, 1, 0.36, 1],
+          onUpdate: (latest) => (entry.target.textContent = `${Math.round(latest)}${suffix}`),
+        })
+      })
+    },
+    { threshold: 0.6 },
+  )
+  homeElement.value.querySelectorAll('[data-count-text]').forEach((element) => statObserver.observe(element))
 }
 
 watch(selectedProject, async (project) => {
@@ -480,18 +608,31 @@ function initializeReveals() {
   revealObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        if (!entry.isIntersecting) return
+        // Sections the reader jumped past (anchor links, fast scrolling) are shown too.
+        if (!entry.isIntersecting && entry.boundingClientRect.bottom > 0) return
         entry.target.classList.add('is-visible')
         revealObserver.unobserve(entry.target)
       })
     },
     { threshold: 0.12 },
   )
-  homeElement.value.querySelectorAll('[data-reveal]').forEach((element) => revealObserver.observe(element))
+  const observeNew = () =>
+    homeElement.value
+      ?.querySelectorAll('[data-reveal]:not(.is-visible):not([data-reveal-observed])')
+      .forEach((element) => {
+        element.setAttribute('data-reveal-observed', '')
+        revealObserver.observe(element)
+      })
+  observeNew()
+  // Sections that appear once their data arrives (awards, news, leaderboard) join the reveal as well.
+  revealMutationObserver = new MutationObserver(observeNew)
+  revealMutationObserver.observe(homeElement.value, { childList: true, subtree: true })
 }
 
 onMounted(async () => {
   document.addEventListener('keydown', handleKeydown)
+  window.addEventListener('scroll', onHeroScroll, { passive: true })
+  updateHeroProgress()
   document.addEventListener('visibilitychange', refreshVisibleHome)
   window.addEventListener('focus', refreshVisibleHome)
   initializeReveals()
@@ -500,6 +641,7 @@ onMounted(async () => {
   await nextTick()
   if (homeUnmounted) return
   initializeReveals()
+  initializeStatCounters()
   scheduleDailyRefresh()
 })
 
@@ -510,103 +652,99 @@ onBeforeUnmount(() => {
   window.removeEventListener('focus', refreshVisibleHome)
   document.body.classList.remove('modal-open')
   revealObserver?.disconnect()
+  revealMutationObserver?.disconnect()
+  statObserver?.disconnect()
+  window.removeEventListener('scroll', onHeroScroll)
+  cancelAnimationFrame(heroFrame)
   window.clearTimeout(rankingsRefreshTimer)
 })
 </script>
 
 <template>
-  <main ref="homeElement" :class="['site-shell', { 'awaiting-home': !homepageReady }]">
+  <main ref="homeElement" :class="['site-shell', 'ah', { 'awaiting-home': !homepageReady }]">
     <div v-if="!homepageReady" class="home-bootstrap-state" role="status" aria-live="polite">
       <img :src="brand.logo" alt="" width="900" height="300" />
       <p>正在同步 {{ profile.name }} 最新公开内容…</p>
     </div>
     <a class="skip-link" href="#top">跳到主要内容</a>
-    <header class="site-header">
-      <a class="brand" href="#top" :aria-label="`${profile.displayName}首页`" @click.prevent="scrollTo('#top')">
-        <img :src="brand.logo" :alt="profile.name" width="900" height="300" />
-        <span>{{ profile.displayName }}</span>
-      </a>
 
-      <div class="header-navigation">
+    <header class="ah-nav">
+      <a class="ah-brand" href="#top" :aria-label="`${profile.displayName}首页`" @click.prevent="scrollTo('#top')">
+        <img :src="brand.logo" :alt="profile.name" width="900" height="300" />
+      </a>
+      <nav id="homepage-navigation" :class="['ah-nav-links', { open: menuOpen }]" aria-label="主导航">
+        <button v-if="displayOptions.showProjects" type="button" @click="scrollTo('#projects')">项目</button>
+        <button v-if="displayOptions.showAbout" type="button" @click="scrollTo('#about')">关于</button>
+        <button v-if="displayOptions.showMembers" type="button" @click="scrollTo('#members')">成员</button>
+        <button v-if="displayOptions.showAchievements" type="button" @click="scrollTo('#updates')">成果</button>
+        <button v-if="displayOptions.showPartners" type="button" @click="scrollTo('#partners')">伙伴</button>
+        <RouterLink to="/discussions">讨论板</RouterLink>
+      </nav>
+      <div class="ah-nav-tools">
         <ThemeToggle />
-        <nav id="homepage-navigation" :class="['top-nav', { open: menuOpen }]" aria-label="主导航">
-          <button v-if="displayOptions.showProjects" @click="scrollTo('#projects')">研究与成果</button>
-          <button v-if="displayOptions.showAchievements" @click="scrollTo('#updates')">竞赛 / 新闻</button>
-          <button v-if="displayOptions.showAbout" @click="scrollTo('#about')">关于我们</button>
-          <button v-if="displayOptions.showMembers" @click="scrollTo('#members')">成员</button>
-          <button v-if="displayOptions.showPartners" @click="scrollTo('#partners')">赞助伙伴</button>
-          <span v-if="hasSectionNavigation" class="nav-divider" aria-hidden="true"></span>
-          <RouterLink class="public-discussion-link" to="/discussions">讨论板</RouterLink>
-        </nav>
+        <RouterLink
+          v-if="authState.account"
+          class="ah-account"
+          :to="accountDestination"
+          :aria-label="`进入${accountName}的成员页面`"
+        >
+          <span class="ah-account-avatar"
+            ><img v-if="authState.account.avatarUrl" :src="authState.account.avatarUrl" alt="" /><b v-else>{{
+              accountName.slice(0, 1)
+            }}</b></span
+          ><span class="ah-account-name">{{ accountName }}</span>
+        </RouterLink>
+        <template v-else>
+          <RouterLink class="ah-nav-login" to="/login">登录</RouterLink>
+          <RouterLink class="ah-pill" to="/register">报名加入</RouterLink>
+        </template>
         <button
-          class="menu-button"
+          class="ah-menu-button"
+          type="button"
           aria-controls="homepage-navigation"
           :aria-expanded="menuOpen"
           :aria-label="menuOpen ? '关闭栏目导航' : '打开栏目导航'"
           @click="menuOpen = !menuOpen"
         >
-          <X v-if="menuOpen" :size="18" aria-hidden="true" /><Menu v-else :size="18" aria-hidden="true" /><span
-            >栏目导航</span
-          >
+          <X v-if="menuOpen" :size="20" aria-hidden="true" /><Menu v-else :size="20" aria-hidden="true" />
         </button>
-      </div>
-
-      <div class="header-account">
-        <RouterLink
-          v-if="authState.account"
-          class="public-account-chip"
-          :to="accountDestination"
-          :aria-label="`进入${accountName}的成员页面`"
-        >
-          <span class="public-account-avatar"
-            ><img v-if="authState.account.avatarUrl" :src="authState.account.avatarUrl" alt="" /><b v-else>{{
-              accountName.slice(0, 1)
-            }}</b></span
-          >
-          <strong>{{ accountName }}</strong>
-        </RouterLink>
-        <div v-else class="auth-entry">
-          <RouterLink to="/login">登录</RouterLink><RouterLink class="header-register" to="/register">注册</RouterLink>
-        </div>
       </div>
     </header>
 
-    <section id="top" class="hero" tabindex="-1">
-      <div class="hero-brand-field" aria-hidden="true">
-        <span class="hero-brand-orbit orbit-one"></span><span class="hero-brand-orbit orbit-two"></span>
-      </div>
-      <div class="hero-main" data-reveal>
-        <div class="hero-intro">
-          <p class="eyebrow">{{ homepageContent.profile.heroEyebrow }}</p>
-          <h1>
-            <template v-for="(line, index) in homepageContent.profile.heroTitle.split('\n')" :key="`${line}-${index}`"
-              >{{ line }}<br v-if="index < homepageContent.profile.heroTitle.split('\n').length - 1" /></template
-            ><em>{{ homepageContent.profile.heroAccent }}</em>
-          </h1>
-          <p class="hero-slogan">{{ profile.slogan }}</p>
-          <p class="hero-description">{{ profile.description }}</p>
-          <div class="hero-actions">
-            <a
-              v-if="homepageContent.profile.primaryActionEnabled"
-              class="primary-action"
-              :href="homepageContent.profile.primaryActionUrl"
-              :target="directionTarget(homepageContent.profile.primaryActionUrl)"
-              :rel="directionTarget(homepageContent.profile.primaryActionUrl) ? 'noopener noreferrer' : undefined"
-              @click="handleDirectionClick($event, homepageContent.profile.primaryActionUrl)"
-              >{{ homepageContent.profile.primaryActionLabel }} <ArrowDownRight :size="19" aria-hidden="true"
-            /></a>
-            <a
-              v-if="homepageContent.profile.secondaryActionEnabled"
-              class="text-action"
-              :href="homepageContent.profile.secondaryActionUrl"
-              :target="directionTarget(homepageContent.profile.secondaryActionUrl)"
-              :rel="directionTarget(homepageContent.profile.secondaryActionUrl) ? 'noopener noreferrer' : undefined"
-              @click="handleDirectionClick($event, homepageContent.profile.secondaryActionUrl)"
-              >{{ homepageContent.profile.secondaryActionLabel }} <ArrowRight :size="18" aria-hidden="true"
-            /></a>
-          </div>
+    <section id="top" ref="heroElement" class="ah-hero" tabindex="-1" :style="{ '--hero-p': heroProgress }">
+      <div class="ah-hero-glow" aria-hidden="true"></div>
+      <div class="ah-hero-copy">
+        <p v-if="heroKicker" class="ah-kicker">{{ heroKicker }}</p>
+        <h1>
+          <template v-for="(line, index) in homepageContent.profile.heroTitle.split('\n')" :key="`${line}-${index}`"
+            >{{ line }}<br v-if="index < homepageContent.profile.heroTitle.split('\n').length - 1" /></template
+          ><em>{{ homepageContent.profile.heroAccent }}</em>
+        </h1>
+        <p class="ah-hero-lead">{{ profile.slogan }}</p>
+        <p class="ah-hero-sub">{{ profile.description }}</p>
+        <div class="ah-hero-actions">
+          <a
+            v-if="homepageContent.profile.primaryActionEnabled"
+            class="ah-pill ah-pill--lg"
+            :href="homepageContent.profile.primaryActionUrl"
+            :target="directionTarget(homepageContent.profile.primaryActionUrl)"
+            :rel="directionTarget(homepageContent.profile.primaryActionUrl) ? 'noopener noreferrer' : undefined"
+            @click="handleDirectionClick($event, homepageContent.profile.primaryActionUrl)"
+            >{{ homepageContent.profile.primaryActionLabel }}</a
+          >
+          <a
+            v-if="homepageContent.profile.secondaryActionEnabled"
+            class="ah-link"
+            :href="homepageContent.profile.secondaryActionUrl"
+            :target="directionTarget(homepageContent.profile.secondaryActionUrl)"
+            :rel="directionTarget(homepageContent.profile.secondaryActionUrl) ? 'noopener noreferrer' : undefined"
+            @click="handleDirectionClick($event, homepageContent.profile.secondaryActionUrl)"
+            >{{ homepageContent.profile.secondaryActionLabel }}<ArrowRight :size="17" aria-hidden="true"
+          /></a>
         </div>
+      </div>
 
+      <div class="ah-hero-visual">
         <ResearchVisual
           v-if="homepageReady"
           :full-name="profile.fullName"
@@ -615,473 +753,399 @@ onBeforeUnmount(() => {
         />
       </div>
 
-      <div class="hero-directory" data-reveal>
-        <p>RESEARCH DIRECTORY</p>
-        <ol>
-          <li v-for="(direction, index) in researchDirections" :key="`${direction.name}-${direction.url}`">
-            <a
-              v-if="direction.url"
-              :href="direction.url"
-              :target="directionTarget(direction.url)"
-              :rel="directionTarget(direction.url) ? 'noopener noreferrer' : undefined"
-              @click="handleDirectionClick($event, direction.url)"
-              ><span>0{{ index + 1 }}</span
-              ><strong>{{ direction.name }}</strong
-              ><ArrowUpRight :size="18" aria-hidden="true"
-            /></a>
-            <div v-else>
-              <span>0{{ index + 1 }}</span
-              ><strong>{{ direction.name }}</strong>
-            </div>
-          </li>
-        </ol>
+      <ul v-if="researchDirections.length" class="ah-directions" aria-label="研究方向">
+        <li v-for="direction in researchDirections" :key="`${direction.name}-${direction.url}`">
+          <a
+            v-if="direction.url"
+            :href="direction.url"
+            :target="directionTarget(direction.url)"
+            :rel="directionTarget(direction.url) ? 'noopener noreferrer' : undefined"
+            @click="handleDirectionClick($event, direction.url)"
+            >{{ direction.name }}<ArrowUpRight :size="15" aria-hidden="true"
+          /></a>
+          <span v-else>{{ direction.name }}</span>
+        </li>
+      </ul>
+    </section>
+
+    <section class="ah-chapter ah-chapter--soft" aria-labelledby="ah-now-title">
+      <div class="ah-wrap">
+        <header class="ah-head" data-reveal>
+          <h2 id="ah-now-title">实验室此刻。</h2>
+          <p>基金、截止日程和阶段成果，都是平台里的实时数据。</p>
+        </header>
+        <div v-if="visibleProofItems.length" class="ah-stats" data-reveal>
+          <a
+            v-for="item in visibleProofItems"
+            :key="`${item.label}-${item.target}`"
+            class="ah-stat"
+            :href="item.target"
+            :target="directionTarget(item.target)"
+            :rel="directionTarget(item.target) ? 'noopener noreferrer' : undefined"
+            :aria-label="`${proofLabel(item)}：${item.value}，跳转到${item.sectionName}`"
+            @click="handleDirectionClick($event, item.target)"
+          >
+            <small>{{ proofLabel(item) }}</small>
+            <strong :data-count-text="item.value">{{ item.value }}</strong>
+            <span>{{ item.detail }}</span>
+          </a>
+        </div>
+        <div class="ah-now-panels" data-reveal>
+          <PublicFundCard compact />
+          <HomepageDeadlineConveyor />
+        </div>
       </div>
     </section>
 
-    <section class="section lab-status-section" aria-label="实验室基金与日程">
-      <div class="lab-status-stack"><PublicFundCard compact /><HomepageDeadlineConveyor /></div>
+    <section v-if="displayOptions.showProjects" class="ah-chapter" aria-labelledby="projects">
+      <div class="ah-wrap ah-wrap--wide">
+        <header class="ah-head ah-head--split" data-reveal>
+          <div>
+            <h2 id="projects">{{ homepageContent.sections.projects.title }}</h2>
+            <p>{{ homepageContent.sections.projects.description }}</p>
+          </div>
+          <div v-if="projectFilters.length > 2" class="ah-segmented" role="group" aria-label="按类别筛选项目">
+            <button
+              v-for="filter in projectFilters"
+              :key="filter"
+              type="button"
+              :aria-pressed="activeProjectFilter === filter"
+              @click="activeProjectFilter = filter"
+            >
+              {{ filter }}
+            </button>
+          </div>
+        </header>
+
+        <TransitionGroup
+          v-if="filteredProjects.length"
+          name="ah-tiles"
+          tag="div"
+          class="ah-bento"
+          :class="`ah-bento--${Math.min(filteredProjects.length, 4)}`"
+          data-reveal
+        >
+          <button
+            v-for="(project, index) in filteredProjects"
+            :key="project.slug || project.number"
+            type="button"
+            class="ah-tile"
+            :class="{
+              'ah-tile--feature': index === 0 && filteredProjects.length > 2,
+              'has-cover': project.coverImageUrl,
+            }"
+            :aria-label="`查看${project.title.replace('\n', '')}项目详情`"
+            @click="openProject(project, $event)"
+          >
+            <span class="ah-tile-art" :class="`ah-art-${index % 5}`" aria-hidden="true">
+              <img v-if="project.coverImageUrl" :src="project.coverImageUrl" alt="" loading="lazy" />
+            </span>
+            <span class="ah-tile-body">
+              <small>{{ project.category }} · {{ project.status }}</small>
+              <strong class="ah-tile-title">{{ project.title.replace('\n', '') }}</strong>
+              <span v-if="index === 0 || filteredProjects.length <= 2" class="ah-tile-summary">{{
+                project.summary
+              }}</span>
+              <span v-if="project.tech.length && index === 0" class="ah-tile-tags">
+                <i v-for="item in project.tech.slice(0, 4)" :key="item">{{ item }}</i>
+              </span>
+            </span>
+            <span class="ah-tile-plus" aria-hidden="true"><Plus :size="18" /></span>
+          </button>
+        </TransitionGroup>
+        <p v-else class="ah-empty" data-reveal>项目团队建立并公开后，会出现在这里。</p>
+      </div>
+    </section>
+
+    <section v-if="displayOptions.showAbout" class="ah-chapter ah-chapter--soft" aria-labelledby="about">
+      <div class="ah-wrap">
+        <div class="ah-about" data-reveal>
+          <h2 id="about" class="preserve-lines">{{ homepageContent.sections.about.title }}</h2>
+          <div>
+            <p>{{ homepageContent.sections.about.paragraphOne }}</p>
+            <p>{{ homepageContent.sections.about.paragraphTwo }}</p>
+          </div>
+        </div>
+        <ul v-if="homepageContent.sections.about.principles?.length" class="ah-principles" data-reveal>
+          <li v-for="principle in homepageContent.sections.about.principles" :key="principle">{{ principle }}</li>
+        </ul>
+        <div v-if="homepageContent.sections.about.features?.length" class="ah-features" data-reveal>
+          <h3>{{ homepageContent.sections.about.featureTitle }}</h3>
+          <div>
+            <article
+              v-for="(feature, index) in homepageContent.sections.about.features"
+              :key="`${feature.title}-${index}`"
+            >
+              <h4>{{ feature.title }}</h4>
+              <p>{{ feature.description }}</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section v-if="displayOptions.showMembers" class="ah-chapter ah-chapter--dark" aria-labelledby="members">
+      <div class="ah-wrap ah-wrap--wide">
+        <header class="ah-head ah-head--split" data-reveal>
+          <div>
+            <h2 id="members">{{ homepageContent.sections.members.title }}</h2>
+            <p>点开任意一位，查看公开主页。榜单每日刷新。</p>
+          </div>
+          <div v-if="peopleCards.length > 3" class="ah-rail-controls">
+            <button type="button" class="ah-circle" aria-label="向左滚动成员" @click="scrollRail(peopleRail, -1)">
+              <ChevronLeft :size="20" aria-hidden="true" />
+            </button>
+            <button type="button" class="ah-circle" aria-label="向右滚动成员" @click="scrollRail(peopleRail, 1)">
+              <ChevronRight :size="20" aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+
+        <div v-if="showMemberShowcase && peopleCards.length" ref="peopleRail" class="ah-people" data-reveal>
+          <component
+            :is="person.profileId ? 'RouterLink' : 'article'"
+            v-for="person in peopleCards"
+            :key="`${person.kind}-${person.profileId || person.name}`"
+            class="ah-person"
+            :class="`ah-person--${person.kind}`"
+            :to="person.profileId ? `/members/${person.profileId}` : undefined"
+            :aria-label="person.profileId ? `查看${person.name}的公开主页` : undefined"
+          >
+            <span class="ah-person-photo" :style="{ '--tone': person.tone }">
+              <img v-if="person.avatarUrl" :src="person.avatarUrl" alt="" loading="lazy" />
+              <b v-else>{{ person.initials }}</b>
+            </span>
+            <span class="ah-person-info">
+              <small>{{ person.kind === 'advisor' ? '指导老师' : '核心成员' }}</small>
+              <strong>{{ person.name }}</strong>
+              <span>{{ person.role }}</span>
+              <span v-if="person.tags?.length" class="ah-person-tags">
+                <i v-for="tag in person.tags.slice(0, 3)" :key="tag">{{ tag }}</i>
+              </span>
+            </span>
+          </component>
+        </div>
+
+        <div v-if="displayOptions.showLeaderboard" class="ah-leaderboard" data-reveal>
+          <CompactLeaderboard
+            :boards="rankingData"
+            :total-count="rankingTotalCount"
+            :updated-at="rankingsUpdatedAt"
+            :loaded="rankingsLoaded"
+            :error="rankingsError"
+            @retry="syncPublicHome"
+          />
+        </div>
+      </div>
     </section>
 
     <section
-      v-if="liveProofItems.length"
-      class="proof-bar"
-      aria-label="实验室成果概览"
-      :style="{ '--proof-columns': Math.min(liveProofItems.length, 4) }"
+      v-if="displayOptions.showAchievements"
+      class="ah-chapter ah-chapter--dark ah-chapter--flush"
+      aria-labelledby="updates"
     >
-      <a
-        v-for="item in liveProofItems"
-        :key="`${item.label}-${item.target}`"
-        :href="item.target"
-        :target="directionTarget(item.target)"
-        :rel="directionTarget(item.target) ? 'noopener noreferrer' : undefined"
-        :aria-label="`${item.label}：${item.value}，跳转到${item.sectionName}`"
-        @click="handleDirectionClick($event, item.target)"
-        ><span>{{ item.label }}</span
-        ><strong>{{ item.value }}</strong
-        ><small>{{ item.detail }}</small
-        ><ArrowDownRight :size="18" aria-hidden="true"
-      /></a>
-    </section>
-
-    <section v-if="displayOptions.showProjects" class="section projects-section">
-      <header id="projects" class="section-header" data-reveal>
-        <div>
-          <p class="section-index">{{ homepageContent.sections.projects.eyebrow }}</p>
-          <h2>{{ homepageContent.sections.projects.title }}</h2>
-        </div>
-        <p>{{ homepageContent.sections.projects.description }}</p>
-      </header>
-
-      <div class="project-toolbar" data-reveal>
-        <div class="filter-tabs" aria-label="按研究方向筛选项目">
-          <button
-            v-for="filter in projectFilters"
-            :key="filter"
-            :class="{ active: activeProjectFilter === filter }"
-            :aria-pressed="activeProjectFilter === filter"
-            @click="activeProjectFilter = filter"
-          >
-            {{ filter }}
-          </button>
-        </div>
-        <span>{{ String(filteredProjects.length).padStart(2, '0') }} PROJECTS</span>
-      </div>
-
-      <TransitionGroup
-        name="project-list"
-        tag="div"
-        class="project-grid"
-        :class="{
-          'project-grid--solo': filteredProjects.length === 1,
-          'project-grid--pair': filteredProjects.length === 2,
-        }"
-      >
-        <article
-          v-for="project in filteredProjects"
-          :key="project.number"
-          class="project-card"
-          role="button"
-          tabindex="0"
-          :aria-label="`查看${project.title.replace('\n', '')}项目详情`"
-          @click="selectedProject = project"
-          @keydown.enter="selectedProject = project"
-          @keydown.space.prevent="selectedProject = project"
-        >
-          <div class="project-card-head">
-            <span>{{ project.number }}</span
-            ><small>{{ project.status }}</small>
+      <div class="ah-wrap ah-wrap--wide">
+        <header class="ah-head ah-head--split" data-reveal>
+          <div>
+            <h2 id="updates">{{ homepageContent.sections.achievements.title }}</h2>
+            <p>{{ homepageContent.sections.achievements.description }}</p>
           </div>
-          <div class="project-graphic" :class="[{ 'is-default': !project.coverImageUrl }, `graphic-${project.number}`]">
-            <img
-              :src="project.coverImageUrl || brand.logo"
-              :alt="`${project.title.replace('\n', '')}项目主图`"
-              loading="lazy"
-            />
-            <b>{{ project.category }}</b>
+          <div v-if="visibleCompetitionResults.length > 2" class="ah-rail-controls">
+            <button type="button" class="ah-circle" aria-label="向左滚动成果" @click="scrollRail(awardRail, -1)">
+              <ChevronLeft :size="20" aria-hidden="true" />
+            </button>
+            <button type="button" class="ah-circle" aria-label="向右滚动成果" @click="scrollRail(awardRail, 1)">
+              <ChevronRight :size="20" aria-hidden="true" />
+            </button>
           </div>
-          <div class="project-copy">
-            <p>{{ project.category }}</p>
-            <h3>
-              <template v-for="line in project.title.split('\n')" :key="line">{{ line }}<br /></template>
-            </h3>
-            <span>{{ project.summary }}</span>
-          </div>
-          <div class="project-card-foot">
-            <div>
-              <small v-for="item in project.tech" :key="item">{{ item }}</small>
-            </div>
-            <ArrowUpRight :size="22" aria-hidden="true" />
-          </div>
-        </article>
-      </TransitionGroup>
-    </section>
-
-    <section v-if="displayOptions.showAbout" class="section about-section">
-      <div id="about" class="about-grid">
-        <div class="about-title" data-reveal>
-          <p class="section-index">{{ homepageContent.sections.about.eyebrow }}</p>
-          <h2 class="preserve-lines">{{ homepageContent.sections.about.title }}</h2>
-        </div>
-        <div class="about-copy" data-reveal>
-          <p>{{ homepageContent.sections.about.paragraphOne }}</p>
-          <p>{{ homepageContent.sections.about.paragraphTwo }}</p>
-          <div class="principle-list">
-            <div v-for="(principle, index) in homepageContent.sections.about.principles" :key="principle">
-              <span>{{ String(index + 1).padStart(2, '0') }}</span
-              ><strong>{{ principle }}</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="about-feature-board" data-reveal>
-        <header>
-          <p>{{ homepageContent.sections.about.featureEyebrow }}</p>
-          <h3>{{ homepageContent.sections.about.featureTitle }}</h3>
         </header>
-        <div>
-          <article
-            v-for="(feature, index) in homepageContent.sections.about.features"
-            :key="`${feature.title}-${index}`"
+
+        <div v-if="visibleCompetitionResults.length" ref="awardRail" class="ah-awards" data-reveal>
+          <component
+            :is="item.id ? 'RouterLink' : 'article'"
+            v-for="(item, index) in visibleCompetitionResults"
+            :key="item.id || `${item.name}-${index}`"
+            class="ah-award"
+            :to="item.id ? `/competition-results/${item.id}` : undefined"
           >
-            <span>{{ String(index + 1).padStart(2, '0') }}</span>
-            <h4>{{ feature.title }}</h4>
-            <p>{{ feature.description }}</p>
+            <time>{{ competitionLevelLabels[item.level] || item.level }} · {{ item.competitionDate }}</time>
+            <strong>{{ item.awardName }}</strong>
+            <span
+              ><b>{{ item.name }}</b
+              >{{ item.track || '综合赛道' }}</span
+            >
+          </component>
+        </div>
+
+        <div v-if="visibleNewsItems.length" class="ah-news" data-reveal>
+          <h3>相关新闻</h3>
+          <component
+            :is="item.url ? 'a' : 'article'"
+            v-for="item in visibleNewsItems"
+            :key="item.id || item.title"
+            :href="item.url || undefined"
+            :target="item.url ? '_blank' : undefined"
+            :rel="item.url ? 'noopener noreferrer' : undefined"
+          >
+            <time>{{ item.date }}</time>
+            <span
+              ><strong>{{ item.title }}</strong
+              ><small v-if="item.summary">{{ item.summary }}</small></span
+            >
+            <ArrowUpRight v-if="item.url" :size="18" aria-hidden="true" />
+          </component>
+        </div>
+        <p
+          v-if="!visibleCompetitionResults.length && !visibleNewsItems.length"
+          class="ah-empty ah-empty--dark"
+          data-reveal
+        >
+          获奖记录审核通过、新闻引用发布后会出现在这里。
+        </p>
+      </div>
+    </section>
+
+    <section v-if="displayOptions.showPartners && visibleSponsors.length" class="ah-chapter" aria-labelledby="partners">
+      <div class="ah-wrap ah-wrap--wide">
+        <header class="ah-head" data-reveal>
+          <h2 id="partners">{{ homepageContent.sections.partners.title }}</h2>
+          <p>{{ homepageContent.sections.partners.description }}</p>
+        </header>
+        <div class="ah-partners" data-reveal>
+          <article v-for="sponsor in visibleSponsors" :key="sponsor.name" class="ah-partner">
+            <a
+              class="ah-partner-logo"
+              :href="sponsor.websiteUrl"
+              target="_blank"
+              rel="noreferrer"
+              :aria-label="`访问 ${sponsor.name} 官网`"
+              ><img :src="sponsor.logoUrl" :alt="`${sponsor.name} 官方 Logo`" width="512" height="512" loading="lazy"
+            /></a>
+            <small>{{ sponsor.type }}</small>
+            <h3>{{ sponsor.name }}</h3>
+            <p>{{ sponsor.description }}</p>
+            <p v-if="sponsor.cooperationDescription" class="ah-partner-coop">{{ sponsor.cooperationDescription }}</p>
+            <ul v-if="sponsor.focus?.length">
+              <li v-for="item in sponsor.focus" :key="item">{{ item }}</li>
+            </ul>
+            <a class="ah-link" :href="sponsor.websiteUrl" target="_blank" rel="noreferrer"
+              >访问官网<ExternalLink :size="15" aria-hidden="true"
+            /></a>
           </article>
         </div>
       </div>
     </section>
 
-    <section v-if="displayOptions.showMembers" class="section members-section">
-      <header id="members" class="section-header inverse" data-reveal>
-        <div>
-          <p class="section-index">{{ homepageContent.sections.members.eyebrow }}</p>
-          <h2>{{ homepageContent.sections.members.title }}</h2>
-        </div>
-        <p>榜单每日刷新</p>
-      </header>
-      <div :class="['people-grid', { 'single-column': !(displayOptions.showLeaderboard && showMemberShowcase) }]">
-        <div
-          v-if="showMemberShowcase"
-          :class="['member-showcase', { 'single-pane': !(showAdvisorModule && showCoreMembersModule) }]"
-          data-reveal
-        >
-          <div v-if="showAdvisorModule" class="advisor-list">
-            <article
-              v-for="(advisor, index) in visibleAdvisors"
-              :key="advisor.profileId || `${advisor.name}-${index}`"
-              class="advisor-card"
-            >
-              <RouterLink
-                v-if="advisor.profileId"
-                class="member-card-link"
-                :to="`/members/${advisor.profileId}`"
-                :aria-label="`查看${advisor.name}的公开主页`"
-              >
-                <div class="people-label">
-                  <span>ADVISOR / {{ String(index + 1).padStart(2, '0') }}</span
-                  ><small>{{ visibleAdvisors.length }} PEOPLE</small>
-                </div>
-                <div class="advisor-body">
-                  <span class="advisor-avatar"
-                    ><img v-if="advisor.avatarUrl" :src="advisor.avatarUrl" alt="" /><b v-else>{{
-                      advisor.initials
-                    }}</b></span
-                  >
-                  <div>
-                    <p>指导老师</p>
-                    <h3>{{ advisor.name }}</h3>
-                    <span>{{ advisor.role }}</span>
-                  </div>
-                </div>
-                <p>{{ advisor.description }}</p>
-                <div class="member-tags">
-                  <small v-for="tag in advisor.tags" :key="tag">{{ tag }}</small>
-                </div>
-              </RouterLink>
-              <template v-else>
-                <div class="people-label">
-                  <span>ADVISOR / {{ String(index + 1).padStart(2, '0') }}</span
-                  ><small>{{ visibleAdvisors.length }} PEOPLE</small>
-                </div>
-                <div class="advisor-body">
-                  <span class="advisor-avatar">{{ advisor.initials }}</span>
-                  <div>
-                    <p>指导老师</p>
-                    <h3>{{ advisor.name }}</h3>
-                    <span>{{ advisor.role }}</span>
-                  </div>
-                </div>
-                <p>{{ advisor.description }}</p>
-                <div class="member-tags">
-                  <small v-for="tag in advisor.tags" :key="tag">{{ tag }}</small>
-                </div>
-              </template>
-            </article>
-          </div>
-
-          <div v-if="showCoreMembersModule" class="core-team">
-            <div class="core-head">
-              <span>CORE MEMBERS</span><small>{{ String(coreMembers.length).padStart(2, '0') }} PEOPLE</small>
-            </div>
-            <article v-for="(member, index) in coreMembers" :key="member.memberSlug">
-              <RouterLink
-                class="member-card-link core-member-link"
-                :to="`/members/${member.memberSlug}`"
-                :aria-label="`查看${member.name}的公开主页`"
-              >
-                <span class="member-rank">{{ String(index + 1).padStart(2, '0') }}</span
-                ><span class="avatar"
-                  ><img v-if="member.avatarUrl" :src="member.avatarUrl" alt="" /><b v-else>{{
-                    member.initials
-                  }}</b></span
-                >
-                <div>
-                  <h3>{{ member.name }}</h3>
-                  <p>{{ member.role }}</p>
-                </div>
-                <div class="member-tags">
-                  <small v-for="tag in member.tags" :key="tag">{{ tag }}</small>
-                </div>
-              </RouterLink>
-            </article>
-          </div>
-        </div>
-
-        <CompactLeaderboard
-          v-if="displayOptions.showLeaderboard"
-          :boards="rankingData"
-          :total-count="rankingTotalCount"
-          :updated-at="rankingsUpdatedAt"
-          :loaded="rankingsLoaded"
-          :error="rankingsError"
-          @retry="syncPublicHome"
-        />
-      </div>
-    </section>
-
-    <section v-if="displayOptions.showPartners" class="section partners-section">
-      <header id="partners" class="section-header" data-reveal>
-        <div>
-          <p class="section-index">{{ homepageContent.sections.partners.eyebrow }}</p>
-          <h2>{{ homepageContent.sections.partners.title }}</h2>
-        </div>
-        <p>{{ homepageContent.sections.partners.description }}</p>
-      </header>
-      <div class="sponsor-list">
-        <article v-for="(sponsor, index) in visibleSponsors" :key="sponsor.name" class="sponsor-card" data-reveal>
-          <div class="sponsor-index">PARTNER / {{ String(index + 1).padStart(2, '0') }}</div>
-          <a
-            class="sponsor-logo"
-            :href="sponsor.websiteUrl"
-            target="_blank"
-            rel="noreferrer"
-            :aria-label="`访问 ${sponsor.name} 官网`"
-            ><img :src="sponsor.logoUrl" :alt="`${sponsor.name} 官方 Logo`" width="512" height="512" loading="lazy"
-          /></a>
-          <div class="sponsor-copy">
-            <p>{{ sponsor.type }}</p>
-            <h3>{{ sponsor.name }}</h3>
-            <span>{{ sponsor.description }}</span>
-            <div v-if="sponsor.cooperationDescription" class="sponsor-cooperation">
-              <h4>合作支持</h4>
-              <span>{{ sponsor.cooperationDescription }}</span>
-            </div>
-            <ul>
-              <li v-for="item in sponsor.focus" :key="item">{{ item }}</li>
-            </ul>
-            <a :href="sponsor.websiteUrl" target="_blank" rel="noreferrer"
-              >访问官方网站 <ExternalLink :size="18" aria-hidden="true"
-            /></a>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <section v-if="displayOptions.showAchievements" class="section updates-section">
-      <header id="updates" class="section-header" data-reveal>
-        <div>
-          <p class="section-index">{{ homepageContent.sections.achievements.eyebrow }}</p>
-          <h2>{{ homepageContent.sections.achievements.title }}</h2>
-        </div>
-        <p>{{ homepageContent.sections.achievements.description }}</p>
-      </header>
-      <div class="achievement-columns" data-reveal>
-        <section class="home-news-column">
-          <header>
-            <span>NEWS / 实验室动态</span>
-            <h3>相关新闻</h3>
-          </header>
-          <div>
-            <component
-              :is="item.url ? 'a' : 'article'"
-              v-for="item in visibleNewsItems"
-              :key="item.id || item.title"
-              :href="item.url || undefined"
-              :target="item.url ? '_blank' : undefined"
-              :rel="item.url ? 'noopener noreferrer' : undefined"
-              ><time>{{ item.date }}</time
-              ><small>{{ item.type }}</small>
-              <h4>{{ item.title }}</h4>
-              <p v-if="item.summary">{{ item.summary }}</p>
-              <ArrowUpRight :size="18" aria-hidden="true"
-            /></component>
-          </div>
-        </section>
-        <section class="home-competition-column">
-          <header>
-            <span>COMPETITIONS / 竞赛成果</span>
-            <h3>比赛成果</h3>
-          </header>
-          <div>
-            <component
-              :is="item.id ? 'RouterLink' : 'article'"
-              v-for="(item, index) in visibleCompetitionResults"
-              :key="item.id || `${item.name}-${index}`"
-              :to="item.id ? `/competition-results/${item.id}` : undefined"
-              ><span>{{ String(index + 1).padStart(2, '0') }}</span>
-              <div>
-                <small>{{ competitionLevelLabels[item.level] || item.level }} · {{ item.competitionDate }}</small>
-                <h4>{{ item.name }}</h4>
-                <p>{{ item.track || '综合赛道' }}</p>
-              </div>
-              <strong>{{ item.awardName }}</strong
-              ><ArrowRight v-if="item.id" :size="18" aria-hidden="true"
-            /></component>
-          </div>
-        </section>
-      </div>
-    </section>
-
-    <section v-if="displayOptions.showContact" class="contact-section">
-      <div data-reveal>
-        <p>{{ homepageContent.sections.contact.eyebrow }}</p>
-        <h2 class="preserve-lines">{{ homepageContent.sections.contact.title }}</h2>
-      </div>
-      <div class="contact-panel" data-reveal>
+    <section
+      v-if="displayOptions.showContact"
+      class="ah-chapter ah-chapter--dark ah-join"
+      aria-labelledby="ah-contact-title"
+    >
+      <div class="ah-wrap" data-reveal>
+        <h2 id="ah-contact-title" class="preserve-lines">{{ homepageContent.sections.contact.title }}</h2>
         <p>{{ homepageContent.sections.contact.description }}</p>
-        <div>
+        <ol class="ah-flow" aria-label="招新流程">
+          <li v-for="(step, index) in recruitmentSteps" :key="step">
+            <span>{{ index + 1 }}</span
+            >{{ step }}
+          </li>
+        </ol>
+        <div class="ah-join-actions">
+          <RouterLink class="ah-pill ah-pill--lg" :to="authState.account ? accountDestination : '/register'">{{
+            authState.account ? '进入成员系统' : '报名加入'
+          }}</RouterLink>
           <a
             v-for="link in enabledExternalLinks"
             :key="`${link.platform}-${link.label}`"
+            class="ah-link ah-link--light"
             :href="link.url"
             target="_blank"
             rel="noopener noreferrer"
-            ><component :is="externalIcon(link.platform)" :size="19" aria-hidden="true" /> {{ link.label }}
-            <ArrowUpRight :size="15" aria-hidden="true" /></a
-          ><span v-if="!enabledExternalLinks.length">暂无公开外部入口</span>
+            ><component :is="externalIcon(link.platform)" :size="17" aria-hidden="true" />{{ link.label }}</a
+          >
         </div>
       </div>
     </section>
 
-    <footer>
-      <a class="brand" href="#top" :aria-label="`返回${profile.displayName}首页`" @click.prevent="scrollTo('#top')"
-        ><img :src="brand.logo" :alt="profile.name" width="900" height="300" /><span
-          >{{ profile.name }} · {{ profile.fullName }}</span
-        ></a
-      >
-      <div class="footer-meta">
-        <a
-          class="footer-repository"
-          :href="brand.repositoryUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label="项目仓库（GitHub，在新窗口打开）"
-        >
-          <span>{{ brand.name }} · 项目仓库</span>
-          <span class="footer-repository-address"
-            >{{ brand.repositoryUrl.replace(/^https?:\/\//, '') }} <ArrowUpRight :size="15" aria-hidden="true"
-          /></span>
-        </a>
-        <p>{{ homepageContent.sections.footerText }}</p>
-      </div>
+    <footer class="ah-footer">
+      <a class="ah-brand" href="#top" :aria-label="`返回${profile.displayName}首页`" @click.prevent="scrollTo('#top')"
+        ><img :src="brand.logo" :alt="profile.name" width="900" height="300"
+      /></a>
+      <p>{{ profile.name }} · {{ profile.fullName }}</p>
+      <p>{{ footerText }}</p>
+      <a class="ah-link" :href="brand.repositoryUrl" target="_blank" rel="noopener noreferrer"
+        >{{ brand.repositoryUrl.replace(/^https?:\/\//, '') }}<ArrowUpRight :size="15" aria-hidden="true"
+      /></a>
     </footer>
 
-    <Transition name="modal">
-      <div v-if="selectedProject" class="modal-backdrop" @click.self="selectedProject = null">
+    <Transition :css="!useViewTransitions" name="modal">
+      <div v-if="selectedProject" class="ah-sheet-scrim" @click.self="closeProject">
         <section
-          class="project-modal"
+          class="ah-sheet"
           role="dialog"
           aria-modal="true"
           :aria-labelledby="`project-title-${selectedProject.number}`"
         >
-          <button ref="modalClose" class="modal-close" aria-label="关闭项目详情" @click="selectedProject = null">
-            <X :size="22" aria-hidden="true" />
-          </button>
-          <div class="project-modal-cover" :class="{ 'is-default': !selectedProject.coverImageUrl }">
-            <img
-              :src="selectedProject.coverImageUrl || brand.logo"
-              :alt="`${selectedProject.title.replace('\n', '')}项目主图`"
-            />
-          </div>
-          <p>PROJECT {{ selectedProject.number }} / {{ selectedProject.category }}</p>
-          <h2 :id="`project-title-${selectedProject.number}`">{{ selectedProject.title.replace('\n', '') }}</h2>
-          <span class="modal-summary">{{ selectedProject.summary }}</span>
-          <dl>
-            <div>
-              <dt>当前状态</dt>
-              <dd>{{ selectedProject.status }}</dd>
-            </div>
-            <div>
-              <dt>负责人</dt>
-              <dd>{{ selectedProject.lead }}</dd>
-            </div>
-            <div>
-              <dt>指导老师</dt>
-              <dd>{{ selectedProject.advisor || '暂未关联' }}</dd>
-            </div>
-            <div>
-              <dt>参与成员</dt>
-              <dd>{{ selectedProject.members }}</dd>
-            </div>
-            <div>
-              <dt>技术方向</dt>
-              <dd>{{ selectedProject.tech.join(' / ') }}</dd>
-            </div>
-            <div class="full">
-              <dt>阶段成果</dt>
-              <dd>{{ selectedProject.result }}</dd>
-            </div>
-          </dl>
-          <div class="project-modal-actions">
-            <a
-              v-if="selectedProject.repositoryUrl"
-              class="primary-action"
-              :href="selectedProject.repositoryUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              >打开项目仓库 <ArrowRight :size="18" aria-hidden="true"
-            /></a>
-            <a
-              v-if="selectedProject.documentUrl"
-              class="text-action"
-              :href="selectedProject.documentUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              >查看项目文档 <ArrowRight :size="18" aria-hidden="true"
-            /></a>
-            <span v-if="!selectedProject.repositoryUrl && !selectedProject.documentUrl" class="project-link-pending"
-              >项目仓库与文档暂未公开</span
+          <div ref="sheetHero" class="ah-sheet-hero" :class="`ah-art-${selectedProjectIndex % 5}`">
+            <img v-if="selectedProject.coverImageUrl" :src="selectedProject.coverImageUrl" alt="" />
+            <button
+              ref="modalClose"
+              type="button"
+              class="ah-sheet-close"
+              aria-label="关闭项目详情"
+              @click="closeProject"
             >
+              <X :size="20" aria-hidden="true" />
+            </button>
+            <small>{{ selectedProject.category }} · {{ selectedProject.status }}</small>
+            <h2 :id="`project-title-${selectedProject.number}`" ref="sheetTitle">
+              {{ selectedProject.title.replace('\n', '') }}
+            </h2>
+          </div>
+          <div class="ah-sheet-body">
+            <p class="ah-sheet-summary">{{ selectedProject.summary }}</p>
+            <dl class="ah-facts">
+              <div>
+                <dt>负责人</dt>
+                <dd>{{ selectedProject.lead }}</dd>
+              </div>
+              <div>
+                <dt>指导老师</dt>
+                <dd>{{ selectedProject.advisor || '暂未关联' }}</dd>
+              </div>
+              <div>
+                <dt>参与成员</dt>
+                <dd>{{ selectedProject.members }}</dd>
+              </div>
+            </dl>
+            <div v-if="selectedProject.tech.length" class="ah-tile-tags ah-tile-tags--plain">
+              <i v-for="item in selectedProject.tech" :key="item">{{ item }}</i>
+            </div>
+            <div class="ah-sheet-result">
+              <h3>阶段成果</h3>
+              <p>{{ selectedProject.result }}</p>
+            </div>
+            <div class="ah-sheet-actions">
+              <a
+                v-if="selectedProject.repositoryUrl"
+                class="ah-pill ah-pill--lg"
+                :href="selectedProject.repositoryUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                >打开项目仓库</a
+              >
+              <a
+                v-if="selectedProject.documentUrl"
+                class="ah-link"
+                :href="selectedProject.documentUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                >查看项目文档<ArrowRight :size="17" aria-hidden="true"
+              /></a>
+              <span v-if="!selectedProject.repositoryUrl && !selectedProject.documentUrl" class="ah-muted"
+                >项目仓库与文档暂未公开</span
+              >
+            </div>
           </div>
         </section>
       </div>

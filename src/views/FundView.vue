@@ -41,9 +41,11 @@ function keyFor(payload) {
   }
   return requestKey
 }
+let hasLoaded = false
 async function load() {
   const ticket = ++requestVersion
-  loading.value = true
+  // Keep current content on screen while refreshing after an action.
+  if (!hasLoaded) loading.value = true
   error.value = ''
   try {
     const params = { page: page.value, pageSize: 20 }
@@ -56,6 +58,7 @@ async function load() {
   } catch (e) {
     if (ticket === requestVersion) error.value = e.message
   } finally {
+    hasLoaded = true
     if (ticket === requestVersion) loading.value = false
   }
 }
@@ -132,11 +135,7 @@ function toggleReverse(row) {
 onMounted(load)
 </script>
 <template>
-  <PortalShell
-    eyebrow="MEMBER / FUND"
-    title="实验室基金"
-    description="查看基金余额与实际收支，所有记账和撤销均保留记录。"
-  >
+  <PortalShell title="实验室基金" description="查看基金余额与实际收支，所有记账和撤销均保留记录。">
     <div v-if="error" class="form-alert" role="alert">
       {{ error }} <button type="button" @click="load">重试</button>
     </div>
@@ -145,7 +144,6 @@ onMounted(load)
       ><section class="lab-info-card">
         <header>
           <div>
-            <p>LAB FUND</p>
             <h2><Wallet :size="22" aria-hidden="true" />基金概况</h2>
           </div>
           <span>人民币</span>
@@ -204,7 +202,6 @@ onMounted(load)
       <section class="lab-info-card">
         <header>
           <div>
-            <p>TRANSACTIONS</p>
             <h2>收支记录</h2>
           </div>
           <span>共 {{ total }} 条</span>

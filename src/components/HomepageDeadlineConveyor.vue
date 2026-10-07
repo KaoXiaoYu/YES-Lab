@@ -301,7 +301,6 @@ onBeforeUnmount(() => {
   >
     <header class="conveyor-header">
       <div>
-        <p>LAB DEADLINES</p>
         <h2><CalendarClock :size="22" aria-hidden="true" />实验室倒计时</h2>
       </div>
       <span>共 {{ entries.length }} 项</span>

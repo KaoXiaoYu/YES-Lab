@@ -11,6 +11,10 @@ import {
   XCircle,
 } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
+import { confirmAction } from '../services/confirm'
+import { toast } from '../services/toast'
+import { useToastFeedback } from '../composables/useToastFeedback'
 import AuthenticatedImage from '../components/AuthenticatedImage.vue'
 import InterviewSessionManager from '../components/InterviewSessionManager.vue'
 import PortalShell from '../components/PortalShell.vue'
@@ -23,7 +27,6 @@ import {
   resolveInterviewDecision,
   setInterviewResultPending,
 } from '../services/authApi'
-import { showSubmissionFeedback } from '../services/submissionFeedback'
 
 // PROBATION 已停用：仅保留标签以便历史记录仍能显示阶段文字，且不再出现在可推进目标中。
 const stageLabels = {
@@ -48,6 +51,19 @@ const stageFilter = ref('ALL')
 const convertForm = reactive({ exemptionReason: '' })
 const decisionForm = reactive({ interviewerNames: '', score: '', evaluation: '', suggestedTags: '', opinion: '' })
 const passwordWorking = ref(false)
+const view = ref('applications')
+useToastFeedback({ success: successMessage, error: errorMessage, keepErrorInline: () => !applications.value.length })
+
+const stageFilters = computed(() => {
+  const counts = applications.value.reduce((map, item) => ({ ...map, [item.stage]: (map[item.stage] || 0) + 1 }), {})
+  return [
+    { value: 'ALL', label: '全部', count: applications.value.length },
+    ...Object.entries(stageLabels)
+      .filter(([key]) => counts[key])
+      .map(([key, label]) => ({ value: key, label, count: counts[key] })),
+  ]
+})
+const pendingScreening = computed(() => applications.value.filter((item) => item.stage === 'SCREENING').length)
 
 function displayStage(application) {
   if (application?.interview?.decision === 'WAITLIST') return '候补 / 观察'
@@ -70,8 +86,10 @@ const filteredApplications = computed(() =>
 
 onMounted(refresh)
 
+let hasLoaded = false
 async function refresh() {
-  loading.value = true
+  // Keep current content on screen while refreshing after an action.
+  if (!hasLoaded) loading.value = true
   errorMessage.value = ''
   try {
     const [applicationData, interviewerData] = await Promise.all([listRecruitmentApplications(), listInterviewers()])
@@ -83,6 +101,7 @@ async function refresh() {
   } catch (error) {
     errorMessage.value = error.message
   } finally {
+    hasLoaded = true
     loading.value = false
   }
 }
@@ -116,7 +135,14 @@ async function advance() {
 /** 试用期已停用，历史停留在该阶段的记录统一打回技能测试阶段。 */
 async function sendBackToSkillTest() {
   if (!selected.value) return
-  if (!window.confirm(`确认将 ${selected.value.name} 从试用期打回技能测试阶段吗？`)) return
+  if (
+    !(await confirmAction({
+      title: `打回 ${selected.value.name}？`,
+      message: '试用期阶段已取消，该记录将回到技能测试阶段。',
+      confirmText: '打回技能测试',
+    }))
+  )
+    return
   await runAction(
     () =>
       changeRecruitmentStage(selected.value.id, {
@@ -129,7 +155,15 @@ async function sendBackToSkillTest() {
 }
 
 async function rejectApplication() {
-  if (!window.confirm(`确认结束 ${selected.value.name} 的本轮招新流程吗？`)) return
+  if (
+    !(await confirmAction({
+      title: `结束 ${selected.value.name} 的招新流程？`,
+      message: '本轮招新将记为未通过，状态变更会记录操作账号和时间。',
+      confirmText: '结束流程',
+      tone: 'danger',
+    }))
+  )
+    return
   await runAction(
     () => changeRecruitmentStage(selected.value.id, { stage: 'REJECTED', note: '本轮招新未通过', linkedQuizId: null }),
     '报名流程已结束。',
@@ -146,7 +180,15 @@ async function updateInterviewResultPending(pending) {
       ? `确认撤销 ${applicantName} 的“面试未通过”结论吗？记录将回到“待补录面试结果”，报名者会收到通知，原面试评价和评分会保留。`
       : `确认将 ${applicantName} 设为“待补录面试结果”吗？如有未结束的预约，系统会同步将其结束；切换后对方不能重复预约。`
     : `确认将 ${applicantName} 恢复为“面试”吗？系统会释放未录入结论的已结束预约，恢复后对方可以重新预约。`
-  if (!window.confirm(message)) return
+  if (
+    !(await confirmAction({
+      title: pending ? (revokeRejection ? '撤销面试未通过？' : '设为待补录面试结果？') : '恢复为面试？',
+      message,
+      confirmText: '确认',
+      tone: revokeRejection ? 'danger' : 'default',
+    }))
+  )
+    return
   await runAction(
     () => setInterviewResultPending(selected.value.id, pending),
     pending
@@ -160,7 +202,14 @@ async function updateInterviewResultPending(pending) {
 async function approveScreening() {
   if (!selected.value) return
   const applicantName = selected.value.name
-  if (!window.confirm(`确认让 ${applicantName} 通过初筛并进入面试吗？系统会通知对方预约面试。`)) return
+  if (
+    !(await confirmAction({
+      title: `让 ${applicantName} 通过初筛？`,
+      message: '对方将进入面试阶段，系统会通知其在“我的报名”中预约面试场次。',
+      confirmText: '通过并进入面试',
+    }))
+  )
+    return
   const succeeded = await runAction(
     () =>
       changeRecruitmentStage(selected.value.id, {
@@ -171,19 +220,22 @@ async function approveScreening() {
     '',
   )
   if (succeeded) {
-    showSubmissionFeedback({
-      eyebrow: 'SCREENING PASSED',
-      title: '初筛已通过',
-      message: `已通知 ${applicantName} 进入“我的报名”选择面试场次并完成预约。`,
-      confirmLabel: '继续审核',
-    })
+    toast.success(`已通知 ${applicantName} 进入“我的报名”选择面试场次并完成预约。`, { title: '初筛已通过' })
   }
 }
 
 async function rejectScreening() {
   if (!selected.value) return
   const applicantName = selected.value.name
-  if (!window.confirm(`确认将 ${applicantName} 标记为初筛未通过吗？系统会发送学习建议并结束本轮流程。`)) return
+  if (
+    !(await confirmAction({
+      title: `将 ${applicantName} 标记为初筛未通过？`,
+      message: '系统会发送学习建议和下次报名邀请，并结束本轮流程。',
+      confirmText: '标记未通过',
+      tone: 'danger',
+    }))
+  )
+    return
   const succeeded = await runAction(
     () =>
       changeRecruitmentStage(selected.value.id, {
@@ -194,11 +246,8 @@ async function rejectScreening() {
     '',
   )
   if (succeeded) {
-    showSubmissionFeedback({
-      eyebrow: 'SCREENING COMPLETE',
+    toast.success(`已告知 ${applicantName} 本轮暂未通过，并附上学习建议和下次报名邀请。`, {
       title: '初筛结果已发送',
-      message: `已告知 ${applicantName} 本轮暂未通过，并附上学习建议和下次报名邀请。`,
-      confirmLabel: '继续审核',
     })
   }
 }
@@ -224,11 +273,14 @@ async function submitFinalInterviewDecision(decision) {
     return
   }
   if (
-    !window.confirm(
-      passed
-        ? `确认${fromWaitlist ? '将候补/观察中的' : '为'} ${applicantName} 补录面试通过吗？对方将进入技能测试阶段。`
-        : `确认将 ${applicantName} 的最终面试结论记为未通过吗？本轮招新流程将结束。`,
-    )
+    !(await confirmAction({
+      title: passed ? `为 ${applicantName} 补录面试通过？` : `将 ${applicantName} 记为面试未通过？`,
+      message: passed
+        ? `${fromWaitlist ? '候补/观察中的报名者' : '对方'}将进入技能测试阶段，并收到面试通过通知。`
+        : '最终面试结论记为未通过，本轮招新流程将结束。',
+      confirmText: passed ? '确认录取' : '记为未通过',
+      tone: passed ? 'default' : 'danger',
+    }))
   )
     return
 
@@ -245,14 +297,12 @@ async function submitFinalInterviewDecision(decision) {
       opinion: opinion || null,
     })
     await refresh()
-    showSubmissionFeedback({
-      eyebrow: passed ? 'INTERVIEW APPROVED' : 'INTERVIEW CLOSED',
-      title: passed ? '已讨论后录取' : '面试流程已结束',
-      message: passed
+    toast.success(
+      passed
         ? `${applicantName} 已进入技能测试阶段，并已收到面试通过通知。`
         : `${applicantName} 已标记为本轮未通过，并已收到结果通知。`,
-      confirmLabel: '继续处理招新',
-    })
+      { title: passed ? '已讨论后录取' : '面试流程已结束' },
+    )
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -270,11 +320,8 @@ async function convertMember() {
     '',
   )
   if (succeeded) {
-    showSubmissionFeedback({
-      eyebrow: 'MEMBER CONVERTED',
+    toast.success(`${convertedName} 的成员资料已经建立，重新登录后会获得正式成员权限。`, {
       title: '已转为正式成员',
-      message: `${convertedName} 的成员资料已经建立，重新登录后会获得正式成员权限。`,
-      confirmLabel: '查看招新记录',
     })
   }
 }
@@ -284,9 +331,13 @@ async function resetApplicantPassword() {
   errorMessage.value = ''
   successMessage.value = ''
   if (
-    !window.confirm(
-      `确定将 ${selected.value.name} 的报名账号密码重置为 yeslab521 吗？该账号在其他设备上的续期登录状态将失效。`,
-    )
+    !(await confirmAction({
+      title: `重置 ${selected.value.name} 的报名账号密码？`,
+      message: '密码将被重置为默认密码 yeslab521。',
+      details: ['该账号在其他设备上的续期登录状态将失效。', '请通过可信渠道告知本人，并提醒登录后尽快修改。'],
+      confirmText: '重置密码',
+      tone: 'danger',
+    }))
   )
     return
 
@@ -329,33 +380,67 @@ function splitTags(value) {
 
 <template>
   <PortalShell
-    eyebrow="ADMIN / RECRUITMENT"
     title="招新管理"
     description="教师与核心学生拥有相同的系统管理员权限。所有阶段变化都会记录时间和操作账号。"
   >
-    <InterviewSessionManager :interviewers="interviewers" @completed="refresh" />
-    <div v-if="errorMessage && !selected" class="portal-state error" role="alert">{{ errorMessage }}</div>
-    <section v-else class="admin-recruitment-layout">
+    <nav class="admin-view-tabs" aria-label="招新管理视图">
+      <button
+        type="button"
+        :class="{ active: view === 'applications' }"
+        :aria-pressed="view === 'applications'"
+        @click="view = 'applications'"
+      >
+        报名审核<span v-if="pendingScreening" class="admin-attention-badge">{{ pendingScreening }} 待初筛</span>
+      </button>
+      <button
+        type="button"
+        :class="{ active: view === 'sessions' }"
+        :aria-pressed="view === 'sessions'"
+        @click="view = 'sessions'"
+      >
+        面试场次
+      </button>
+    </nav>
+    <div v-show="view === 'sessions'">
+      <InterviewSessionManager :interviewers="interviewers" @completed="refresh" />
+    </div>
+    <div v-if="view === 'applications' && errorMessage && !applications.length" class="portal-state error" role="alert">
+      {{ errorMessage }}
+    </div>
+    <section v-else-if="view === 'applications'" class="admin-recruitment-layout">
       <aside class="applicant-list">
         <header>
           <div>
-            <p>APPLICATIONS</p>
             <h2>报名记录</h2>
           </div>
-          <span>{{ applications.length }}</span>
+          <span class="admin-count"
+            >{{ filteredApplications.length
+            }}<small v-if="filteredApplications.length !== applications.length">
+              / {{ applications.length }}</small
+            ></span
+          >
         </header>
         <div class="applicant-tools">
           <label
             ><Search :size="16" aria-hidden="true" /><input
               v-model.trim="query"
               aria-label="搜索报名者"
-              placeholder="姓名 / 账号 / 专业" /></label
-          ><select v-model="stageFilter" aria-label="按阶段筛选">
-            <option value="ALL">全部阶段</option>
-            <option v-for="(label, key) in stageLabels" :key="key" :value="key">{{ label }}</option>
-          </select>
+              placeholder="姓名 / 账号 / 专业"
+          /></label>
         </div>
-        <div v-if="loading" class="empty-note">正在读取报名记录…</div>
+        <div class="admin-chip-filters" role="group" aria-label="按阶段筛选">
+          <button
+            v-for="item in stageFilters"
+            :key="item.value"
+            type="button"
+            :class="{ active: stageFilter === item.value }"
+            :aria-pressed="stageFilter === item.value"
+            @click="stageFilter = item.value"
+          >
+            {{ item.label }}<span>{{ item.count }}</span>
+          </button>
+        </div>
+        <LoadingSkeleton v-if="loading" :rows="5" label="正在读取报名记录" />
         <button
           v-for="application in filteredApplications"
           :key="application.id"
@@ -400,7 +485,7 @@ function splitTags(value) {
             >
               恢复为面试
             </button>
-            ><button
+            <button
               v-if="
                 selected.stage !== 'SCREENING' &&
                 !['FORMAL_MEMBER', 'REJECTED'].includes(selected.stage) &&
@@ -415,8 +500,6 @@ function splitTags(value) {
             </button>
           </div>
         </header>
-        <div v-if="successMessage" class="save-message" role="status">{{ successMessage }}</div>
-        <div v-if="errorMessage" class="form-alert" role="alert">{{ errorMessage }}</div>
 
         <section
           v-if="selected.stage === 'SCREENING'"
@@ -425,7 +508,6 @@ function splitTags(value) {
         >
           <header>
             <div>
-              <p>SCREENING DECISION</p>
               <h3 id="screening-decision-title">选择初筛结果</h3>
             </div>
             <span>提交后将锁定报名表，并立即向报名者发送站内消息。</span>
@@ -601,33 +683,32 @@ function splitTags(value) {
             <span class="application-introduction">{{ selected.selfIntroduction || '未填写自我介绍。' }}</span>
           </article>
           <article>
-            <p>INTEREST</p>
+            <p>兴趣方向</p>
             <div class="detail-tags">
               <span v-for="item in selected.interestDirections" :key="item">{{ item }}</span>
             </div>
           </article>
           <article>
-            <p>EXISTING SKILLS</p>
+            <p>已有技能</p>
             <div class="detail-tags">
               <span v-for="item in selected.existingSkills" :key="item">{{ item }}</span
               ><small v-if="!selected.existingSkills.length">暂无</small>
             </div>
           </article>
           <article>
-            <p>INTENDED TAGS</p>
+            <p>希望发展的方向</p>
             <div class="detail-tags">
               <span v-for="item in selected.intendedTags" :key="item">{{ item }}</span>
             </div>
           </article>
           <article class="full">
-            <p>PROJECT / COMPETITION EXPERIENCE</p>
+            <p>项目或竞赛经历</p>
             <span>{{ selected.experience || '未填写项目或竞赛经历。' }}</span>
           </article>
         </section>
 
         <section class="admin-showcase-review">
           <header>
-            <p>PERSONAL SHOWCASE</p>
             <h3>个人展示</h3>
           </header>
           <p class="application-introduction">{{ selected.portfolioIntroduction || '未填写作品介绍。' }}</p>
@@ -655,7 +736,6 @@ function splitTags(value) {
 
         <section class="admin-showcase-review">
           <header>
-            <p>TECHNICAL AWARENESS</p>
             <h3>技术认知</h3>
             <span>已回答 {{ selected.technicalAnswers?.length || 0 }} / 5</span>
           </header>
@@ -673,7 +753,6 @@ function splitTags(value) {
           <header>
             <ArrowRight :size="22" aria-hidden="true" />
             <div>
-              <p>PROBATION RETIRED</p>
               <h3>试用期已取消</h3>
             </div>
           </header>
@@ -689,7 +768,6 @@ function splitTags(value) {
           <header>
             <UserPlus :size="22" aria-hidden="true" />
             <div>
-              <p>MEMBER CONVERSION</p>
               <h3>转为正式成员</h3>
             </div>
           </header>
@@ -734,7 +812,6 @@ function splitTags(value) {
           <header>
             <KeyRound :size="22" aria-hidden="true" />
             <div>
-              <p>ACCOUNT SECURITY</p>
               <h3 id="applicant-reset-password-title">重置报名账号密码</h3>
             </div>
           </header>
@@ -748,7 +825,6 @@ function splitTags(value) {
 
         <section class="admin-history">
           <header>
-            <p>AUDIT TRAIL</p>
             <h3>状态变更记录</h3>
           </header>
           <ol>

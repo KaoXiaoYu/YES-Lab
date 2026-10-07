@@ -67,7 +67,6 @@ function formatDateTime(value) {
 
 <template>
   <PortalShell
-    eyebrow="MEMBER / POINTS"
     title="成员积分榜"
     description="查看所有正式学生成员的总榜与当前自然周期榜单；同分成员并列，教师不参与排名。"
   >
@@ -112,7 +111,6 @@ function formatDateTime(value) {
       <section class="points-ranking-card" aria-labelledby="points-ranking-title">
         <header>
           <div>
-            <p>FULL RANKING</p>
             <h2 id="points-ranking-title">{{ selectedPeriod.label }}完整榜单</h2>
           </div>
           <span>更新于 {{ formatDateTime(leaderboard.generatedAt) }}</span>

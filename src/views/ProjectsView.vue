@@ -1,4 +1,5 @@
 <script setup>
+import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import { ArrowRight, CalendarDays, FolderKanban, Plus, ShieldCheck, UserRound } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
@@ -39,7 +40,6 @@ function dateRange(project) {
 
 <template>
   <PortalShell
-    eyebrow="COLLABORATION / PROJECTS"
     title="项目团队"
     description="查看你参与的项目空间。系统管理员可创建团队，负责人负责成员组织与协作角色。"
   >
@@ -63,7 +63,7 @@ function dateRange(project) {
       >
     </section>
 
-    <div v-if="loading" class="portal-state">正在读取项目团队…</div>
+    <LoadingSkeleton v-if="loading" variant="cards" :rows="3" label="正在读取项目团队" />
     <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
     <div v-else-if="!filteredProjects.length" class="portal-state project-empty">
       <FolderKanban :size="28" aria-hidden="true" /><strong>暂无符合条件的项目</strong
@@ -83,7 +83,6 @@ function dateRange(project) {
         </header>
         <div class="portal-project-card-cover">
           <ProjectCoverImage :cover-url="project.coverImageUrl" :alt="`${project.projectName}项目主图`" />
-          <span>PROJECT IMAGE</span>
         </div>
         <p>{{ project.teamName }}</p>
         <h2>{{ project.projectName }}</h2>

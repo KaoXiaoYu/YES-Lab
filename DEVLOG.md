@@ -1805,3 +1805,20 @@
 - 普通任务排序、0/50/100 提交进度、折叠保留选择、键盘/审核/内容入口、成员详情/子任务通过；新手报名者/管理/子任务、悬赏与无子任务 0/100 边界、12px 条高/颜色对比通过。验收脚本修正了 CSS 选择器重命名、guest-only 登录页等待、成员管理就绪选择器，普通任务用干净的本轮内存库完整复验通过，没有因此改业务源码。
 - ui-ux-pro-max 沿用既有 MASTER/页面规则并增量更新 YES Lab 存档：Vue computed derived state 命中派生状态规则，用于保留既有排序；颜色抽查沿用已命中的 Color Contrast。未采用无关 Pinia 建议。报告/截图在 .codex-run/ui-review/openfront-_，日志 /private/tmp/yeslab-openfront-_.log；已人工复核手机登录、桌面管理、手机暗色任务与首页。
 - 本轮四个 Vite、隔离后端及 Chrome 已关停，8080/5173—5176/9222 无监听，专用 profile/上传目录已清理；未启动 MySQL、未连接生产，无后台遗留。已正常提交并快进推送 main 至 760a24682f2df44c033fd78789efd0c8a259ebc8，GitHub API SHA 一致，工作区干净；Actions 37611068383（https://github.com/KaoXiaoYu/YES-Lab/actions/runs/37611068383）整体 success，发布对应 YES Lab 镜像。仅发布结果审计补充使用 [skip ci]，应用源码/镜像对应 760a246；生产部署由用户服务器执行，既有 MySQL 实机验收待办不变。
+
+## 2026-10-07：OpenLIMS 最新前端接口对比（完成对比，尚未同步）
+
+- 用户要求同步最新前端并授权最小必要后端，随后指示先对比接口差异。本轮只做源码核对；本地基线 5459b31，上游固定 a2df1b67468c664ec0cef3d254f992edee6415d6。上游 Git fetch 两次限时失败后用 gh API 获取固定版本源码到忽略目录 .codex-run/upstream-openlims-a2df1b6，下载进程已结束。
+- 核对全部控制器映射、前端请求封装、相关 DTO/服务与鉴权：新增 GET /api/v1/admin/overview（教师/核心学生）及 GET /api/v1/discussions/page（公开分页搜索），没有删除接口或破坏旧写入契约。公开成员目录接口已存在；讨论草稿是浏览器 localStorage，纠正此前将草稿说成新后端接口的描述。无需数据库迁移。
+- 已写 docs/openlims-api-diff-20261007.md：请求/响应、权限、统计口径、兼容性、5 个最小后端业务文件及验证清单。注意上游任务待审核计数未排除 CLOSED；适配必须保持本地现有审核规则（实际代码允许截止后审核未关闭任务）。分页为内存分页，巨大页码需要防 int 溢出。
+- 仅新增差异文档并更新日志，未修改业务源码、未构建/运行接口测试、未触及生产；未启动 MySQL 或其他临时服务。后续仍需同步页面与必要接口，保留 YES Lab 品牌/CMS 数据/任务改动，排除演示数据 Seeder 与上游首页通用文案，再完成接口回归及真机截图。
+
+## 2026-10-07：OpenLIMS 最新前端及兼容接口同步（完成施工与验证）
+
+- 用户批准新增和现有接口按 OpenLIMS 同步，需求/设计增量写入 docs/open-source-adaptation.md 和 docs/openlims-api-diff-20261007.md。固定 a2df1b6，以此前 0fb3fe9 前端为基线三方合并；保留 YES Lab 品牌/默认文案/资产/数据及任务增强，不移植 Demo Seeder，不修改迁移和部署配置。
+- 接入 tokens/motion、持久 AdminLayout、确认/Toast/SaveBar/抽屉、今日页、后台总览、讨论分页搜索/本地草稿和子任务工作区。新布局保留 TaskSubmissionProgress、补发折叠/选择、原审核优先级/提交率降序；首页缓存 v5，dev 启动打印源码版本并拒绝占用端口。
+- 后端新增 overview 和 discussions/page（5 个业务文件），旧契约/鉴权不变；总览排除 CLOSED，仍允许截止后审核未关闭任务；分页 long 偏移防溢出。品牌/外观配置、任务后端和迁移逐字节保持。新增 motion，source-map-js 升级 1.2.2 修复审计问题，安装审计 0 漏洞。
+- Java 21 全量 120 项测试（新增 5 项）与打包、最终 npm run check 通过；仅 Vite JSON 导入未来兼容和既有大 chunk 提示。新增测试覆盖匿名/成员/两类管理员、旧讨论列表、搜索/置顶/个人权限、分页边界和关闭任务计数。
+- 真 Chrome + 隔离 H2：四预设首页/登录 48 组截图（首页 1440/1024/768/375 明暗），8 组核心 AA 最低 5.09:1、44px/焦点/reduce 通过；总览/分页搜索/草稿刷新恢复与退出清理、持久布局/抽屉焦点约束/返回/未保存保护、品牌只读字段/页脚和 API/路由权限通过；普通/新手/悬赏/无子任务进度、排序、补发选择、审核/内容/子任务入口、0/100 边界和 12px 条高回归通过。
+- ui-ux-pro-max 查询 `drawer focus trap escape unsaved form reduced motion --domain ux`，采纳减少动态/节制动效/表单反馈，MASTER 与首页存档已更新。修正浅色渐变尾部对比度、触控面积和原 YES Lab 长标题/名称引发的手机网格内部裁切。脚本适配 color-mix 和登录路由，并使用唯一搜索词避免时间戳数字误命中，不作为产品故障。
+- 报告/截图：.codex-run/ui-review/openlims-latest-*。30 分钟 TTL 到期后仅为手机补图重起有界 10 分钟实例，现已全部关停；8080/5173—5176/9222 无监听，专用目录与空默认目录已清理。未启动 MySQL、未连接生产；生产部署和原 MySQL 演练/并发实机验证待办保持。
