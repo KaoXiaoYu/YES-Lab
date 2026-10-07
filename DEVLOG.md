@@ -1822,3 +1822,4 @@
 - 真 Chrome + 隔离 H2：四预设首页/登录 48 组截图（首页 1440/1024/768/375 明暗），8 组核心 AA 最低 5.09:1、44px/焦点/reduce 通过；总览/分页搜索/草稿刷新恢复与退出清理、持久布局/抽屉焦点约束/返回/未保存保护、品牌只读字段/页脚和 API/路由权限通过；普通/新手/悬赏/无子任务进度、排序、补发选择、审核/内容/子任务入口、0/100 边界和 12px 条高回归通过。
 - ui-ux-pro-max 查询 `drawer focus trap escape unsaved form reduced motion --domain ux`，采纳减少动态/节制动效/表单反馈，MASTER 与首页存档已更新。修正浅色渐变尾部对比度、触控面积和原 YES Lab 长标题/名称引发的手机网格内部裁切。脚本适配 color-mix 和登录路由，并使用唯一搜索词避免时间戳数字误命中，不作为产品故障。
 - 报告/截图：.codex-run/ui-review/openlims-latest-*。30 分钟 TTL 到期后仅为手机补图重起有界 10 分钟实例，现已全部关停；8080/5173—5176/9222 无监听，专用目录与空默认目录已清理。未启动 MySQL、未连接生产；生产部署和原 MySQL 演练/并发实机验证待办保持。
+- 发布确认：应用提交 f90ac2f5e56c7437adb9f41a455643dad1c1647c 已正常快进推送 main，GitHub API SHA 一致；Actions 37638184166（https://github.com/KaoXiaoYu/YES-Lab/actions/runs/37638184166）整体 success，test、yes-lab-web 和 yes-lab-api 镜像任务均 success。本条仅补充发布审计，使用 [skip ci]；应用源码/镜像仍对应 f90ac2f，未部署生产。
