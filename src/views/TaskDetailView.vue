@@ -1,4 +1,5 @@
 <script setup>
+import TaskSubmissionProgress from '../components/TaskSubmissionProgress.vue'
 import { ArrowLeft, CheckCircle2, ChevronRight, CircleDashed, Clock3, Gift, TriangleAlert } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -59,9 +60,6 @@ const readOnlyReason = computed(() => {
 })
 const submittedCount = computed(() => task.value?.subtasks?.filter((item) => item.submitted).length ?? 0)
 const totalCount = computed(() => task.value?.subtasks?.length ?? 0)
-const progressPercent = computed(() =>
-  totalCount.value ? Math.round((submittedCount.value / totalCount.value) * 100) : 0,
-)
 
 async function load() {
   try {
@@ -135,19 +133,11 @@ async function confirmPrizeReceived() {
             <template v-if="task.expired">（已截止）</template>
             <template v-else-if="task.overdue">（已逾期）</template>
           </span>
-          <div v-if="totalCount" class="task-progress">
-            <div
-              class="task-progress-track"
-              role="progressbar"
-              aria-valuemin="0"
-              :aria-valuenow="submittedCount"
-              :aria-valuemax="totalCount"
-              aria-label="子任务完成进度"
-            >
-              <span :style="{ width: `${progressPercent}%` }"></span>
-            </div>
-            <span class="task-progress-label">已提交 {{ submittedCount }} / {{ totalCount }}</span>
-          </div>
+          <TaskSubmissionProgress
+            :submitted="submittedCount"
+            :total="totalCount"
+            :task-submitted="['SUBMITTED', 'APPROVED'].includes(task.status)"
+          />
           <span v-if="task.points > 0">
             通过后 +{{ task.awardedPoints ?? task.points }} 积分
             <template v-if="task.pointsSkippedReason">（本次未计分：{{ task.pointsSkippedReason }}）</template>

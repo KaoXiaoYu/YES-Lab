@@ -1,4 +1,5 @@
 <script setup>
+import TaskSubmissionProgress from './TaskSubmissionProgress.vue'
 import { CheckCircle2, ChevronRight, CircleDashed, Clock3, TriangleAlert } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { submitOnboardingTask } from '../services/authApi'
@@ -26,9 +27,6 @@ const submittedCount = computed(() => props.task?.subtasks?.filter((item) => ite
 const totalCount = computed(() => props.task?.subtasks?.length ?? 0)
 const allCompleted = computed(
   () => props.task?.allSubtasksSubmitted ?? (totalCount.value > 0 && submittedCount.value >= totalCount.value),
-)
-const progressPercent = computed(() =>
-  totalCount.value ? Math.round((submittedCount.value / totalCount.value) * 100) : 0,
 )
 const canSubmit = computed(() => props.editable && props.task?.editable && props.task.status !== 'APPROVED')
 /** 每个子任务是独立页面；不可编辑（未登录或已通过）时只展示状态，不给入口。 */
@@ -95,19 +93,12 @@ async function submit() {
           <Clock3 v-else :size="15" aria-hidden="true" />
           {{ daysLabel(task) }}
         </span>
-        <div class="task-progress">
-          <div
-            class="task-progress-track"
-            role="progressbar"
-            aria-valuemin="0"
-            :aria-valuenow="submittedCount"
-            :aria-valuemax="totalCount"
-            aria-label="我的新手任务完成进度"
-          >
-            <span :style="{ width: `${progressPercent}%` }"></span>
-          </div>
-          <span class="task-progress-label">我的进度 {{ submittedCount }} / {{ totalCount }} 项子任务已提交</span>
-        </div>
+        <TaskSubmissionProgress
+          :submitted="submittedCount"
+          :total="totalCount"
+          :task-submitted="['SUBMITTED', 'APPROVED'].includes(task.status)"
+          accessible-label="我的新手任务提交进度"
+        />
       </div>
 
       <div v-if="task.status === 'REJECTED' && task.reviewComment" class="task-panel-reject" role="status">

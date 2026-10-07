@@ -1,4 +1,5 @@
 <script setup>
+import TaskSubmissionProgress from '../components/TaskSubmissionProgress.vue'
 import { ClipboardCheck, ListChecks } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
@@ -27,11 +28,6 @@ function statusLabel(task) {
 const filtered = computed(() =>
   tasks.value.filter((task) => statusFilter.value === 'ALL' || task.status === statusFilter.value),
 )
-
-function progressPercent(task) {
-  if (!task.totalSubtasks) return 0
-  return Math.round((task.submittedSubtasks / task.totalSubtasks) * 100)
-}
 
 onMounted(async () => {
   try {
@@ -82,24 +78,16 @@ onMounted(async () => {
           <span v-if="task.expired" class="overdue">已截止</span>
           <span v-else-if="task.overdue" class="overdue">已逾期</span>
         </p>
-        <div v-if="task.totalSubtasks" class="task-progress">
-          <div
-            class="task-progress-track"
-            role="progressbar"
-            aria-valuemin="0"
-            :aria-valuenow="task.submittedSubtasks"
-            :aria-valuemax="task.totalSubtasks"
-            :aria-label="`${task.title} 的子任务完成进度`"
+        <TaskSubmissionProgress
+          :submitted="task.submittedSubtasks"
+          :total="task.totalSubtasks"
+          :task-submitted="['SUBMITTED', 'APPROVED'].includes(task.status)"
+          :accessible-label="`${task.title}的提交进度`"
+        >
+          <span v-if="task.points > 0 && task.status !== 'APPROVED'"
+            >{{ task.taskType === 'BOUNTY' ? '完成后' : '通过后' }} +{{ task.points }} 积分</span
           >
-            <span :style="{ width: `${progressPercent(task)}%` }"></span>
-          </div>
-          <span class="task-progress-label">
-            已提交 {{ task.submittedSubtasks }} / {{ task.totalSubtasks }}
-            <span v-if="task.points > 0 && task.status !== 'APPROVED'">
-              · {{ task.taskType === 'BOUNTY' ? '完成后' : '通过后' }} +{{ task.points }} 积分</span
-            >
-          </span>
-        </div>
+        </TaskSubmissionProgress>
         <p v-if="task.taskType === 'BOUNTY'" class="bounty-mine">
           <template v-if="task.completionRank">完成名次第 {{ task.completionRank }} 名</template>
           <template v-if="task.prizeSlots">

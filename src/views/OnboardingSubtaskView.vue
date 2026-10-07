@@ -1,4 +1,5 @@
 <script setup>
+import TaskSubmissionProgress from '../components/TaskSubmissionProgress.vue'
 import { ArrowLeft, CheckCircle2, Clock3, Send, TriangleAlert } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -13,10 +14,6 @@ const working = ref(false)
 const errorMessage = ref('')
 const actionError = ref('')
 const draft = ref('<p></p>')
-
-const progressPercent = computed(() =>
-  subtask.value?.totalSubtasks ? Math.round((subtask.value.submittedSubtasks / subtask.value.totalSubtasks) * 100) : 0,
-)
 
 /** 富文本去掉标签后是否还有内容——空提交后端也会拒，这里先给出更快的反馈。 */
 const hasDraftContent = computed(() => {
@@ -86,21 +83,11 @@ async function submit() {
             {{ subtask.dueDate ? `截止 ${subtask.dueDate}` : '未设置截止日期' }}
             <template v-if="subtask.overdue">（已逾期）</template>
           </span>
-          <div class="task-progress">
-            <div
-              class="task-progress-track"
-              role="progressbar"
-              aria-valuemin="0"
-              :aria-valuenow="subtask.submittedSubtasks"
-              :aria-valuemax="subtask.totalSubtasks"
-              aria-label="我的新手任务提交进度"
-            >
-              <span :style="{ width: `${progressPercent}%` }"></span>
-            </div>
-            <span class="task-progress-label">
-              我的进度 {{ subtask.submittedSubtasks }} / {{ subtask.totalSubtasks }} 项子任务已提交
-            </span>
-          </div>
+          <TaskSubmissionProgress
+            :submitted="subtask.submittedSubtasks"
+            :total="subtask.totalSubtasks"
+            accessible-label="我的新手任务提交进度"
+          />
         </div>
 
         <!-- eslint-disable-next-line vue/no-v-html -->

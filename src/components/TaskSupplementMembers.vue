@@ -1,5 +1,5 @@
 <script setup>
-import { ChevronLeft, ChevronRight, Search, UserPlus } from '@lucide/vue'
+import { ChevronDown, ChevronLeft, ChevronRight, Search, UserPlus } from '@lucide/vue'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { listTaskMemberOptions, supplementTaskAssignments } from '../services/authApi'
 
@@ -106,171 +106,237 @@ async function submit() {
 </script>
 
 <template>
-  <section class="admin-form-card supplement-members" aria-labelledby="supplement-title">
-    <header>
+  <details class="admin-form-card supplement-members">
+    <summary class="supplement-summary">
       <UserPlus :size="22" aria-hidden="true" />
-      <div>
-        <p>SUPPLEMENT</p>
+      <div class="supplement-summary-title">
         <h3 id="supplement-title">选择补发成员</h3>
+        <span class="supplement-help"
+          >已发放 {{ assignments.length }} 人<span v-if="selected.length"> · 已选 {{ selected.length }} 人</span></span
+        >
       </div>
-    </header>
-    <p class="supplement-help">按身份和年级筛选，再勾选本次要补发的人。已发放成员不会重复创建。</p>
-    <p v-if="error" ref="errorBox" class="supplement-error" role="alert" tabindex="-1">{{ error }}</p>
-    <div v-if="loading" class="supplement-help" role="status">正在读取成员名单…</div>
-    <button v-else-if="!members.length && error" class="portal-secondary" type="button" @click="loadMembers">
-      重试读取成员
-    </button>
-    <form v-else @submit.prevent="submit">
-      <fieldset class="supplement-fields" :disabled="disabled">
-        <legend class="sr-only">筛选和选择补发成员</legend>
-        <div class="supplement-filters">
-          <div class="supplement-filter" role="group" aria-labelledby="supplement-roles">
-            <span id="supplement-roles" class="supplement-label">成员身份</span>
-            <div class="supplement-options">
-              <label v-for="(label, value) in roleLabels" :key="value" class="supplement-check">
-                <input v-model="roles" type="checkbox" :value="value" />{{ label }}
-              </label>
+      <span class="supplement-toggle"
+        ><span class="supplement-expand">展开</span><span class="supplement-collapse">收起</span
+        ><ChevronDown :size="18" aria-hidden="true"
+      /></span>
+    </summary>
+    <div class="supplement-body">
+      <p class="supplement-help">按身份和年级筛选，再勾选本次要补发的人。已发放成员不会重复创建。</p>
+      <p v-if="error" ref="errorBox" class="supplement-error" role="alert" tabindex="-1">{{ error }}</p>
+      <div v-if="loading" class="supplement-help" role="status">正在读取成员名单…</div>
+      <button v-else-if="!members.length && error" class="portal-secondary" type="button" @click="loadMembers">
+        重试读取成员
+      </button>
+      <form v-else @submit.prevent="submit">
+        <fieldset class="supplement-fields" :disabled="disabled">
+          <legend class="sr-only">筛选和选择补发成员</legend>
+          <div class="supplement-filters">
+            <div class="supplement-filter" role="group" aria-labelledby="supplement-roles">
+              <span id="supplement-roles" class="supplement-label">成员身份</span>
+              <div class="supplement-options">
+                <label v-for="(label, value) in roleLabels" :key="value" class="supplement-check">
+                  <input v-model="roles" type="checkbox" :value="value" />{{ label }}
+                </label>
+              </div>
+            </div>
+            <div class="supplement-filter" role="group" aria-labelledby="supplement-grades">
+              <span id="supplement-grades" class="supplement-label">成员年级</span>
+              <div class="supplement-options">
+                <label v-for="grade in gradeOptions" :key="grade" class="supplement-check">
+                  <input v-model="grades" type="checkbox" :value="grade" />{{ grade || '年级未填' }}
+                </label>
+                <span v-if="!gradeOptions.length" class="supplement-help">暂无年级选项</span>
+              </div>
             </div>
           </div>
-          <div class="supplement-filter" role="group" aria-labelledby="supplement-grades">
-            <span id="supplement-grades" class="supplement-label">成员年级</span>
-            <div class="supplement-options">
-              <label v-for="grade in gradeOptions" :key="grade" class="supplement-check">
-                <input v-model="grades" type="checkbox" :value="grade" />{{ grade || '年级未填' }}
-              </label>
-              <span v-if="!gradeOptions.length" class="supplement-help">暂无年级选项</span>
+          <label class="supplement-search" for="supplement-keyword">
+            <span class="supplement-label">搜索成员</span>
+            <span class="supplement-input"
+              ><Search :size="18" aria-hidden="true" /><input
+                id="supplement-keyword"
+                v-model="keyword"
+                type="search"
+                placeholder="姓名或学号 / 内部编号"
+            /></span>
+          </label>
+          <div class="supplement-toolbar">
+            <p class="supplement-help" role="status" aria-atomic="true">
+              匹配 {{ matches.length }} 人 · 可补发 {{ available.length }} 人 · 已发放
+              {{ matches.length - available.length }} 人
+            </p>
+            <div class="supplement-tools">
+              <button
+                class="portal-secondary"
+                type="button"
+                :disabled="!available.length || bulkCount > limit"
+                @click="selectMatches"
+              >
+                选中当前筛选结果（{{ available.length }} 人）
+              </button>
+              <label class="supplement-check"><input v-model="onlySelected" type="checkbox" />仅看已选</label>
+              <button class="portal-secondary" type="button" :disabled="!selected.length" @click="clearSelection">
+                清空选择
+              </button>
             </div>
           </div>
-        </div>
-        <label class="supplement-search" for="supplement-keyword">
-          <span class="supplement-label">搜索成员</span>
-          <span class="supplement-input"
-            ><Search :size="18" aria-hidden="true" /><input
-              id="supplement-keyword"
-              v-model="keyword"
-              type="search"
-              placeholder="姓名或学号 / 内部编号"
-          /></span>
-        </label>
-        <div class="supplement-toolbar">
-          <p class="supplement-help" role="status" aria-atomic="true">
-            匹配 {{ matches.length }} 人 · 可补发 {{ available.length }} 人 · 已发放
-            {{ matches.length - available.length }} 人
+          <p v-if="bulkCount > limit" class="supplement-help" role="status">
+            合并已选名单将超过 100 人，请缩小筛选范围或先清空选择。
           </p>
-          <div class="supplement-tools">
+          <ul class="supplement-list" aria-label="候选成员">
+            <li v-for="member in visibleMembers" :key="member.profileId">
+              <label class="supplement-member" :class="{ 'is-assigned': assignedIds.has(member.profileId) }">
+                <input
+                  type="checkbox"
+                  :checked="selectedIds.has(member.profileId)"
+                  :disabled="
+                    assignedIds.has(member.profileId) || (!selectedIds.has(member.profileId) && !canSelectMore)
+                  "
+                  @change="toggleMember(member.profileId, $event.target.checked)"
+                />
+                <span class="supplement-person"
+                  ><strong>{{ member.name }}</strong
+                  ><span
+                    >{{ member.memberCode || '编号未填' }} · {{ roleLabels[member.role] }} ·
+                    {{ member.grade || '年级未填' }}</span
+                  ></span
+                >
+                <span class="supplement-badge">{{ assignedIds.has(member.profileId) ? '已发放' : '可补发' }}</span>
+              </label>
+            </li>
+            <li v-if="!results.length" class="supplement-empty">
+              {{
+                onlySelected
+                  ? '当前筛选结果中没有已选成员，可取消「仅看已选」或查看全部已选名单。'
+                  : '没有匹配成员，请调整身份、年级或搜索内容。'
+              }}
+            </li>
+          </ul>
+          <div v-if="pages > 1" class="supplement-pagination">
             <button
               class="portal-secondary"
               type="button"
-              :disabled="!available.length || bulkCount > limit"
-              @click="selectMatches"
+              :disabled="page === 1"
+              aria-label="上一页成员"
+              @click="page--"
             >
-              选中当前筛选结果（{{ available.length }} 人）
+              <ChevronLeft :size="16" aria-hidden="true" />上一页
             </button>
-            <label class="supplement-check"><input v-model="onlySelected" type="checkbox" />仅看已选</label>
-            <button class="portal-secondary" type="button" :disabled="!selected.length" @click="clearSelection">
-              清空选择
+            <span>{{ page }} / {{ pages }} 页 · {{ results.length }} 人</span>
+            <button
+              class="portal-secondary"
+              type="button"
+              :disabled="page === pages"
+              aria-label="下一页成员"
+              @click="page++"
+            >
+              下一页<ChevronRight :size="16" aria-hidden="true" />
             </button>
           </div>
-        </div>
-        <p v-if="bulkCount > limit" class="supplement-help" role="status">
-          合并已选名单将超过 100 人，请缩小筛选范围或先清空选择。
-        </p>
-        <ul class="supplement-list" aria-label="候选成员">
-          <li v-for="member in visibleMembers" :key="member.profileId">
-            <label class="supplement-member" :class="{ 'is-assigned': assignedIds.has(member.profileId) }">
-              <input
-                type="checkbox"
-                :checked="selectedIds.has(member.profileId)"
-                :disabled="assignedIds.has(member.profileId) || (!selectedIds.has(member.profileId) && !canSelectMore)"
-                @change="toggleMember(member.profileId, $event.target.checked)"
-              />
-              <span class="supplement-person"
-                ><strong>{{ member.name }}</strong
-                ><span
-                  >{{ member.memberCode || '编号未填' }} · {{ roleLabels[member.role] }} ·
-                  {{ member.grade || '年级未填' }}</span
-                ></span
-              >
-              <span class="supplement-badge">{{ assignedIds.has(member.profileId) ? '已发放' : '可补发' }}</span>
-            </label>
-          </li>
-          <li v-if="!results.length" class="supplement-empty">
-            {{
-              onlySelected
-                ? '当前筛选结果中没有已选成员，可取消「仅看已选」或查看全部已选名单。'
-                : '没有匹配成员，请调整身份、年级或搜索内容。'
-            }}
-          </li>
-        </ul>
-        <div v-if="pages > 1" class="supplement-pagination">
-          <button class="portal-secondary" type="button" :disabled="page === 1" aria-label="上一页成员" @click="page--">
-            <ChevronLeft :size="16" aria-hidden="true" />上一页
-          </button>
-          <span>{{ page }} / {{ pages }} 页 · {{ results.length }} 人</span>
-          <button
-            class="portal-secondary"
-            type="button"
-            :disabled="page === pages"
-            aria-label="下一页成员"
-            @click="page++"
-          >
-            下一页<ChevronRight :size="16" aria-hidden="true" />
-          </button>
-        </div>
-        <div class="supplement-selection">
-          <p role="status" aria-atomic="true">
-            <strong>已选 {{ selected.length }} 人</strong
-            ><span v-if="hiddenCount">（含不在当前结果中的 {{ hiddenCount }} 人）</span>
-          </p>
-          <button
-            class="portal-secondary"
-            type="button"
-            :disabled="!selected.length"
-            :aria-expanded="showSelected"
-            aria-controls="supplement-selected"
-            @click="showSelected = !showSelected"
-          >
-            {{ showSelected ? '收起已选名单' : '查看已选名单' }}
-          </button>
-        </div>
-        <ul
-          v-if="showSelected && selected.length"
-          id="supplement-selected"
-          class="supplement-selected"
-          aria-label="本次全部补发成员"
-        >
-          <li v-for="member in selectedMembers" :key="member.profileId">
-            <span>{{ member.name }} · {{ member.memberCode || '编号未填' }}</span
-            ><button
+          <div class="supplement-selection">
+            <p role="status" aria-atomic="true">
+              <strong>已选 {{ selected.length }} 人</strong
+              ><span v-if="hiddenCount">（含不在当前结果中的 {{ hiddenCount }} 人）</span>
+            </p>
+            <button
+              class="portal-secondary"
               type="button"
-              :aria-label="`取消选择 ${member.name} ${member.memberCode || ''}`"
-              @click="toggleMember(member.profileId, false)"
+              :disabled="!selected.length"
+              :aria-expanded="showSelected"
+              aria-controls="supplement-selected"
+              @click="showSelected = !showSelected"
             >
-              移除
+              {{ showSelected ? '收起已选名单' : '查看已选名单' }}
             </button>
-          </li>
-        </ul>
-        <p v-if="notice" class="supplement-help" role="status">{{ notice }}</p>
-        <p class="supplement-help">
-          {{
-            selected.length === limit
-              ? '已达单次 100 人上限，可取消成员后重新选择。'
-              : selected.length
-                ? '只向上述已选成员补发，原有任务状态和进度保留。'
-                : '请先勾选成员；单次最多补发 100 人。'
-          }}
-        </p>
-        <button class="portal-primary" type="submit" :disabled="!selected.length">
-          <UserPlus :size="16" aria-hidden="true" />{{ submitting ? '正在补发…' : `补发给 ${selected.length} 人` }}
-        </button>
-      </fieldset>
-    </form>
-  </section>
+          </div>
+          <ul
+            v-if="showSelected && selected.length"
+            id="supplement-selected"
+            class="supplement-selected"
+            aria-label="本次全部补发成员"
+          >
+            <li v-for="member in selectedMembers" :key="member.profileId">
+              <span>{{ member.name }} · {{ member.memberCode || '编号未填' }}</span
+              ><button
+                type="button"
+                :aria-label="`取消选择 ${member.name} ${member.memberCode || ''}`"
+                @click="toggleMember(member.profileId, false)"
+              >
+                移除
+              </button>
+            </li>
+          </ul>
+          <p v-if="notice" class="supplement-help" role="status">{{ notice }}</p>
+          <p class="supplement-help">
+            {{
+              selected.length === limit
+                ? '已达单次 100 人上限，可取消成员后重新选择。'
+                : selected.length
+                  ? '只向上述已选成员补发，原有任务状态和进度保留。'
+                  : '请先勾选成员；单次最多补发 100 人。'
+            }}
+          </p>
+          <button class="portal-primary" type="submit" :disabled="!selected.length">
+            <UserPlus :size="16" aria-hidden="true" />{{ submitting ? '正在补发…' : `补发给 ${selected.length} 人` }}
+          </button>
+        </fieldset>
+      </form>
+    </div>
+  </details>
 </template>
 
 <style scoped>
 .supplement-members {
   color: var(--admin-foreground);
+}
+.supplement-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  list-style: none;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.supplement-summary::-webkit-details-marker {
+  display: none;
+}
+.supplement-summary > svg,
+.supplement-toggle {
+  flex-shrink: 0;
+}
+.supplement-summary-title {
+  flex: 1;
+  min-width: 0;
+}
+.supplement-summary-title h3 {
+  margin: 0;
+}
+.supplement-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--admin-accent);
+  font-size: 14px;
+}
+.supplement-summary:hover {
+  background: var(--admin-accent-soft);
+}
+.supplement-summary:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 4px;
+}
+.supplement-collapse,
+.supplement-members[open] .supplement-expand {
+  display: none;
+}
+.supplement-members[open] .supplement-collapse {
+  display: inline;
+}
+.supplement-members[open] .supplement-toggle svg {
+  transform: rotate(180deg);
+}
+.supplement-body {
+  margin-top: 20px;
 }
 .supplement-fields {
   min-width: 0;
@@ -286,7 +352,7 @@ async function submit() {
   font-size: 14px;
   line-height: 1.65;
 }
-.supplement-members > .supplement-help {
+.supplement-body > .supplement-help {
   margin-bottom: 20px;
 }
 .supplement-label {

@@ -1,4 +1,5 @@
 <script setup>
+import TaskSubmissionProgress from '../components/TaskSubmissionProgress.vue'
 import { ArrowLeft, CalendarClock, CheckCheck, ListChecks, RefreshCw, Save, X } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import PortalShell from '../components/PortalShell.vue'
@@ -70,8 +71,13 @@ const filteredRows = computed(() => {
       return !query || `${row.applicantName} ${row.applicantUsername}`.toLocaleLowerCase().includes(query)
     })
     .sort((first, second) => {
-      const priority = { SUBMITTED: 0, REJECTED: 1, PENDING: 2, APPROVED: 3 }
-      return (priority[first.status] ?? 4) - (priority[second.status] ?? 4)
+      const priority = (row) => {
+        if (row.status === 'SUBMITTED') return 0
+        if (row.status === 'PENDING' && row.totalSubtasks > 0 && row.submittedSubtasks >= row.totalSubtasks) return 1
+        return { REJECTED: 2, PENDING: 3, APPROVED: 4 }[row.status] ?? 5
+      }
+      const ratio = (row) => (row.totalSubtasks > 0 ? row.submittedSubtasks / row.totalSubtasks : 0)
+      return priority(first) - priority(second) || ratio(second) - ratio(first)
     })
 })
 const sharedTask = computed(() => overview.value?.task || task)
@@ -79,11 +85,6 @@ const validSubtasks = computed(() => task.subtasks.filter((item) => item.title.t
 
 function loadSubtaskContent(subtaskId) {
   return getAdminSubtask(task.taskId, subtaskId)
-}
-
-function progressPercent(row) {
-  if (!row.totalSubtasks) return 0
-  return Math.round((row.submittedSubtasks / row.totalSubtasks) * 100)
 }
 
 async function load() {
@@ -329,25 +330,17 @@ async function submitReview(row) {
               </div>
               <b :data-status="row.status">{{ row.status ? statusLabels[row.status] : '未发放' }}</b>
             </header>
-            <div class="task-progress">
-              <div
-                class="task-progress-track"
-                role="progressbar"
-                aria-valuemin="0"
-                :aria-valuenow="row.submittedSubtasks"
-                :aria-valuemax="row.totalSubtasks"
-                :aria-label="`${row.applicantName} 的子任务完成进度`"
+            <TaskSubmissionProgress
+              :submitted="row.submittedSubtasks"
+              :total="row.totalSubtasks"
+              :task-submitted="['SUBMITTED', 'APPROVED'].includes(row.status)"
+              :accessible-label="`${row.applicantName}的提交进度`"
+            >
+              <span v-if="row.startDate || row.endDate"
+                >{{ row.startDate || '未设置' }} — {{ row.endDate || '未设置' }}</span
               >
-                <span :style="{ width: `${progressPercent(row)}%` }"></span>
-              </div>
-              <span class="task-progress-label">
-                已提交 {{ row.submittedSubtasks }} / {{ row.totalSubtasks }}
-                <span v-if="row.startDate || row.endDate">
-                  · {{ row.startDate || '未设置' }} — {{ row.endDate || '未设置' }}</span
-                >
-                <span v-if="row.overdue" class="overdue">已过提交截止，仍可审核</span>
-              </span>
-            </div>
+              <span v-if="row.overdue" class="overdue"> · 已过提交截止，仍可审核</span>
+            </TaskSubmissionProgress>
             <p v-if="row.resubmissionDeadlineAt && row.status === 'REJECTED'" class="task-row-note" role="status">
               报名者本次补交截止：{{ new Date(row.resubmissionDeadlineAt).toLocaleString('zh-CN') }}
             </p>

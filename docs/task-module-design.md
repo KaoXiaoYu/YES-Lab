@@ -563,6 +563,8 @@ public TaskGrantResult grantForTask(UUID taskId, UUID memberProfileId, int point
 
 ## 9. 完成情况查看
 
+2026-10-05 展示修订对应需求第 10 节：所有任务提交进度复用 `TaskSubmissionProgress.vue`，比例来自现有提交数/总数，未完成灰色、完成绿色，使用 progressbar 语义与数量说明；无子任务按总任务提交状态显示 0%/100%。补发区用原生 details/summary 默认收起且保留内部状态。普通任务审核列表复制接口数组后用 computed 排序，待确认与子任务交齐优先，不改变后端状态和业务流程。
+
 管理员在任务完成情况页看到三个层次：
 
 - **任务汇总**：应完成人数、已通过、待确认、进行中（有勾选但未提交）、未开始、已驳回、已计分人数与已发放积分合计。

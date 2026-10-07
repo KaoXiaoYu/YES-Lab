@@ -1,4 +1,5 @@
 <script setup>
+import TaskSubmissionProgress from '../components/TaskSubmissionProgress.vue'
 import { ArrowLeft, CheckCheck, ListChecks, X } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -32,6 +33,29 @@ const statusLabels = {
 const roleLabels = { TEACHER: '教师', CORE_STUDENT: '核心学生', MEMBER: '普通成员' }
 
 const task = computed(() => progress.value?.task || null)
+const sortedAssignments = computed(() => {
+  const priority = (row) => {
+    if (row.status === 'SUBMITTED') return 0
+    if (row.status === 'APPROVED') return 4
+    if (row.status === 'PENDING' && submissionsComplete(row)) return 1
+    if (row.status === 'REJECTED') return 2
+    return 3
+  }
+  return [...(progress.value?.assignments || [])].sort(
+    (a, b) => priority(a) - priority(b) || submissionPercent(b) - submissionPercent(a),
+  )
+})
+
+function submissionsComplete(row) {
+  return row.totalSubtasks > 0
+    ? row.submittedSubtasks >= row.totalSubtasks
+    : ['SUBMITTED', 'APPROVED'].includes(row.status)
+}
+
+function submissionPercent(row) {
+  if (!row.totalSubtasks) return submissionsComplete(row) ? 100 : 0
+  return Math.min(100, Math.max(0, Math.round((row.submittedSubtasks / row.totalSubtasks) * 100)))
+}
 
 async function load() {
   refreshing.value = true
@@ -180,7 +204,12 @@ async function removeAssignment(row) {
         <ul>
           <li v-for="item in progress.subtaskProgress" :key="item.subtaskId">
             <span>{{ item.title }}</span>
-            <b>{{ item.submittedCount }} / {{ item.totalCount }}</b>
+            <TaskSubmissionProgress
+              :submitted="item.submittedCount"
+              :total="item.totalCount"
+              label="成员提交进度"
+              :accessible-label="`${item.title}的成员提交进度`"
+            />
           </li>
         </ul>
         <p v-if="!progress.subtaskProgress.length" class="empty-note">该任务没有子任务。</p>
@@ -188,8 +217,11 @@ async function removeAssignment(row) {
 
       <section class="task-rows" aria-labelledby="task-rows-title">
         <h3 id="task-rows-title">逐人明细</h3>
+        <p v-if="progress.assignments.length" class="task-order-help">
+          待确认优先，其次为子任务已交齐的成员；绿色表示提交完成，审核结论以右侧状态为准。
+        </p>
         <p v-if="!progress.assignments.length" class="empty-note">还没有发放对象。</p>
-        <article v-for="row in progress.assignments" :key="row.assignmentId" class="task-row">
+        <article v-for="row in sortedAssignments" :key="row.assignmentId" class="task-row">
           <header>
             <div>
               <strong>{{ row.name }}</strong>
@@ -197,8 +229,13 @@ async function removeAssignment(row) {
             </div>
             <b :data-status="row.status">{{ statusLabels[row.status] }}</b>
           </header>
-          <p>
-            已提交 {{ row.submittedSubtasks }} / {{ row.totalSubtasks }}
+          <TaskSubmissionProgress
+            :submitted="row.submittedSubtasks"
+            :total="row.totalSubtasks"
+            :task-submitted="['SUBMITTED', 'APPROVED'].includes(row.status)"
+            :accessible-label="`${row.name}的提交进度`"
+          />
+          <p v-if="row.overdue || row.awardedPoints != null || row.pointsSkippedReason">
             <span v-if="row.overdue" class="overdue">已逾期</span>
             <span v-if="row.awardedPoints != null">· 已计 {{ row.awardedPoints }} 分</span>
             <span v-else-if="row.pointsSkippedReason" class="task-skip">· 未计分：{{ row.pointsSkippedReason }}</span>
@@ -270,3 +307,17 @@ async function removeAssignment(row) {
     </template>
   </PortalShell>
 </template>
+
+<style scoped>
+.task-subtask-progress li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-content: stretch;
+  gap: 4px;
+}
+.task-order-help {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: 14px;
+}
+</style>

@@ -10490,49 +10490,13 @@ a.portal-secondary {
   opacity: 0.8;
 }
 
-/* ---------- 报名者侧的新手任务进度 ---------- */
-
-.task-progress {
-  display: grid;
-  gap: 0.35rem;
-  flex: 1 1 12rem;
-}
-
-.task-progress-track {
-  height: 8px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(127, 127, 127, 0.22);
-}
-
-.task-progress-track > span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--color-success);
-  transition: width 200ms ease;
-}
-
-.task-progress-label {
-  font-size: 0.82rem;
-  font-variant-numeric: tabular-nums;
-}
-
 .task-panel-submit .task-locked-note {
   margin: 0;
 }
 
-@media (max-width: 760px), (pointer: coarse) {
-  .task-card-actions button,
-  .task-card-actions a {
-    min-height: 44px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .task-progress-track > span {
-    transition: none;
-  }
+.task-card-actions button,
+.task-card-actions a {
+  min-height: 44px;
 }
 
 @media (hover: hover) and (pointer: fine) {
