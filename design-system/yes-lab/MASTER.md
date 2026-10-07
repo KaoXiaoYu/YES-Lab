@@ -261,5 +261,6 @@ Before delivering any UI code, verify:
 
 - 姓名采用头像底图反色和独立细轮廓，卡片文字区加强深色渐变；白色头像最不利背景计算对比度约 6.25:1。
 - 首页使用淡蓝紫鼠标光晕，仅桌面精细鼠标且无减少动态偏好时启用；只更新 transform/opacity，离开、失焦、隐藏及卸载时清理，手机停用。
+- 光晕按用户追加需求改为弹簧滞后/超调回弹与速度拉伸（最多 12%），移动时循环变色，静止停止更新；该装饰层额外更新 hue-rotate filter，其余内容颜色不变。`spring animation excessive motion reduced motion --domain ux` 查询采纳减少动态与节制动效规则。
 - 成员顶栏按实际容器、入口、账号和后台菜单宽度显示入口；全部可放下时没有“更多”，否则仅溢出项折叠，菜单高度有界并可滚动。保留各入口权限和键盘行为。
 - ui-ux-pro-max 查询 `text image overlay contrast --domain ux`，采纳 4.5:1 对比度规则；Chrome 1440/1024/768/375 明暗首页及 1920 至 375 成员顶栏验收，见 `.codex-run/ui-review/home-polish-*`。
