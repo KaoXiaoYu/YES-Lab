@@ -35,7 +35,7 @@ function render() {
 function spring(now) {
   frame = 0
   if (!glow.value || !listening || document.hidden) return
-  const elapsed = Math.min((now - lastTime) / 1000, 0.064)
+  const elapsed = Math.max(0, Math.min((now - lastTime) / 1000, 0.064))
   lastTime = now
   // Small integration steps keep the same spring feel at 30/60/120 Hz.
   const steps = Math.max(1, Math.ceil(elapsed / (1 / 120)))
