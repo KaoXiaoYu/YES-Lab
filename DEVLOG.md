@@ -1776,3 +1776,12 @@
 - 新 JAR + 隔离内存 H2 + Vite + Chrome CDP 完成首页 1440/1024/768/375 × 明暗、登录页 1440/375 × 明暗共 12 组真实截图验收；品牌及原 Logo 正确，无横向溢出、缺图或运行时异常，减少动态环境与 74×44px 主题按钮/3px 可见键盘焦点通过。人工复核桌面和手机首页、手机登录明暗；原界面颜色/字型/动效源码未改变，沿用此前已验收的对比度。仅修正验收脚本对大写品牌和手机仅显示 Logo 的识别，未因此改产品代码。
 - 使用 ui-ux-pro-max，读取既有 MASTER/public-home/pro-rules；consistent brand identity 与 brand logo assets 两次查询未命中品牌专用规则，采用 pro-rules 的 Correct Brand Logos 与既有页面规范，未覆盖设计存档或新增视觉规则。截图及报告在 .codex-run/ui-review/merge-yeslab-_，检查日志在 /private/tmp/yeslab-final-_.log。
 - 本轮隔离后端、Vite、Chrome 已关停，8080/5173/9222 无监听，专用 profile/上传目录已清理，未启动 MySQL或留下后台进程。最终合并在本地 main 提交，不推送或部署；既有 MySQL 实机演练、生产部署与备份恢复待办不变。恢复点为 backup/yeslab-before-merge-20261007 与 /private/tmp/yeslab-before-merge-20261007.bundle。
+
+## 2026-10-07：推送合并修复与排查服务器拉取权限
+
+- 用户提供服务器部署截图并指出可能尚未推送。确认 GitHub main 仍为 0fb3fe9，导致服务器采用 OpenLIMS 配置、缺少 OPENLIMS 变量并拉取错误的 yeslab-uavtech 镜像；已将验证完成的 YES Lab 合并提交 d0c228bb90111581bbf18105af9694d62fab39ce 正常快进推送到 KaoXiaoYu/YES-Lab，GitHub API SHA 和本地远端引用一致，未强推或更改提交历史。
+- 初次 fetch/标准推送遇到 Empty reply/443 连接失败；通过单次命令的 gh 凭据助手、HTTP/1.1 和 8 MiB POST 缓冲重试成功，未写入私人令牌、修改全局 Git 配置或遗留推送进程。仓库当前公开，不能再沿用旧部署文档中“仓库私有”的描述推断现状。
+- GitHub Actions 37598575839（https://github.com/KaoXiaoYu/YES-Lab/actions/runs/37598575839）测试及 yes-lab-api/yes-lab-web 两个构建发布任务全部 success，镜像使用 ghcr.io/kaoxiaoyu/yes-lab-api 和 ghcr.io/kaoxiaoyu/yes-lab-web，发布 latest 与完整源码提交 SHA 标签。本轮未改业务代码，不重复本地前后端测试。
+- 第二张服务器截图已显示恢复的 yeslab Java 包、Logo 与 kaoxiaoyu 镜像路径，OPENLIMS 缺变量警告消失，但拉取仍报 denied；本机匿名读取两个 GHCR 镜像同为 HTTP 401。当前 gh OAuth 无 read:packages，包列表 API 的 403 仅是本机权限限制，未据此修改镜像可见性或访问授权；以成功的发布任务确认镜像已生成。
+- 已核对 GitHub 官方 Container registry 文档：使用有包读取权限账号的 classic PAT，至少 read:packages，经过 password-stdin 登录。给用户提供在当前服务器 root 会话重新 docker login ghcr.io（KaoXiaoYu）、再运行部署脚本的具体命令；令牌仅由用户在服务器隐藏输入，勿发送到聊天。不连接服务器、不修改生产环境文件、不动业务数据库或上传文件。
+- 本轮仅审计 DEVLOG 的补充提交使用 [skip ci]，源码和已发布镜像仍对应 d0c228b，避免文档变化重复构建。审计提交的两次后续推送遇到 Empty reply 与 45 秒超时，超时进程组已关闭；GitHub API 最终仍为 d0c228b，故仅审计记录留在本地，业务修复和镜像已经成功上传。待办：服务器完成 GHCR 登录并部署，核对容器健康；MySQL 实机演练与备份恢复等待办不变。本轮未启动服务、MySQL 或后台实例，工作流监听和全部 Git 网络进程已结束。
