@@ -1,4 +1,5 @@
 <script setup>
+import { brand } from '../config/site'
 import { LogOut, Save, ShieldCheck } from '@lucide/vue'
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -106,7 +107,7 @@ async function signOut() {
       </header>
 
       <p class="profile-completion-intro">
-        欢迎加入 YES Lab。继续使用成员系统前，请补全学号 /
+        欢迎加入 {{ brand.name }}。继续使用成员系统前，请补全学号 /
         内部编号和能力标签；编号需全站唯一，提交成功后即可进入你原本要访问的页面。
       </p>
 

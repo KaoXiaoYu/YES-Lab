@@ -249,6 +249,14 @@ VITE_API_BASE_URL=https://api.example.com
 
 不要提交 `.env.local`、`deploy/.env.production`、数据库、上传文件、令牌或真实账号信息；这些路径已由 `.gitignore` 排除。
 
+### 前端外观
+
+采用 OpenLIMS 前端组件和样式，保留 YES Lab 名称、Logo 与已有内容，默认使用通用蓝灰外观。`config/branding.json` 配置品牌，`config/appearance.json` 配置四套预设。
+
+- 本地/源码构建：`VITE_UI_PRESET=general`，可选 `academic`、`engineering`、`life-science`；修改后重启 Vite 或重新构建。
+- Docker：构建参数 `VITE_UI_PRESET`，默认 `general`。
+- GitHub Actions：仓库变量 `YESLAB_UI_PRESET`，默认 `general`。生产容器中的后端环境变量不能切换已经构建好的前端外观。
+
 ## 数据与迁移
 
 - 本地业务数据和上传文件默认位于 `backend/data/`，不进入 Git。

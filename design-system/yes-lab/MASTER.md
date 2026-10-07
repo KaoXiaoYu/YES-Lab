@@ -240,3 +240,10 @@ Before delivering any UI code, verify:
 - [ ] Responsive: 375px, 768px, 1024px, 1440px
 - [ ] No content hidden behind fixed navbars
 - [ ] No horizontal scroll on mobile
+
+## OpenLIMS 前端与外观预设（2026-10-07，用户批准）
+
+- 本节与页面覆盖优先于上面的历史配色/字型表：采用 OpenLIMS 现有组件与 CSS，品牌资产继续为 YES Lab；不通过保留旧 CSS 阻断新前端。
+- config/appearance.json 为运行中的配色、字体及圆角配置，默认 general（蓝灰/系统字体/12px）；academic（靛蓝纸面/衬线首页标题/6px）、engineering（青蓝网格/等宽首页标题/4px）、life-science（森林绿/系统字体/20px）为构建选项。现有字型覆盖范围沿用源代码，登录页标题仍为系统字型。
+- Vite 注入明暗语义变量与 data-ui-preset，presets.css 管理形状/首页标题/工程网格；页脚指向 YES Lab 仓库。导航、路由、权限与任务业务保持现有实现，本地 TaskSubmissionProgress、补发折叠和审核排序保留。
+- 保留源码配置的 YES Lab 名称/Logo、首页既有文案与 API 存储内容；浏览器主题/认证/变更事件继续使用 yeslab 键。部署镜像和数据路径不更名。

@@ -1,4 +1,5 @@
 <script setup>
+import { brand } from '../config/site'
 import ThemeToggle from '../components/ThemeToggle.vue'
 import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from '@lucide/vue'
 import { computed, reactive, ref, watch } from 'vue'
@@ -53,7 +54,7 @@ async function submit() {
       showSubmissionFeedback({
         eyebrow: 'ACCOUNT CREATED',
         title: '报名账号已创建',
-        message: '账号注册成功。接下来请填写并提交报名表，向 YES Lab 介绍你自己。',
+        message: `账号注册成功。接下来请填写并提交报名表，向 ${brand.name} 介绍你自己。`,
         confirmLabel: '开始填写',
       })
     }
@@ -99,10 +100,10 @@ function validateUsername() {
     <section class="auth-story">
       <RouterLink class="auth-back" to="/"><ArrowLeft :size="17" aria-hidden="true" />返回公开首页</RouterLink>
       <div>
-        <p>YES LAB / IDENTITY</p>
-        <img src="/yes-lab-logo.png" alt="YES Lab" width="900" height="506" />
+        <p>{{ brand.name }} / IDENTITY</p>
+        <img :src="brand.logoOnDark" :alt="brand.name" width="900" height="300" />
         <h1>从一次报名，<br />走向真实项目。</h1>
-        <span>Yichun Embodied Science</span>
+        <span>Open Laboratory Information Management System</span>
       </div>
       <ol aria-label="新成员成长流程">
         <li><span>01</span>报名与初筛</li>

@@ -1785,3 +1785,23 @@
 - 第二张服务器截图已显示恢复的 yeslab Java 包、Logo 与 kaoxiaoyu 镜像路径，OPENLIMS 缺变量警告消失，但拉取仍报 denied；本机匿名读取两个 GHCR 镜像同为 HTTP 401。当前 gh OAuth 无 read:packages，包列表 API 的 403 仅是本机权限限制，未据此修改镜像可见性或访问授权；以成功的发布任务确认镜像已生成。
 - 已核对 GitHub 官方 Container registry 文档：使用有包读取权限账号的 classic PAT，至少 read:packages，经过 password-stdin 登录。给用户提供在当前服务器 root 会话重新 docker login ghcr.io（KaoXiaoYu）、再运行部署脚本的具体命令；令牌仅由用户在服务器隐藏输入，勿发送到聊天。不连接服务器、不修改生产环境文件、不动业务数据库或上传文件。
 - 本轮仅审计 DEVLOG 的补充提交使用 [skip ci]，源码和已发布镜像仍对应 d0c228b，避免文档变化重复构建。审计提交的两次后续推送遇到 Empty reply 与 45 秒超时，超时进程组已关闭；GitHub API 最终仍为 d0c228b，故仅审计记录留在本地，业务修复和镜像已经成功上传。待办：服务器完成 GHCR 登录并部署，核对容器健康；MySQL 实机演练与备份恢复等待办不变。本轮未启动服务、MySQL 或后台实例，工作流监听和全部 Git 网络进程已结束。
+
+## 2026-10-07：检查 UI 预设并交付对比截图
+
+- 用户询问更新后首页为何仍为旧 UI，并要求检查几套设计并截图。已确认此前把“保留 YES Lab 名称”过度扩展为保留原 Vue/CSS 界面；当前发布源码 d0c228b 的 src/main.js 未导入 presets.css，vite.config.js 也未注入 appearance.json/VITE_UI_PRESET，因此四套已有预设未启用。名称/原内容与新外观可以并存，本次只检查和预览，未修改生产界面或部署。
+- 在 .codex-run/ui-review/ui-preset-preview-20261007 隔离还原远端 0fb3fe9 的前端与真实预设实现，以当前 config/branding.json 保留 YES Lab 名称/Logo，并连接同一个隔离内存 H2 后端。当前版及 general（蓝灰/系统字体/12px）、academic（靛蓝纸面/衬线首页标题/6px）、engineering（青蓝网格/等宽首页标题/4px）、life-science（森林绿/系统字体/20px）统一内容对比；这四套共用布局，主要变化是配色、字型与形状。
+- 真实 Chrome CDP：5 套 × 首页 1440/1024/768/375 明暗 + 登录页 1440/375 明暗，共 60 组唯一截图；无横向溢出、缺失图片或运行时异常，3D 模型加载成功。核心文字/按钮 10 组抽查最低对比度 4.94:1，主题/主行动按钮至少 44px，可见键盘焦点和减少动态环境通过，不宣称对全部旧组件做了对比度测量。发现学术/工程特殊字型仅应用首页标题，登录页仍为系统字型，按现有源码如实展示，未擅自修复。
+- 沿用已读取的 ui-ux-pro-max、YES Lab MASTER/public-home 和远端 openlims 的页面覆盖，读取四预设相关规则；text color contrast 查询命中 Color Contrast/Contrast Readability，采纳 4.5:1 核心文字抽查。没有改变视觉规则或覆盖存档；未新增业务模块、修改数据库/迁移、安装依赖或连接生产。
+- 产物：.codex-run/ui-review/ui-presets-report.json、ui-_.png 原图，6 张 ui-comparison-_ 桌面/手机/明暗/登录对比图，以及 ui-presets-gallery.html 离线切换查看页。已人工复核桌面明暗、手机亮色与手机登录组合；交付真实截屏，不使用生成图片替代界面。截图脚本修正了登录 h2 选择、当前预设报告标识及新 CDP 会话减少动态设置，最终报告按唯一尺寸/主题去重，未因此改产品源码。
+- 本轮五个 Vite、隔离后端与专用 Chrome 已关停，8080/5173—5177/9222 无监听，专用 profile/上传目录已清理；未启动 MySQL，无后台实例遗留。仅 DEVLOG 增量更新、预览资产均 gitignore，未提交/推送/部署；待办为用户选定外观后的实际启用工作，既有上线验收待办不变。
+
+## 2026-10-07：套用 OpenLIMS 前端并保留 YES Lab（完成）
+
+- 用户在四套 UI 截图预览后明确要求套用 OpenLIMS 前端。需求/技术方案已增量写入 docs/open-source-adaptation.md 并标注批准；此前保留旧 UI 的过宽处理已纠正，采用已预览的前端 0fb3fe9，默认 general（通用蓝灰），其余三预设保留为构建选项。
+- 按共同基线 43a3b39 做逐文件三方合并，接入 OpenLIMS Vue/CSS、品牌元数据、仓库页脚、presets.css 及 Vite 明暗变量/字型/圆角注入；Vite 冲突采用已验证的预设配置并保留验收目录忽略规则。Docker/CI 恢复 VITE_UI_PRESET 构建参数，GitHub 变量 YESLAB_UI_PRESET 未设置时默认 general，非法预设明确拒绝。
+- 保留 YES Lab branding.json、Logo/白色 Logo、原首页默认文案、后端 API/存储内容与全部现有模块；认证/主题/跨窗口变更事件继续用 yeslab 键，更新首页缓存版本。TaskSubmissionProgress、补发折叠、审核排序相关文件逐字节保留，公共 portal.css 的进度改动与新字体规则共同保留。后端、迁移、Compose、业务部署目录与配置未改变。
+- 验证：npm run check（ESLint、全仓 Prettier、生产构建）通过，仅既有大 chunk 提示；生产 HTML 的 YES Lab 品牌与 general 注入通过；非法外观构建负例按预期失败。纯前端移植，本轮不重复后端 115 项本地测试。
+- 实际工作区源码 + 隔离内存 H2 + 四个 Vite + Chrome CDP：四预设首页 1440/1024/768/375 明暗、登录页 1440/375 明暗 48 组截图通过，无溢出/缺图/运行时异常；8 组核心对比度最低 6.41:1，44px 控件、焦点与减少动态通过，仅核心抽查，不宣称全像素或全部旧组件覆盖。管理成员页各断点明暗、CMS 品牌字段/YES Lab 仓库页脚、成员 API 403 与管理路由拒绝通过。
+- 普通任务排序、0/50/100 提交进度、折叠保留选择、键盘/审核/内容入口、成员详情/子任务通过；新手报名者/管理/子任务、悬赏与无子任务 0/100 边界、12px 条高/颜色对比通过。验收脚本修正了 CSS 选择器重命名、guest-only 登录页等待、成员管理就绪选择器，普通任务用干净的本轮内存库完整复验通过，没有因此改业务源码。
+- ui-ux-pro-max 沿用既有 MASTER/页面规则并增量更新 YES Lab 存档：Vue computed derived state 命中派生状态规则，用于保留既有排序；颜色抽查沿用已命中的 Color Contrast。未采用无关 Pinia 建议。报告/截图在 .codex-run/ui-review/openfront-_，日志 /private/tmp/yeslab-openfront-_.log；已人工复核手机登录、桌面管理、手机暗色任务与首页。
+- 本轮四个 Vite、隔离后端及 Chrome 已关停，8080/5173—5176/9222 无监听，专用 profile/上传目录已清理；未启动 MySQL、未连接生产，无后台遗留。准备按本轮持续的 GitHub 更新授权正常提交/推送 main，并核对 CI 镜像；生产部署仍由用户服务器执行，既有 MySQL 实机验收待办不变。

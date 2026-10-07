@@ -1,4 +1,5 @@
 <script setup>
+import { brand } from '../config/site'
 import ThemeToggle from '../components/ThemeToggle.vue'
 import ResearchVisual from '../components/ResearchVisual.vue'
 import CompactLeaderboard from '../components/CompactLeaderboard.vue'
@@ -18,112 +19,24 @@ const homeElement = ref(null)
 let revealObserver
 let rankingsRefreshTimer
 let homeUnmounted = false
-const publicHomeSnapshotKey = 'yeslab_public_home_snapshot_v3'
+const publicHomeSnapshotKey = `yeslab_public_home_snapshot_v4:${brand.name}:${brand.displayName}`
 try {
   window.localStorage.removeItem('yeslab_public_home_snapshot_v2')
+  window.localStorage.removeItem('yeslab_public_home_snapshot_v3')
 } catch {
   /* Storage may be unavailable. */
 }
 const publicHomeSnapshotMaxAge = 7 * 24 * 60 * 60 * 1000
 
-const defaultProjects = [
-  {
-    number: '01',
-    category: '无人机',
-    title: '无人机自主飞行\n与环境感知',
-    summary: '面向复杂环境，探索飞行平台的自主感知、定位、规划与控制。',
-    status: '研究中',
-    lead: '范桌轩大王',
-    members: '待补充',
-    tech: ['自主飞行', '环境感知', '运动规划'],
-    result: '研究方向建设中，后续将公开阶段性原型、比赛记录与技术文档。',
-  },
-  {
-    number: '02',
-    category: '空地协同',
-    title: '无人机 × 机器狗\n空地协同系统',
-    summary: '连接空中视野与地面行动能力，研究多智能体协同感知和任务执行。',
-    status: '重点方向',
-    lead: '范桌轩大王',
-    members: '待补充',
-    tech: ['协同感知', '任务分配', '异构机器人'],
-    result: '围绕无人机与机器狗协同开展系统设计、算法验证与工程实践。',
-  },
-  {
-    number: '03',
-    category: '具身智能',
-    title: '具身智能\n学习与实践平台',
-    summary: '让智能体在真实环境中感知、理解并行动，推动算法走出屏幕。',
-    status: '方向建设',
-    lead: '范桌轩大王',
-    members: '待补充',
-    tech: ['多模态感知', '智能决策', '机器人学习'],
-    result: '面向校内学生建设从基础训练到项目实战的人才培养路径。',
-  },
-]
+const defaultProjects = []
 
-const defaultMembers = [
-  {
-    initials: 'FZ',
-    name: '范桌轩大王',
-    role: '2023 · 计算机科学',
-    tags: ['无人机系统', '工程实现'],
-    points: 2480,
-    rank: 1,
-    core: true,
-  },
-  {
-    initials: 'YX',
-    name: '范桌轩大王',
-    role: '2022 · 人工智能',
-    tags: ['计算机视觉', '具身智能'],
-    points: 2210,
-    rank: 2,
-    core: true,
-  },
-  {
-    initials: 'LC',
-    name: '范桌轩大王',
-    role: '2024 · 电子信息',
-    tags: ['嵌入式', '机器人控制'],
-    points: 1980,
-    rank: 3,
-    core: true,
-  },
-  {
-    initials: 'WQ',
-    name: '范桌轩大王',
-    role: '2023 · 自动化',
-    tags: ['多智能体', '系统设计'],
-    points: 1750,
-    rank: 4,
-    core: false,
-  },
-]
-
-const defaultAdvisor = {
-  initials: 'TH',
-  name: '汤洪大王',
-  role: 'YES Lab 指导老师',
-  description: '负责实验室研究方向、项目实践与人才培养指导。',
-  tags: ['研究指导', '人才培养'],
-}
+const defaultMembers = []
 
 const defaultRankingData = { 总榜: [], 月榜: [], 年榜: [] }
 
-const defaultUpdates = [
-  { date: '荣誉', type: '竞赛成果', title: 'YES Lab 获得计算机设计大赛全国二等奖' },
-  { date: '荣誉', type: '竞赛成果', title: '江西省智能机器人大赛飞行巡航定点赛道省赛二等奖' },
-  { date: '荣誉', type: '竞赛成果', title: '全国智能汽车大赛平衡轮腿组华东赛赛区三等奖' },
-  { date: '方向', type: '研究动态', title: '推进无人机与机器狗空地协同系统研究' },
-  { date: '伙伴', type: '企业支持', title: 'CUAV 成为 YES Lab 企业赞助伙伴' },
-]
+const defaultUpdates = []
 
-const defaultAwards = [
-  { competition: '计算机设计大赛', category: '全国赛', level: '全国', prize: '二等奖' },
-  { competition: '江西省智能机器人大赛', category: '飞行巡航定点赛道', level: '省赛', prize: '二等奖' },
-  { competition: '全国智能汽车大赛', category: '平衡轮腿组 · 华东赛', level: '赛区', prize: '三等奖' },
-]
+const defaultAwards = []
 
 const competitionLevelLabels = {
   SCHOOL: '校级',
@@ -134,16 +47,7 @@ const competitionLevelLabels = {
   OTHER: '其他',
 }
 
-const defaultSponsors = [
-  {
-    name: 'CUAV',
-    type: '企业赞助伙伴',
-    description: '感谢 CUAV 对 YES Lab 无人系统研究、工程实践与人才培养的支持。',
-    focus: ['无人机系统', '工程实践', '人才培养'],
-    logoUrl: '/sponsors/cuav-logo.jpg',
-    websiteUrl: 'https://www.cuav.net/',
-  },
-]
+const defaultSponsors = []
 
 const defaultHomepageContent = {
   profile: {
@@ -308,16 +212,16 @@ function normalizeHomepageContent(value) {
 }
 
 const profile = ref({
-  name: 'YES Lab',
-  displayName: 'YES Lab 实验室',
-  fullName: 'Yichun Embodied Science',
+  name: brand.name,
+  displayName: brand.displayName,
+  fullName: brand.fullName,
   slogan: '探索空地协同，培养未来工程人才',
   description: '一个面向无人系统与具身智能的初创实验室，以真实项目连接科研、竞赛与人才培养。',
   researchDirections: ['无人机', '空地协同', '具身智能'],
 })
 const projects = ref(defaultProjects)
 const members = ref(defaultMembers)
-const advisors = ref([defaultAdvisor])
+const advisors = ref([])
 const rankingData = ref(defaultRankingData)
 const rankingsLoaded = ref(false)
 const rankingsError = ref('')
@@ -466,7 +370,7 @@ const directionTarget = (url) => (/^https?:\/\//i.test(url || '') ? '_blank' : u
 
 const applyCoreHome = (home) => {
   if (!home) return
-  profile.value = home.profile
+  profile.value = { ...home.profile, name: brand.name, displayName: brand.displayName, fullName: brand.fullName }
   homepageContent.value = normalizeHomepageContent(home.homepageContent)
   sponsors.value = home.sponsors || []
 }
@@ -613,13 +517,13 @@ onBeforeUnmount(() => {
 <template>
   <main ref="homeElement" :class="['site-shell', { 'awaiting-home': !homepageReady }]">
     <div v-if="!homepageReady" class="home-bootstrap-state" role="status" aria-live="polite">
-      <img src="/yes-lab-logo.png" alt="" width="900" height="506" />
+      <img :src="brand.logo" alt="" width="900" height="300" />
       <p>正在同步 {{ profile.name }} 最新公开内容…</p>
     </div>
     <a class="skip-link" href="#top">跳到主要内容</a>
     <header class="site-header">
       <a class="brand" href="#top" :aria-label="`${profile.displayName}首页`" @click.prevent="scrollTo('#top')">
-        <img src="/yes-lab-logo.png" :alt="profile.name" width="900" height="506" />
+        <img :src="brand.logo" :alt="profile.name" width="900" height="300" />
         <span>{{ profile.displayName }}</span>
       </a>
 
@@ -809,7 +713,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="project-graphic" :class="[{ 'is-default': !project.coverImageUrl }, `graphic-${project.number}`]">
             <img
-              :src="project.coverImageUrl || '/yes-lab-logo.png'"
+              :src="project.coverImageUrl || brand.logo"
               :alt="`${project.title.replace('\n', '')}项目主图`"
               loading="lazy"
             />
@@ -1091,11 +995,25 @@ onBeforeUnmount(() => {
 
     <footer>
       <a class="brand" href="#top" :aria-label="`返回${profile.displayName}首页`" @click.prevent="scrollTo('#top')"
-        ><img src="/yes-lab-logo.png" :alt="profile.name" width="900" height="506" /><span
+        ><img :src="brand.logo" :alt="profile.name" width="900" height="300" /><span
           >{{ profile.name }} · {{ profile.fullName }}</span
         ></a
       >
-      <p>{{ homepageContent.sections.footerText }}</p>
+      <div class="footer-meta">
+        <a
+          class="footer-repository"
+          :href="brand.repositoryUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="项目仓库（GitHub，在新窗口打开）"
+        >
+          <span>{{ brand.name }} · 项目仓库</span>
+          <span class="footer-repository-address"
+            >{{ brand.repositoryUrl.replace(/^https?:\/\//, '') }} <ArrowUpRight :size="15" aria-hidden="true"
+          /></span>
+        </a>
+        <p>{{ homepageContent.sections.footerText }}</p>
+      </div>
     </footer>
 
     <Transition name="modal">
@@ -1111,7 +1029,7 @@ onBeforeUnmount(() => {
           </button>
           <div class="project-modal-cover" :class="{ 'is-default': !selectedProject.coverImageUrl }">
             <img
-              :src="selectedProject.coverImageUrl || '/yes-lab-logo.png'"
+              :src="selectedProject.coverImageUrl || brand.logo"
               :alt="`${selectedProject.title.replace('\n', '')}项目主图`"
             />
           </div>

@@ -80,7 +80,7 @@
   border-radius: 8px;
   color: var(--color-primary);
   background: var(--color-card);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 12px;
   cursor: pointer;
   transition:
@@ -182,7 +182,7 @@
 .sponsor-cooperation h4 {
   margin: 0 0 8px;
   color: var(--color-primary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
 }
 .application-introduction,
@@ -324,4 +324,12 @@ input:autofill {
     overflow-x: auto;
     overflow-y: hidden;
   }
+}
+
+/* YES Lab wordmarks remain legible on dark navigation surfaces. */
+:root[data-theme='dark'] .brand img,
+:root[data-theme='dark'] .portal-brand img,
+:root[data-theme='dark'] .public-result-topbar > img,
+:root[data-theme='dark'] .home-bootstrap-state img {
+  filter: brightness(0) invert(1);
 }
