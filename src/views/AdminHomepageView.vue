@@ -1,4 +1,5 @@
 <script setup>
+import { brand } from '../config/site'
 import {
   ArrowDown,
   ArrowUp,
@@ -147,15 +148,15 @@ function remove(list, index) {
 }
 
 function addText(list) {
-  list.push('范桌轩大王')
+  list.push('示例成员')
 }
 
 function addDirection() {
-  content.value.profile.researchDirectionItems.push({ name: '范桌轩大王', url: '#projects' })
+  content.value.profile.researchDirectionItems.push({ name: '示例成员', url: '#projects' })
 }
 
 function addAboutFeature() {
-  content.value.sections.about.features.push({ title: '范桌轩大王', description: '待补充特色说明' })
+  content.value.sections.about.features.push({ title: '示例成员', description: '待补充特色说明' })
 }
 
 function splitList(value) {
@@ -168,7 +169,7 @@ function splitList(value) {
 function addProof() {
   content.value.proofItems.push({
     label: 'NEW / ITEM',
-    value: '范桌轩大王',
+    value: '示例成员',
     detail: '待补充说明',
     metric: 'CUSTOM',
     target: '#projects',
@@ -176,11 +177,11 @@ function addProof() {
 }
 
 function addAward() {
-  content.value.awards.push({ competition: '范桌轩大王', category: '范桌轩大王', level: '级别', prize: '奖项' })
+  content.value.awards.push({ competition: '示例成员', category: '示例成员', level: '级别', prize: '奖项' })
 }
 
 function addUpdate() {
-  content.value.updates.push({ publishedAt: '最新', type: '实验室动态', title: '范桌轩大王', slug: '' })
+  content.value.updates.push({ publishedAt: '最新', type: '实验室动态', title: '示例成员', slug: '' })
 }
 
 function addSponsor() {
@@ -321,14 +322,12 @@ function formatTime(value) {
           <header>
             <p>01 / IDENTITY</p>
             <h2>品牌与首屏</h2>
-            <span>维护实验室名称、首屏标题、简介和研究方向。</span>
+            <span>名称由 config/branding.json 统一配置；在此维护首屏标题、简介和研究方向。</span>
           </header>
           <div class="homepage-field-grid">
-            <label>简称<input v-model.trim="content.profile.name" required maxlength="80" /></label>
-            <label>展示名称<input v-model.trim="content.profile.displayName" required maxlength="120" /></label>
-            <label class="full"
-              >英文全称<input v-model.trim="content.profile.fullName" required maxlength="160"
-            /></label>
+            <label>简称<input :value="brand.name" readonly maxlength="80" /></label>
+            <label>展示名称<input :value="brand.displayName" readonly maxlength="120" /></label>
+            <label class="full">英文全称<input :value="brand.fullName" readonly maxlength="160" /></label>
             <label class="full"
               >实验室口号<input v-model.trim="content.profile.slogan" required maxlength="180"
             /></label>

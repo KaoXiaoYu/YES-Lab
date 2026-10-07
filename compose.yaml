@@ -1,4 +1,4 @@
-name: yes-lab
+name: openlims
 
 x-default-logging: &default-logging
   driver: json-file
@@ -16,13 +16,13 @@ services:
       - --performance-schema=OFF
       - --skip-name-resolve
     environment:
-      MYSQL_DATABASE: yeslab
-      MYSQL_USER: ${YESLAB_DATABASE_USERNAME}
-      MYSQL_PASSWORD: ${YESLAB_DATABASE_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${YESLAB_MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: openlims
+      MYSQL_USER: ${OPENLIMS_DATABASE_USERNAME}
+      MYSQL_PASSWORD: ${OPENLIMS_DATABASE_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${OPENLIMS_MYSQL_ROOT_PASSWORD}
       TZ: Asia/Shanghai
     volumes:
-      - ${YESLAB_DATA_ROOT:-/srv/yeslab/data}/mysql:/var/lib/mysql
+      - ${OPENLIMS_DATA_ROOT:-/srv/openlims/data}/mysql:/var/lib/mysql
     healthcheck:
       test: ['CMD-SHELL', 'MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping --host=127.0.0.1 --user=root --silent']
       interval: 10s
@@ -34,35 +34,35 @@ services:
     networks: [backend]
 
   api:
-    image: ${YESLAB_API_IMAGE:-ghcr.io/kaoxiaoyu/yes-lab-api}:${YESLAB_IMAGE_TAG:-latest}
+    image: ${OPENLIMS_API_IMAGE:-ghcr.io/yeslab-uavtech/openlims-api}:${OPENLIMS_IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       mysql:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      YESLAB_DATABASE_URL: jdbc:mysql://mysql:3306/yeslab?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
-      YESLAB_DATABASE_USERNAME: ${YESLAB_DATABASE_USERNAME}
-      YESLAB_DATABASE_PASSWORD: ${YESLAB_DATABASE_PASSWORD}
-      YESLAB_DATABASE_MAX_POOL_SIZE: 8
-      YESLAB_DATABASE_MIN_IDLE: 1
-      YESLAB_JWT_SECRET: ${YESLAB_JWT_SECRET}
-      YESLAB_JWT_ISSUER: ${YESLAB_JWT_ISSUER:-yes-lab-api}
-      YESLAB_CORS_ALLOWED_ORIGINS: ${YESLAB_CORS_ALLOWED_ORIGINS}
-      YESLAB_INITIAL_ADMIN_ENABLED: ${YESLAB_INITIAL_ADMIN_ENABLED:-false}
-      YESLAB_INITIAL_ADMIN_USERNAME: ${YESLAB_INITIAL_ADMIN_USERNAME:-admin}
-      YESLAB_INITIAL_ADMIN_PASSWORD: ${YESLAB_INITIAL_ADMIN_PASSWORD:-}
-      YESLAB_INITIAL_ADMIN_DISPLAY_NAME: ${YESLAB_INITIAL_ADMIN_DISPLAY_NAME:-系统管理员}
-      YESLAB_INITIAL_ADMIN_MEMBER_CODE: ${YESLAB_INITIAL_ADMIN_MEMBER_CODE:-T-001}
-      YESLAB_ACHIEVEMENTS_DIRECTORY: /var/lib/yeslab/uploads/achievements
-      YESLAB_PROJECTS_DIRECTORY: /var/lib/yeslab/uploads/projects
-      YESLAB_MEMBERS_DIRECTORY: /var/lib/yeslab/uploads/members
-      YESLAB_RECRUITMENT_DIRECTORY: /var/lib/yeslab/uploads/recruitment
-      YESLAB_HOMEPAGE_MODELS_DIRECTORY: /var/lib/yeslab/uploads/homepage-models
+      OPENLIMS_DATABASE_URL: jdbc:mysql://mysql:3306/openlims?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+      OPENLIMS_DATABASE_USERNAME: ${OPENLIMS_DATABASE_USERNAME}
+      OPENLIMS_DATABASE_PASSWORD: ${OPENLIMS_DATABASE_PASSWORD}
+      OPENLIMS_DATABASE_MAX_POOL_SIZE: 8
+      OPENLIMS_DATABASE_MIN_IDLE: 1
+      OPENLIMS_JWT_SECRET: ${OPENLIMS_JWT_SECRET}
+      OPENLIMS_JWT_ISSUER: ${OPENLIMS_JWT_ISSUER:-openlims-api}
+      OPENLIMS_CORS_ALLOWED_ORIGINS: ${OPENLIMS_CORS_ALLOWED_ORIGINS}
+      OPENLIMS_INITIAL_ADMIN_ENABLED: ${OPENLIMS_INITIAL_ADMIN_ENABLED:-false}
+      OPENLIMS_INITIAL_ADMIN_USERNAME: ${OPENLIMS_INITIAL_ADMIN_USERNAME:-admin}
+      OPENLIMS_INITIAL_ADMIN_PASSWORD: ${OPENLIMS_INITIAL_ADMIN_PASSWORD:-}
+      OPENLIMS_INITIAL_ADMIN_DISPLAY_NAME: ${OPENLIMS_INITIAL_ADMIN_DISPLAY_NAME:-系统管理员}
+      OPENLIMS_INITIAL_ADMIN_MEMBER_CODE: ${OPENLIMS_INITIAL_ADMIN_MEMBER_CODE:-T-001}
+      OPENLIMS_ACHIEVEMENTS_DIRECTORY: /var/lib/openlims/uploads/achievements
+      OPENLIMS_PROJECTS_DIRECTORY: /var/lib/openlims/uploads/projects
+      OPENLIMS_MEMBERS_DIRECTORY: /var/lib/openlims/uploads/members
+      OPENLIMS_RECRUITMENT_DIRECTORY: /var/lib/openlims/uploads/recruitment
+      OPENLIMS_HOMEPAGE_MODELS_DIRECTORY: /var/lib/openlims/uploads/homepage-models
       JAVA_TOOL_OPTIONS: -Xms96m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:MaxDirectMemorySize=64m -Xss512k -XX:+UseSerialGC
       TZ: Asia/Shanghai
     volumes:
-      - ${YESLAB_DATA_ROOT:-/srv/yeslab/data}/uploads:/var/lib/yeslab/uploads
+      - ${OPENLIMS_DATA_ROOT:-/srv/openlims/data}/uploads:/var/lib/openlims/uploads
     healthcheck:
       test: ['CMD', 'curl', '--fail', '--silent', 'http://127.0.0.1:8080/actuator/health']
       interval: 10s
@@ -79,13 +79,13 @@ services:
     networks: [backend]
 
   web:
-    image: ${YESLAB_WEB_IMAGE:-ghcr.io/kaoxiaoyu/yes-lab-web}:${YESLAB_IMAGE_TAG:-latest}
+    image: ${OPENLIMS_WEB_IMAGE:-ghcr.io/yeslab-uavtech/openlims-web}:${OPENLIMS_IMAGE_TAG:-latest}
     restart: unless-stopped
     depends_on:
       api:
         condition: service_healthy
     environment:
-      YESLAB_SITE_ADDRESS: ${YESLAB_SITE_ADDRESS}
+      OPENLIMS_SITE_ADDRESS: ${OPENLIMS_SITE_ADDRESS}
     ports:
       - '80:80'
       - '443:443'

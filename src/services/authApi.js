@@ -1,7 +1,7 @@
 import { reactive } from 'vue'
 
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
-const legacyTokenKey = 'yeslab_access_token'
+const legacyTokenKey = 'openlims_access_token'
 
 export const authState = reactive({
   token: null,
@@ -794,9 +794,9 @@ function notifyDomainMutation(path) {
       ? 'deadlines'
       : null
   if (!kind) return
-  window.dispatchEvent(new Event(`yeslab:${kind}-changed`))
+  window.dispatchEvent(new Event(`openlims:${kind}-changed`))
   try {
-    localStorage.setItem(`yeslab-${kind}-changed`, `${Date.now()}-${crypto.randomUUID()}`)
+    localStorage.setItem(`openlims-${kind}-changed`, `${Date.now()}-${crypto.randomUUID()}`)
   } catch {
     /* Browser storage may be unavailable. */
   }

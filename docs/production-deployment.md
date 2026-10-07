@@ -1,569 +1,199 @@
-# YES Lab 正式部署手册
+# OpenLIMS 部署、初始化、升级与恢复
 
-## 1. 已确定的生产架构
+本手册与根目录 Dockerfile、`backend/Dockerfile`、`compose.yaml`、`deploy/Caddyfile`、三个运维脚本和 `.github/workflows/ci-images.yml` 对照。实际验证范围见[验证记录](open-source-verification.md)，本机通过的 H2 测试不等于生产 MySQL 8.4 或公网部署验收。
 
-正式环境采用一台 Linux 服务器运行 Docker Compose：
+## 1. 环境与目录
 
-- `web`：Vue 静态文件 + Caddy，负责 HTTPS、HTTP/3、前端路由和 `/api` 反向代理。
-- `api`：Java 21 + Spring Boot，只在容器网络内提供服务。
-- `mysql`：MySQL 8.4，使用仓库外的持久目录。
-- GitHub Actions：每次推送 `main` 先运行前后端测试，再构建并发布两个 GHCR 镜像；低内存服务器不承担编译工作。
+本地开发需要 Node.js 22.13+、npm 10+、JDK 21、Maven Wrapper；步骤见[README](../README.md#本地启动)。若只有源码压缩包，没有 `.git`，仍可本地运行，但 `deploy.sh` 的 Git 升级与 Ubuntu 引导必须使用正式克隆。
 
-应用配置同时兼容 Debian 12 和 Ubuntu LTS；仓库提供的首次部署脚本目前专门支持 Ubuntu 24.04 LTS。宿主机不需要安装 Java、Node、MySQL 或 Caddy，只需要 Git、Docker Engine 与 Docker Compose 插件。
+生产基线为 Ubuntu 24.04 LTS amd64、Docker Engine + Compose 插件、MySQL 8.4、Java 21 容器、Caddy 2.11。CI 默认构建 amd64，不承诺 arm64 可直接拉取同一镜像。建议 2 核、2GB 内存、40GB 磁盘和 swap；当前 Compose 给 MySQL/API/Web 设置内存及日志上限，实际容量需按上传量和并发调整。
 
-目标服务器为 2 核 / 2 GB 内存 / 40 GB SSD，已为 MySQL、JVM、连接池和容器日志设置低资源参数。首次部署脚本会在系统没有 swap 时创建 2 GB swap；图片增多后，40 GB 磁盘会比 CPU 更早成为瓶颈。
+- 代码 `/opt/openlims`；环境 `deploy/.env.production`（权限 600，不提交）。
+- 数据 `/srv/openlims/data/mysql`；上传 `/srv/openlims/data/uploads`。
+- 上传包含成员头像、项目主图、成果/报名附件、招新附件、伙伴 Logo、首页 GLB。
+- 备份 `/srv/openlims/backups`，默认 7 天；Caddy 证书/配置由 `caddy_data`、`caddy_config` 命名卷保存。
+- 域名解析到服务器，开放 SSH TCP 22、Web TCP 80/443 和 HTTP/3 UDP 443；MySQL 3306、API 8080 不发布到公网。
 
-## 2. 上线前条件
+服务器不需要额外安装 Java、Node、Maven、MySQL 或 Caddy。Docker 的安装方式按[官方 Ubuntu 文档](https://docs.docker.com/engine/install/ubuntu/)核对；仓库引导脚本遇到冲突包会停止，不自动删除已有容器环境。
 
-1. 准备一个域名，并将 A/AAAA 记录解析到服务器公网地址。
-2. 安全组/防火墙开放 TCP 22、80、443 和 UDP 443；不要向公网开放 3306、8080。
-3. 将 GitHub 仓库中的最新代码推送到 `main`，等待 `Test and publish images` 工作流成功。
-4. 当前 `KaoXiaoYu/YES-Lab` 仓库和 `yes-lab-api`、`yes-lab-web` GHCR 包均按私有资源部署。为新服务器准备一把仓库只读 Deploy Key，并准备一个属于 `KaoXiaoYu`、至少具有 `read:packages` 权限的 GitHub classic PAT；两种凭据不能互相替代。
-5. 确认 GitHub 仓库 Actions 已启用。推送到 `main` 后，`Test and publish images` 工作流应全部通过。
+## 2. 镜像发布与 Fork
 
-不需要在服务器安装 Java 21、Maven、Node.js 或 MySQL，镜像由 GitHub Actions 构建。Docker Engine 与 Compose 插件由首次部署脚本按照 Docker 官方 APT 仓库安装。
+GitHub Actions 在 PR 上执行前端检查/后端测试；推送 `main` 并通过后发布 `ghcr.io/<小写仓库所有者>/openlims-api` 与 `openlims-web`，标签 `latest` 和完整提交 SHA。无需手改 workflow 的个人用户名。仓库所有者可以在 Packages 中设公开访问，组织需允许 Actions 的 package 写权限；首次 package 关联/权限仍由 GitHub 设置决定。
 
-## 3. 通过 SSH 首次部署 Ubuntu 24.04
+Fork 后启用 Actions 并在 `main` 产生一次合法提交，确认 **Test and publish images** 成功后部署。根目录品牌配置会同时进入前后端镜像；仓库变量 `OPENLIMS_UI_PRESET` 选 `general`/`academic`/`engineering`/`life-science`。已有镜像无法通过运行时环境改变外观。
 
-先从本机连接服务器：
+若自行构建（仓库根目录，amd64 Docker 主机）：
 
 ```bash
-ssh root@你的服务器公网IP
+docker build --build-arg VITE_UI_PRESET=general -t openlims-web:local .
+docker build -f backend/Dockerfile -t openlims-api:local .
 ```
 
-如果云厂商默认提供普通用户，则使用 `ssh 用户名@公网IP`，登录后先执行 `sudo -i` 进入 root shell，再按下文操作。不要在 `ubuntu` 用户下登录 GHCR、又切换到 `root` 运行部署，因为两者不共享 Docker 登录凭据。
+将环境的 `OPENLIMS_WEB_IMAGE=openlims-web`、`OPENLIMS_API_IMAGE=openlims-api`、`OPENLIMS_IMAGE_TAG=local` 配合 `up` 使用；不要对此本地标签执行要求远程镜像的 `deploy.sh`/引导拉取步骤。自建前仍须 `npm run check`、`cd backend && ./mvnw package`，Dockerfile 的 API 构建跳过测试，由 CI/部署者先验证。
 
-### 3.1 配置私有仓库 Deploy Key
+## 3. Ubuntu 首次引导
 
-先安装 Git 并创建本服务器专用密钥：
+以下在专用服务器 root shell 中执行。公开仓库直接 HTTPS 克隆：
 
 ```bash
 apt-get update
 apt-get install -y git
-install -d -m 700 /root/.ssh
-ssh-keygen -t ed25519 -C 'yes-lab-production-new-server' -f /root/.ssh/yeslab_deploy -N ''
-cat /root/.ssh/yeslab_deploy.pub
+git clone https://github.com/YESlab-UAVtech/OpenLIMS.git /opt/openlims
+cd /opt/openlims
+./deploy/scripts/bootstrap-ubuntu.sh \
+  --domain lab.example.edu.cn \
+  --admin-user teacher --admin-name '系统管理员' --admin-code T-001
 ```
 
-如果 `/root/.ssh/yeslab_deploy` 已存在，不要覆盖或重复执行 `ssh-keygen`，只执行 `cat` 查看现有公钥。复制 `.pub` 输出的完整单行内容，在 GitHub 仓库进入 `Settings → Deploy keys → Add deploy key`，标题可填写 `YES Lab 新服务器`，不要勾选 `Allow write access`。旧服务器的 Deploy Key 可以继续保留。
+Fork 加 `--image-namespace your-lowercase-owner` 并克隆自己的仓库；私有源码用只读 Deploy Key，克隆前将公钥加入目标仓库并核对 GitHub SSH 主机指纹，私钥不提交/不发送。
 
-添加后测试认证：
+脚本支持 `--help`，只允许 Ubuntu 24.04/root，检查参数与 Git 克隆后才施工；安装 Docker、按需创建 2GB swap、生成随机数据库/JWT 密钥、创建数据目录/权限、拉取并启动 MySQL/API/Web、初始化首个管理员和 systemd 备份 timer。已有环境、数据库和账号不覆盖；传入新域名不会重写已有环境，需要自己编辑配置。
 
-```bash
-ssh -i /root/.ssh/yeslab_deploy -o IdentitiesOnly=yes -T git@github.com
-```
-
-第一次连接会询问 GitHub 主机指纹；Ed25519 指纹应为 `SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU`。确认一致后输入 `yes`。看到 `successfully authenticated` 表示 Deploy Key 生效；末尾提示 GitHub 不提供 shell 属于正常现象。
-
-认证成功后再克隆。以下命令故意保持为单行，避免 SSH 终端复制时破坏续行符：
+私有镜像若报 `unauthorized`/`denied`，在执行脚本的同一 Linux 用户下登录，然后原样重跑。登录用户名是有读取权限的账号，不必等于组织名：
 
 ```bash
-GIT_SSH_COMMAND="ssh -i /root/.ssh/yeslab_deploy -o IdentitiesOnly=yes" git clone git@github.com:KaoXiaoYu/YES-Lab.git /opt/yes-lab
-git -C /opt/yes-lab config core.sshCommand "ssh -i /root/.ssh/yeslab_deploy -o IdentitiesOnly=yes"
-test -f /opt/yes-lab/deploy/scripts/bootstrap-ubuntu.sh && echo "仓库克隆成功"
-```
-
-不要使用 GitHub 邮箱和登录密码克隆；GitHub 已停止接受账号密码进行 Git 身份验证。HTTPS 克隆虽然可以使用 PAT，但后续更新仍需单独管理 Git 凭据，生产服务器优先使用只读 Deploy Key。
-
-### 3.2 安装 Docker 并登录私有 GHCR
-
-从仓库目录第一次运行引导脚本：
-
-```bash
-cd /opt/yes-lab
-./deploy/scripts/bootstrap-ubuntu.sh --domain yeslab.tech
-```
-
-引导脚本会安装 Docker、创建 swap 和生产配置。如果私有镜像尚未登录，它会安全停止在 `unauthorized`，不会删除数据库或上传目录，也不需要删除 `/opt/yes-lab`。此时在同一个 `root` 会话中安全输入 classic PAT：
-
-```bash
-read -rsp "请输入具有 read:packages 权限的 GitHub classic PAT: " GHCR_TOKEN
+read -rsp 'GitHub PAT: ' GHCR_TOKEN
 echo
-printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u KaoXiaoYu --password-stdin
+printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin
 unset GHCR_TOKEN
 ```
 
-看到 `Login Succeeded` 后可先验证镜像，再原样重跑脚本：
+PAT 需要 `read:packages` 及组织必要授权；不写在命令文本、配置或日志中。公开镜像无需登录。
+
+首次管理员使用 `InitialAdminBootstrapConfig` 创建教师账号（教师与核心学生均为系统管理员），已有同名账号不会自动提升角色或改密码。随机初始密码在创建前显示于终端，立即保存并登录改密；成功后脚本重建 API，关闭 initial-admin 并移除容器环境中的初始密码。已有同名普通账号会停止并提示换名，内部编号占用也会停止。
+
+生产 profile 始终关闭演示账号/示例项目初始化。首次登录后从主页编辑设置文案/方向/模型/伙伴，在招新管理和成员管理维护实际团队；基金首次单独确认期初。不要把本地演示账号用于公网。
+
+## 4. 已有 Docker 的手动部署
+
+这是不执行 apt/swap/systemd 引导的路径。先确保所选 MySQL 数据目录是新建空目录；既有库升级须先看第 6 节。
 
 ```bash
-docker pull ghcr.io/kaoxiaoyu/yes-lab-api:latest
-docker pull ghcr.io/kaoxiaoyu/yes-lab-web:latest
-cd /opt/yes-lab
-./deploy/scripts/bootstrap-ubuntu.sh --domain yeslab.tech
+cd /opt/openlims
+cp deploy/.env.production.example deploy/.env.production
+chmod 600 deploy/.env.production
+openssl rand -hex 24
+openssl rand -hex 64
 ```
 
-如果服务器原本已经安装 Docker，也可以在第一次运行引导脚本前完成 GHCR 登录。Docker 凭据按服务器和 Linux 用户分别保存；以 `root` 部署时必须以 `root` 登录，不能只在 `ubuntu` 用户下登录。
-
-将示例中的 `yeslab.tech` 换成真实域名时，不要填写 `https://`、端口或路径。默认会创建：
-
-- 登录名：`teacher`
-- 显示名：`汤洪大王`
-- 内部编号：`T-001`
-
-如需修改，可在首次运行时增加参数：
+编辑环境文件：填写域名/CORS、正确镜像、数据库用户名、两个不同数据库密码、至少 32 字节随机 JWT 密钥和数据路径。使用生成值，不能保留 `replace-with-…`。文件会由备份脚本 `source`，用兼容 shell 的 `KEY=value`，空格值必须加引号，禁止命令替换。生产同源代理无需 `VITE_API_BASE_URL`。
 
 ```bash
-./deploy/scripts/bootstrap-ubuntu.sh \
-  --domain yeslab.tech \
-  --admin-user teacher \
-  --admin-name '汤洪大王' \
-  --admin-code T-001
+sudo install -d -m 0750 /srv/openlims/data/mysql /srv/openlims/data/uploads /srv/openlims/backups
+sudo chown -R 999:999 /srv/openlims/data/mysql
+sudo chown -R 10001:10001 /srv/openlims/data/uploads
+docker compose --env-file deploy/.env.production config --quiet
+docker compose --env-file deploy/.env.production pull
+docker compose --env-file deploy/.env.production up -d --wait --wait-timeout 180 mysql
 ```
 
-脚本会自动完成：
+权限对应当前镜像 UID，已有数据目录勿无审查地重设；自定义路径与镜像需相应调整。
 
-- 校验 Ubuntu 24.04 与仓库结构。
-- 从 Docker 官方仓库安装 Docker Engine、Buildx 和 Compose 插件。
-- 在系统没有 swap 时创建 2 GB `/swapfile`。
-- 创建仓库外的数据、上传和备份目录。
-- 在服务器本地生成 MySQL 密码与 64 字节 JWT 密钥，并以 `0600` 权限写入 `deploy/.env.production`。
-- 拉取 GHCR 镜像，依次启动 MySQL、API 和 Web，并等待健康检查。
-- 只创建一个真实教师管理员，不加载 `core`、`member` 等演示账号和演示项目。
-- 验证管理员已经写入数据库，然后立即关闭初始化开关并重建 API，使明文初始密码不留在配置文件或容器环境变量中。
-- 创建每天约 03:30 执行的 systemd 备份定时器，本机备份保留 7 天。
-
-脚本只在 SSH 终端显示管理员初始密码，不会写入服务器配置文件；看到后请立即存入密码管理器。重复运行脚本不会覆盖 `deploy/.env.production`、MySQL、上传文件或已有账号密码。
-
-部署后检查：
+首次管理员使用临时环境创建，不把密码永久写进文件：
 
 ```bash
-cd /opt/yes-lab
-sudo docker compose --env-file deploy/.env.production ps
-curl https://你的域名/actuator/health
-free -h
-df -h
-systemctl list-timers yeslab-backup.timer
-```
-
-健康接口应返回包含 `"status":"UP"` 的 JSON。Caddy 会在域名解析与 80/443 端口可达后自动申请并续期 HTTPS 证书。原理见 [Caddy Automatic HTTPS](https://caddyserver.com/docs/automatic-https)。
-
-### 3.3 首次安装常见报错
-
-| 终端提示                                        | 原因                                                             | 处理方式                                                                                        |
-| ----------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `No such file or directory`、`cd: /opt/yes-lab` | 仓库尚未克隆成功，当前目录中也没有部署脚本                       | 先完成 Deploy Key 绑定并重新克隆，不要继续运行相对路径脚本                                      |
-| `Permission denied (publickey)`                 | 本地密钥存在，但对应公钥没有绑定到该仓库，或绑定的是旧服务器公钥 | 执行 `cat /root/.ssh/yeslab_deploy.pub`，把该完整公钥添加到仓库 Deploy keys，再用 `ssh -T` 测试 |
-| `unauthorized` 或 `denied`                      | 当前 Linux 用户尚未登录私有 GHCR，或 PAT 缺少 `read:packages`    | 以实际运行部署的同一用户执行 `docker login ghcr.io`，再重跑脚本                                 |
-| 其他镜像显示 `Interrupted`                      | Compose 在其中一个镜像失败后取消了其他并行拉取                   | 先解决最先出现的 `Error`，这不代表 MySQL 或其他镜像损坏                                         |
-| `cannot change to '/opt/yes-lab'`               | 前面的 `git clone` 已失败，后续 `git -C` 只是连锁报错            | 不要继续执行后续命令，先修复 Git 认证并确认目录已经生成                                         |
-
-脚本可以安全重跑，并会保留现有 `deploy/.env.production`、MySQL 数据和上传文件。不要通过删除整个 `/opt/yes-lab` 来处理镜像认证错误，因为该目录内的 `.env.production` 不受 Git 管理，删除后会丢失数据库密码和 JWT 密钥。若目录已经误删且要接管已有数据，应先从可信备份或旧服务器恢复原生产配置。
-
-## 从旧服务器迁移正式数据
-
-本节适用于新服务器已经按第 3 节部署完成，需要接管旧服务器正式业务数据的情况。完整迁移包含：
-
-- `yeslab.sql`：账号、报名、成员、项目、比赛、主页配置和刷新会话等 MySQL 数据；
-- `uploads.tar.gz`：头像、证书、比赛图片、项目封面和赞助商 Logo；
-- 可选的 JWT 配置：用于尽量减少切换后的重新登录；
-- 同版本或更新版本的 API/Web 镜像。
-
-不要复制正在运行的 `/srv/yeslab/data/mysql` 目录。现有 `backup.sh` 使用 `mysqldump --single-transaction --quick` 生成逻辑备份，适合跨服务器恢复，也便于校验和回滚。
-
-### A. 新服务器准备接收目录
-
-在新服务器执行：
-
-```bash
-install -d -m 0750 /srv/yeslab/migration
-cd /opt/yes-lab
-docker compose --env-file deploy/.env.production ps
-```
-
-确认新服务器的 MySQL 正常运行。若 `deploy/.env.production` 中的 `YESLAB_DATA_ROOT` 不是 `/srv/yeslab/data`，后续上传目录路径都应改为实际值。
-
-### B. 旧服务器停止写入并生成最终备份
-
-在旧服务器执行：
-
-```bash
-cd /opt/yes-lab
-docker compose --env-file deploy/.env.production stop web api
-./deploy/scripts/backup.sh
-ls -lah /srv/yeslab/backups
-```
-
-先停止 Web/API 是为了避免备份后继续产生新写入。此时不要停止 MySQL，备份脚本需要连接运行中的 MySQL。脚本成功后会输出一个 UTC 时间目录，例如 `/srv/yeslab/backups/20260907T120000Z`。
-
-旧服务器从此应保持 Web/API 停止，直到确认迁移完成或明确决定放弃迁移。若需要缩短停机时间，可提前做一次演练备份；正式切换时仍需停写后再生成一次最终备份。
-
-### C. 传输并校验备份
-
-仍在旧服务器执行，将时间目录和 IP 换成实际值：
-
-```bash
-scp -r /srv/yeslab/backups/20260907T120000Z \
-  root@新服务器IP:/srv/yeslab/migration/
-```
-
-在新服务器执行完整性校验：
-
-```bash
-cd /srv/yeslab/migration/20260907T120000Z
-sed -E 's#  .*/#  #' SHA256SUMS | sha256sum -c -
-```
-
-旧版备份脚本在 `SHA256SUMS` 中记录的是旧服务器绝对路径，直接执行 `sha256sum -c SHA256SUMS` 会在新服务器报文件不存在；上面的命令会只保留文件名后再校验。新版脚本已改用相对路径，该命令同样兼容。`yeslab.sql` 和 `uploads.tar.gz` 都应显示 `OK`。若旧站从未产生上传文件，备份目录可能没有 `uploads.tar.gz`，此时只恢复数据库即可。
-
-### D. 恢复上传目录
-
-在新服务器停止 Web/API，并把新服务器当前的上传目录改名保留：
-
-```bash
-cd /opt/yes-lab
-docker compose --env-file deploy/.env.production stop web api
-./deploy/scripts/backup.sh
-
-if [ -d /srv/yeslab/data/uploads ]; then
-  mv /srv/yeslab/data/uploads \
-    /srv/yeslab/data/uploads.before-migration-$(date -u +%Y%m%dT%H%M%SZ)
-fi
-```
-
-先执行备份脚本会为新服务器当前数据库和上传目录创建一份可恢复快照。然后恢复旧服务器上传文件；若旧站没有上传压缩包，则创建空目录：
-
-```bash
-if [ -f /srv/yeslab/migration/20260907T120000Z/uploads.tar.gz ]; then
-  tar -C /srv/yeslab/data -xzf \
-    /srv/yeslab/migration/20260907T120000Z/uploads.tar.gz
-else
-  install -d -m 0750 /srv/yeslab/data/uploads
-fi
-chown -R 10001:10001 /srv/yeslab/data/uploads
-```
-
-UID/GID `10001:10001` 是当前 API 镜像内 `yeslab` 用户的身份。保留的 `uploads.before-migration-*` 目录可以在验收后再删除。
-
-### E. 覆盖新服务器数据库
-
-以下操作会删除新服务器当前 `yeslab` 数据库中的全部内容。执行前确认 SSH 会话连接的是新服务器，并确认新数据库没有需要保留的数据。MySQL 容器必须保持运行。
-
-```bash
-cd /opt/yes-lab
-
-docker compose --env-file deploy/.env.production exec -T mysql sh -c \
-  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --user=root -e "DROP DATABASE IF EXISTS yeslab; CREATE DATABASE yeslab CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"'
-
-docker compose --env-file deploy/.env.production exec -T mysql sh -c \
-  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --user=root yeslab' \
-  < /srv/yeslab/migration/20260907T120000Z/yeslab.sql
-```
-
-恢复使用新服务器现有的 `deploy/.env.production` 和其中的 MySQL 密码。数据库备份只包含 `yeslab` 业务库，不会覆盖新服务器 MySQL 的系统账号。不要在新服务器 MySQL 已初始化后直接用旧服务器的整份 `.env.production` 覆盖当前文件，否则旧密码可能与新 MySQL 数据目录中已经创建的账号密码不一致。
-
-如果希望尽量维持原有登录状态，可以在首次接收正式流量前，将旧服务器的 `YESLAB_JWT_SECRET` 和 `YESLAB_JWT_ISSUER` 安全地写入新服务器环境文件，但不要连同旧数据库密码一起覆盖。JWT 密钥属于秘密，不能粘贴到聊天、Git、工单或公开存储；更换密钥不会破坏账号数据，但现有用户可能需要重新登录。
-
-### F. 启动 API、运行迁移并验收
-
-```bash
-cd /opt/yes-lab
-docker compose --env-file deploy/.env.production up -d --wait --wait-timeout 240 mysql api
-docker compose --env-file deploy/.env.production logs --tail 120 api
-docker compose --env-file deploy/.env.production exec -T api \
-  curl --fail http://127.0.0.1:8080/actuator/health
-```
-
-API 启动时会由 Flyway 自动执行旧数据库尚未应用的增量迁移。健康检查通过后，再启动 Web：
-
-```bash
-docker compose --env-file deploy/.env.production up -d web
-docker compose --env-file deploy/.env.production ps
-```
-
-正式切换前至少人工检查：
-
-1. 旧服务器中已有的教师、成员和游客账号可以登录；
-2. 成员主页、头像、项目封面、比赛证书与图集可以读取；
-3. 主页配置和赞助商图片、文字正确；
-4. 管理后台能读取报名、项目和比赛记录；
-5. 新上传一张临时图片后可以读取，确认上传目录权限正确。
-
-#### 迁移后登录返回 401
-
-如果首页和健康检查正常，但提交登录后返回 `401` 与“账号或密码错误”，先在新服务器只读检查迁移后的账号：
-
-```bash
-cd /opt/yes-lab
-docker compose --env-file deploy/.env.production exec -T mysql sh -c \
-  'MYSQL_PWD="$MYSQL_PASSWORD" mysql --table --user="$MYSQL_USER" "$MYSQL_DATABASE" -e "SELECT username, role, enabled + 0 AS enabled, CHAR_LENGTH(password_hash) AS hash_length FROM accounts ORDER BY role, username;"'
-```
-
-BCrypt 密码哈希正常长度为 60。按结果处理：
-
-- 旧账号存在、`enabled=1`、`hash_length=60`：数据库和密码哈希已经迁移；使用该账号在旧服务器上的原密码。恢复旧数据库会覆盖新服务器首次部署时创建的同名管理员记录，因此新服务器首次部署时显示的随机密码可能不再有效。
-- 账号不存在：确认导入的是旧服务器最终备份，并检查导入命令是否成功；不要在错误数据库中反复尝试密码。
-- `enabled=0`：该账号已被停用，需要由另一名教师或核心学生管理员在成员管理中启用。
-- 哈希长度不是 60：停止登录尝试，检查 SQL 备份和导入过程，不要直接把明文密码写入数据库。
-
-`POST /api/v1/auth/login` 本身允许匿名访问，因此正确到达该接口后出现上述 JSON 401 通常不是 DNS、Caddy、CORS 或 JWT 密钥导致。更换 JWT 密钥会使旧访问令牌失效，但不会改变数据库中账号密码；用户使用正确账号密码重新登录后会获得新令牌。
-
-账号状态正常时，在新服务器通过隐藏输入直接测试容器内登录接口，避免把密码写入命令历史或输出：
-
-```bash
-cd /opt/yes-lab
-read -r -p "登录账号: " AUTH_USER
-read -r -s -p "登录密码: " AUTH_PASS
+read -rsp '首个管理员密码（16—72 位）: ' INITIAL_PASSWORD
 echo
-AUTH_USER="$AUTH_USER" AUTH_PASS="$AUTH_PASS" \
-python3 -c 'import json,os; print(json.dumps({"username":os.environ["AUTH_USER"],"password":os.environ["AUTH_PASS"],"rememberMe":False}))' |
-docker compose --env-file deploy/.env.production exec -T api \
-  curl -sS -o /dev/null -w 'HTTP %{http_code}\n' \
-  -H 'Content-Type: application/json' \
-  --data-binary @- http://127.0.0.1:8080/api/v1/auth/login
-unset AUTH_USER AUTH_PASS
+OPENLIMS_INITIAL_ADMIN_ENABLED=true \
+OPENLIMS_INITIAL_ADMIN_USERNAME=teacher \
+OPENLIMS_INITIAL_ADMIN_PASSWORD="$INITIAL_PASSWORD" \
+OPENLIMS_INITIAL_ADMIN_DISPLAY_NAME='系统管理员' \
+OPENLIMS_INITIAL_ADMIN_MEMBER_CODE=T-001 \
+  docker compose --env-file deploy/.env.production up -d --wait --wait-timeout 240 api
+unset INITIAL_PASSWORD
+docker compose --env-file deploy/.env.production up -d --force-recreate --wait --wait-timeout 240 api
+docker compose --env-file deploy/.env.production up -d --wait --wait-timeout 120 web
 ```
 
-- 返回 `HTTP 200`：账号密码在后端有效，清除浏览器中 `yeslab.tech` 的 Cookie/站点数据并硬刷新后重试。
-- 返回 `HTTP 401`：输入密码与当前数据库哈希不匹配。分别在旧、新服务器运行下面的只读指纹查询；两边结果相同表示密码数据确实相同，旧浏览器可能只是依靠已有刷新会话保持登录，并未重新验证当前输入的密码；结果不同则应检查是否导入了错误或过早的备份。
+检查 API 日志、登录及角色，登录成功再改密。API 初次启动自动跑 Flyway、随后 Hibernate 校验结构。首次空库与已有结构基线不可混为一谈：prod 现有 `baseline-on-migrate` 仅跳过 V1 基线，不能推断任意手工旧库都能安全升级。
+
+本路径不自动安装备份 timer：安排受控定时器执行 `backup.sh` 并监控失败，或在准备好引导前提后使用引导脚本补配置。业务环境变量见应用两个 YAML 文件；修改它们后要 `up -d` 重建容器，`restart` 不会应用新环境。
+
+## 5. 服务管理与上线验收
 
 ```bash
-cd /opt/yes-lab
-docker compose --env-file deploy/.env.production exec -T mysql sh -c \
-  'MYSQL_PWD="$MYSQL_PASSWORD" mysql --batch --skip-column-names --user="$MYSQL_USER" "$MYSQL_DATABASE" -e "SELECT SHA2(GROUP_CONCAT(SHA2(CONCAT(username, password_hash), 256) ORDER BY username), 256) FROM accounts;"'
-```
-
-该命令只输出整张账号凭据表的一个校验指纹，不输出密码或单个密码哈希。如果旧密码无法确认且系统内没有其他可登录管理员，先运行 `backup.sh`，再通过应用内置的生产管理员初始化器创建一个恢复管理员；它使用 Spring Security 生成 BCrypt 哈希，不修改已有账号，也不拉取或升级镜像：
-
-```bash
-cd /opt/yes-lab
-./deploy/scripts/backup.sh
-
-RECOVERY_PASSWORD="$(openssl rand -base64 24 | tr -d '\n')"
-RECOVERY_CODE="T-RECOVERY-$(date +%s)"
-printf '恢复管理员账号：recovery-admin\n恢复管理员密码：%s\n' "$RECOVERY_PASSWORD"
-
-YESLAB_INITIAL_ADMIN_ENABLED=true \
-YESLAB_INITIAL_ADMIN_USERNAME=recovery-admin \
-YESLAB_INITIAL_ADMIN_PASSWORD="$RECOVERY_PASSWORD" \
-YESLAB_INITIAL_ADMIN_DISPLAY_NAME='迁移恢复管理员' \
-YESLAB_INITIAL_ADMIN_MEMBER_CODE="$RECOVERY_CODE" \
-docker compose --env-file deploy/.env.production \
-  up -d --force-recreate --wait --wait-timeout 240 api
-
-docker compose --env-file deploy/.env.production exec -T mysql sh -c \
-  'MYSQL_PWD="$MYSQL_PASSWORD" mysql --table --user="$MYSQL_USER" "$MYSQL_DATABASE" -e "SELECT username, role, enabled + 0 AS enabled FROM accounts WHERE username = '\''recovery-admin'\'';"'
-
-docker compose --env-file deploy/.env.production \
-  up -d --force-recreate --wait --wait-timeout 240 api
-unset RECOVERY_PASSWORD RECOVERY_CODE
-```
-
-先保存终端显示的随机密码。第一次重建 API 会创建 `recovery-admin`，查询结果应显示角色 `TEACHER` 且 `enabled=1`；第二次重建 API 会恢复环境文件中默认关闭的初始化状态，避免初始化密码继续保留在容器环境中。随后使用恢复管理员登录并检查业务数据。不要直接在 MySQL 中写入明文密码或手工拼接 BCrypt 哈希。
-
-确认后再把域名 A/AAAA 记录切到新服务器，并从公网执行：
-
-```bash
-curl --fail https://yeslab.tech/actuator/health
-```
-
-旧服务器应至少保留数天，但 Web/API 继续保持停止。新服务器开始接收写入后，不能只把 DNS 指回旧服务器；如果必须回滚，需要先停止新服务器写入并把新服务器最新数据库和上传文件迁回，否则切换后产生的数据会丢失。
-
-更新
-cd /opt/yes-lab
-./deploy/scripts/deploy.sh
-
-### G. 腾讯云域名指向其他厂商服务器
-
-域名注册在腾讯云并不要求网站也运行在腾讯云。若 `yeslab.tech` 当前使用腾讯云云解析 DNS，在腾讯云控制台进入“云解析 DNS → 权威解析 → yeslab.tech → 记录管理”，修改或添加以下记录：
-
-| 主机记录 | 记录类型 | 线路类型 | 记录值            | TTL   |
-| -------- | -------- | -------- | ----------------- | ----- |
-| `@`      | `A`      | 默认     | 新服务器公网 IPv4 | `600` |
-| `www`    | `CNAME`  | 默认     | `yeslab.tech`     | `600` |
-
-`@` 代表根域名 `yeslab.tech`。记录值必须填写公网 IP，不能填写 `10.x`、`172.16—31.x` 或 `192.168.x` 等内网地址，也不要填写 `http://`、`https://`、端口或路径。若不需要 `www.yeslab.tech`，第二条可以不添加。
-
-处理已有记录时：
-
-- 将旧的 `@` A 记录改为新公网 IPv4，或者先禁用旧记录再添加新记录；不要同时保留新旧两个默认线路 A 记录，否则 DNS 会把访问随机分配到两台服务器。
-- 新服务器没有公网 IPv6 时，删除或暂停旧的 `@` AAAA 记录，否则部分支持 IPv6 的访客仍会连接旧服务器。
-- MX、TXT、域名验证和邮箱相关记录与网站服务器迁移无关，不要删除。
-- 如果控制台提示“未使用云解析 DNS 地址”，需要按控制台给出的 NS 地址修改域名的 DNS 服务器；腾讯云注册且一直使用腾讯云解析的域名通常不需要此步骤。
-
-解析修改后，可在任意 Linux/macOS 终端验证：
-
-```bash
-dig +short yeslab.tech A @1.1.1.1
-dig +short yeslab.tech AAAA @1.1.1.1
-dig +short www.yeslab.tech @1.1.1.1
-curl --resolve yeslab.tech:443:新服务器公网IPv4 \
-  --fail --head https://yeslab.tech
-```
-
-第一条应返回新服务器 IPv4；新服务器没有 IPv6 时，第二条应无输出。`curl --resolve` 可在等待 DNS 生效期间直接验证新服务器的 HTTPS 配置。新服务器安全组及系统防火墙必须允许 TCP 80、443；Caddy 首次签发证书时域名也必须已经指向新服务器且公网能够访问这两个端口。
-
-备案遵循实际服务器接入商：
-
-- 新服务器位于中国大陆时，应在新服务器所属云厂商办理首次备案或接入备案。域名可以继续留在腾讯云，不需要转移注册商。
-- 新服务器位于中国香港或其他境外地区时，一般不通过腾讯云办理中国大陆服务器接入备案；仍需遵守服务器所在地及业务适用规定。
-
-腾讯云操作入口和字段说明见 [快速添加域名解析](https://cloud.tencent.com/document/product/302/3446/)；腾讯云也明确说明，其注册域名可以解析到其他厂商服务器，并应在实际服务器接入商办理备案，见 [云解析 DNS 常见问题](https://cloud.tencent.com/document/product/302/12070) 和 [备案常见问题](https://cloud.tencent.com/document/product/243/19631)。
-
-## 4. 数据安全与数据库接管
-
-生产数据不会存入 Git：
-
-- MySQL：`/srv/yeslab/data/mysql`
-- 证书、比赛图片、项目主图、成员头像、赞助商 Logo 和首页 GLB 模型：`/srv/yeslab/data/uploads`
-- 本机备份：`/srv/yeslab/backups`
-- HTTPS 证书：Docker 命名卷 `caddy_data`
-
-禁止执行 `docker compose down -v`，也不要删除 `/srv/yeslab/data`。
-
-Flyway 的行为分两种：
-
-- 空 MySQL 数据库：执行 V1 创建基础表结构，再依次执行后续增量迁移直至当前 V7.1.2。
-- 已有、尚未被 Flyway 管理的 MySQL 数据库：将现有结构登记为 V1，再依次执行尚未应用的 V2—V7.1.2；Hibernate 随后只做结构校验，不自动改表。
-
-如果已有数据库结构与当前实体不匹配，API 会停止启动并保留原数据，需先分析差异再编写新迁移。不要临时改回 `ddl-auto=update`。Flyway 基线机制说明见 [Baseline migrations](https://documentation.red-gate.com/flyway/flyway-concepts/migrations/baseline-migrations)。
-
-当前方案假定正式业务数据已经在 MySQL 或将从空 MySQL 开始；本地 `backend/data/yeslab.mv.db` 不会自动导入 MySQL。如需把本地 H2 演示数据迁入生产库，应单独做一次经过校验的数据转换，不能直接复制数据库文件。
-
-## 5. 日常发布
-
-生产发布以 GitHub Actions 构建的不可变提交 SHA 镜像为准。`latest` 适合首次验证，不建议作为可审计的长期生产版本。
-
-如果部署的是 Fork，需要先把工作流中的 GHCR 镜像命名空间、`deploy/.env.production` 中的 `YESLAB_API_IMAGE` 与 `YESLAB_WEB_IMAGE`，以及 GHCR 登录用户名改为 Fork 所有者。GHCR 路径必须使用小写；Fork 的 `GITHUB_TOKEN` 不能向原仓库所有者的命名空间发布镜像。
-
-### 5.1 开发机发布代码
-
-在开发机完成修改后，先执行：
-
-```bash
-npm ci
-npm run check
-cd backend
-./mvnw test
-```
-
-检查通过后提交并推送 `main`，等待 GitHub Actions 的 **Test and publish images** 工作流全部成功。工作流会同时发布：
-
-- `ghcr.io/kaoxiaoyu/yes-lab-web:latest`
-- `ghcr.io/kaoxiaoyu/yes-lab-web:<完整提交SHA>`
-- `ghcr.io/kaoxiaoyu/yes-lab-api:latest`
-- `ghcr.io/kaoxiaoyu/yes-lab-api:<完整提交SHA>`
-
-不要在 Actions 尚未成功时更新服务器，否则目标 SHA 镜像可能不存在或只发布了其中一个服务。
-
-### 5.2 服务器在线更新
-
-从 GitHub 提交页面复制本次完整的 40 位 SHA，然后登录服务器：
-
-```bash
-cd /opt/yes-lab
-nano deploy/.env.production
-```
-
-将环境文件中的镜像标签修改为本次 SHA：
-
-```dotenv
-YESLAB_IMAGE_TAG=0123456789abcdef0123456789abcdef01234567
-```
-
-环境文件不受 Git 管理，更新代码不会覆盖它。保存后执行：
-
-```bash
-./deploy/scripts/deploy.sh
-```
-
-发布脚本会按以下顺序执行：
-
-1. 检查服务器仓库没有未提交修改。
-2. 在拉取代码前备份 MySQL 和上传文件。
-3. 仅允许 `git merge --ff-only`，避免服务器产生合并提交。
-4. 拉取指定镜像，先启动 MySQL，再启动并健康检查 API。
-5. API 通过检查后才更新 Web。
-
-发布完成后立即验证：
-
-```bash
+cd /opt/openlims
 docker compose --env-file deploy/.env.production ps
 docker compose --env-file deploy/.env.production logs --tail 120 api
-curl --fail https://你的域名/actuator/health
+docker compose --env-file deploy/.env.production logs --tail 120 web
+curl --fail https://lab.example.edu.cn/actuator/health
 ```
 
-然后人工检查首页、登录、成员头像、项目封面、竞赛图片和至少一个管理员页面。容器为 `running` 只表示进程存在，不能替代业务验收。
+人工检查首页/页脚、注册登录/注销、真实成员与后台权限、头像/项目图/报名附件/证书/模型、任务提交/审核、榜单和基金；普通成员应拒绝管理 API，报名原图应拒绝无关账号。检查所有角色的消息与日程入口。容器 running 不代表服务通过业务验收。
 
-### 5.3 日常启动、停止和日志
+暂停保留数据用 `docker compose --env-file deploy/.env.production stop`；恢复用 `up -d --wait --wait-timeout 240`。单独 `restart api` 只重启当前容器。禁止 `docker compose down -v`，禁止删除 `/srv/openlims/data`。
 
-```bash
-cd /opt/yes-lab
+## 6. 升级与迁移约束
 
-# 启动全部服务并等待健康检查
-docker compose --env-file deploy/.env.production up -d --wait --wait-timeout 240
+1. 开发机检查通过，提交/推送并确认 SHA 镜像已发布；生产不现场试写业务代码。
+2. 先备份数据库/上传/环境密钥，并在隔离 MySQL 8.4 恢复演练，核对已有 `flyway_schema_history` 与已部署提交原 SQL。
+3. 生产代码目录保持无未提交修改；环境文件的 `OPENLIMS_IMAGE_TAG` 填计划发布的完整提交 SHA，镜像路径与 Fork 一致。
+4. 执行 `./deploy/scripts/deploy.sh`：已有 MySQL 运行则先备份，已有数据但数据库停机则安全停止；fetch/快进 `main`、校验配置、pull 镜像，依次等待 MySQL/API 健康后更新 Web。
+5. 完成第 5 节验收，再记录实际版本/备份路径和上线结果。
 
-# 查看状态
-docker compose --env-file deploy/.env.production ps
+环境 SHA 与更新后的 `main` 源码应对应同一构建；发布旧版本回滚用第 8 节，不用升级脚本。升级脚本的在线备份不冻结文件上传，重要升级建议先暂停 Web/API，按第 7 节取得完整一致恢复点再继续。升级失败时旧 Web 仍可能遇到不可用 API，需及时按日志处理或回滚，不能承诺零停机。
 
-# 持续查看日志，Ctrl+C 仅退出日志
-docker compose --env-file deploy/.env.production logs --tail 200 -f api
-docker compose --env-file deploy/.env.production logs --tail 200 -f web
+**历史迁移保护：** 上传前已取回官方 Git 历史，恢复上轮品牌更名改动的 V20 原件，V1—V22 等全部迁移与远端基线逐字节一致。内部旧变量名作为兼容性例外保留。部署既有库前仍须核对实际已部署提交，并对 `flyway_schema_history` 的 version/script/checksum 逐项核对；不同即停，不执行 `repair`、不手改历史 checksum、不改 `ddl-auto=update` 绕过。新结构通过更高版本的独立幂等迁移，保留审计历史。
 
-# 停止但不删除数据
-docker compose --env-file deploy/.env.production stop
+所有迁移只写 MySQL 语法，H2 测试关闭 Flyway。预生产必须覆盖完整空库启动、旧数据升级、缺字段补缺与实体校验；任务 V11—V16、积分 V20、基金 V21、比赛 V22 等按各自需求/设计验收，特别是悬赏并发接取、积分幂等、基金重复初始化/并发支出/双撤销。MySQL 9.5 历史演练不能代替 MySQL 8.4。
 
-# 重启单个服务
-docker compose --env-file deploy/.env.production restart api
-```
-
-三个服务均使用 `restart: unless-stopped`。系统或 Docker 正常重启后容器会自动恢复；如果管理员此前手工停止了容器，应再次执行 `up -d`。禁止执行 `docker compose down -v`。
-
-`docker compose restart` 只重启已有容器，不会拉取新镜像，也不会应用新环境变量。代码发布必须使用第 5.2 节的版本标签和发布脚本；环境变量改变后使用 `up -d --force-recreate <服务名>` 重建对应服务。
-
-### 5.4 回滚到上一应用版本
-
-迁移必须保持向前兼容，因此若新 API 启动失败，可将 `YESLAB_IMAGE_TAG` 改回上一提交 SHA 并再次执行 `docker compose ... up -d`。数据库不自动降级；需要回退数据库时必须先停机并从已验证备份恢复。
+## 7. 备份、校验与隔离恢复演练
 
 ```bash
-cd /opt/yes-lab
-nano deploy/.env.production
-# YESLAB_IMAGE_TAG 改回上一份已验证的完整提交 SHA
-
-docker compose --env-file deploy/.env.production pull api web
-docker compose --env-file deploy/.env.production up -d --wait --wait-timeout 240
-docker compose --env-file deploy/.env.production ps
-```
-
-回滚后重新检查健康接口和核心业务。若失败原因来自不兼容的数据迁移，不要修改 Flyway 历史、删除迁移记录或把生产 `ddl-auto` 改为 `update`；先停止 Web/API，再按第 6 节从经过校验的备份恢复。
-
-面试预约、站内消息和讨论板随 `V7__interviews_notifications_discussions.sql` 发布。该迁移只新建独立业务表及其外键/索引，不修改、删除或重建已有账号、报名、成员、项目、比赛和主页表。部署脚本会在迁移前完成 MySQL 与上传目录备份；不要手工创建这些表，也不要修改已经执行过的 V1—V7 迁移。若新 API 健康检查失败，保持 Web 旧版本运行并按上一段回退镜像；数据库表可暂时保留，不影响旧版本读取既有表。
-
-讨论内容连续编号随 `V7_1__discussion_content_numbers.sql` 发布，Flyway 中版本显示为 `7.1`。该迁移只新增编号映射表，并按创建时间为已有帖子和回复回填全局递增编号；不修改 V7 已建表，也不回收删除内容留下的编号。公告和置顶状态另由 `V7_1_1__discussion_announcements_and_pins.sql` 发布，Flyway 版本为 `7.1.1`，仅以增量列为 `discussion_posts` 增加 `announcement`、`pinned`、`pinned_at`，既有主题默认是普通、未置顶内容。梅琳娜展示范围由 `V7_1_2__melina_visibility.sql` 发布，Flyway 版本为 `7.1.2`，只新增角色默认值和账号覆盖表。部署时继续先备份再启动 API 自动迁移；禁止修改任何已经执行的迁移及其校验和。
-
-## 6. 备份、验证与恢复原则
-
-手动备份：
-
-```bash
+cd /opt/openlims
 ./deploy/scripts/backup.sh
+systemctl status openlims-backup.timer
+journalctl -u openlims-backup.service --since today
 ```
 
-脚本使用 `mysqldump --single-transaction --quick` 生成一致性 SQL 备份，同时打包上传目录、生成 SHA-256 校验文件，并按配置保留最近 7 天。相关选项见 [MySQL 8.4 mysqldump](https://dev.mysql.com/doc/refman/8.4/en/mysqldump.html)。
+引导安装的 timer 每天约 03:30（按服务器时区，另有随机延迟）执行，失败要监控。脚本生成 `openlims.sql`、存在上传目录时的 `uploads.tar.gz`、`SHA256SUMS`，按 UTC 时间加随机后缀命名并清理超过配置天数的完整备份；备份目录和数据目录不能重合/互相嵌套（会解析实际目录，包含符号链接）。失败产物留在 `.incomplete-*`，不得作为有效恢复点，清理不处理这些目录或其他无清单目录。使用 [mysqldump 官方选项](https://dev.mysql.com/doc/refman/8.4/en/mysqldump.html)的事务内 SQL 快照，但 SQL 与上传包不是跨资源原子快照。
 
-查看自动备份状态：
+得到一致恢复点：安排维护窗口，停 Web/API（MySQL 保持运行），执行 backup，确认成功后 `up -d --wait` 恢复。停写失败/备份失败也应按实际情况恢复原服务；不要在仍有文件替换/清理时声称快照完整。保留备份到异地并加密，文件包含个人信息。环境密钥和 Caddy 证书卷不在 `backup.sh` 输出中，应单独安全备份。
+
+恢复应先演练到新的数据目录，禁止直接清空现网。以下示例在隔离机器、仓库路径 `/opt/openlims` 执行，先把备份和安全保存的生产环境复制到该机器：
 
 ```bash
-systemctl status yeslab-backup.timer
-journalctl -u yeslab-backup.service --since today
-ls -lah /srv/yeslab/backups
+cd /path/to/backup
+sha256sum -c SHA256SUMS
+cd /opt/openlims
+cp deploy/.env.production deploy/.env.restore
+chmod 600 deploy/.env.restore
 ```
 
-至少每月在另一台机器或临时数据库中进行一次恢复演练。服务器本地备份不能替代异地备份；建议再将备份目录同步到学校存储、私有对象存储或另一台受控主机。
+编辑 `.env.restore` 为新路径 `/srv/openlims/restore-test/data`、新域名、准确的备份版本镜像与匹配数据库/JWT 配置；保持初始管理员关闭。隔离机器没有现网服务/端口冲突，Compose 项目仍用同名 openlims，新路径必须从空目录开始。
 
-恢复属于覆盖性操作，不放入自动部署脚本。实际恢复前应先：
+```bash
+sudo install -d -m 0750 /srv/openlims/restore-test/data/mysql /srv/openlims/restore-test/data/uploads
+sudo chown -R 999:999 /srv/openlims/restore-test/data/mysql
+sudo chown -R 10001:10001 /srv/openlims/restore-test/data/uploads
+docker compose --env-file deploy/.env.restore up -d --wait --wait-timeout 180 mysql
+docker compose --env-file deploy/.env.restore exec -T mysql sh -c \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql --user=root openlims' < /path/to/backup/openlims.sql
+sudo tar -xzf /path/to/backup/uploads.tar.gz -C /srv/openlims/restore-test/data
+sudo chown -R 10001:10001 /srv/openlims/restore-test/data/uploads
+docker compose --env-file deploy/.env.restore up -d --wait --wait-timeout 240 api web
+```
 
-1. 停止 `web` 和 `api`，保留当前数据目录副本。
-2. 校验备份目录中的 `SHA256SUMS`。
-3. 在临时数据库恢复并验证账号、成员、项目、比赛和主页数据。
-4. 获得明确确认后，才恢复正式 MySQL 和上传目录。
+若备份没有上传包，跳过 tar 并验证确实无附件。检查 Flyway、业务条数/基金余额/积分账本、管理员登录、私有附件及旧通知链接；原密钥不同会导致旧 JWT 失效，但账号密码仍保留。恢复演练成功后才决定正式切换，正式恢复也先停止写入并保存当前恢复点。恢复不会自动退还/冲正外部线下已发奖金。
 
-## 7. JWT 登录方案
+临时本机 MySQL 必须经 `scripts/temp-mysql.sh init/start/status/stop`，带 TTL/有界日志，退出必须 stop，不跨会话留实例。不要手工后台起 mysqld。
 
-- 访问 JWT：HS256，密钥只由服务器环境变量提供，有效期 15 分钟，校验签发者、签名与过期时间。
-- 刷新令牌：48 字节随机值，只以 SHA-256 摘要存入 MySQL；浏览器仅通过 `HttpOnly + Secure + SameSite=Lax` Cookie 持有原值。
-- 每次刷新都会轮换刷新令牌，旧令牌立即失效；退出登录会吊销当前刷新令牌并清除 Cookie。
-- 未勾选“记住我”：刷新 Cookie 为浏览器会话 Cookie，最长 12 小时，关闭浏览器后不会持久保存。
-- 勾选“记住我”：Cookie 与服务端刷新会话均为 30 天。
-- 访问 JWT 只保存在前端内存中，不写入 Local Storage 或 Session Storage。
+## 8. 应用回滚与排错
 
-生产环境必须通过 HTTPS 使用登录功能。JWT 密钥轮换会使已有访问令牌失效；如需无感轮换，应在后续加入带 `kid` 的双密钥过渡机制。
+将 `OPENLIMS_IMAGE_TAG` 改为上次成功 SHA，`pull api web` 后 `up -d --wait --wait-timeout 240`。镜像回滚不撤销 Flyway；新结构不兼容旧代码时只能前向修复或按已演练备份恢复。不要删除迁移记录。
+
+| 现象                                               | 排查与处理                                                                           |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 本地 `UnsupportedClassVersionError`/编译 target 错 | 确认当前终端 JDK 21，检查 `JAVA_HOME`/PATH，不能只看 IDE 设置                        |
+| 本地 API 502/连接失败                              | 检查后端 8080 健康、Vite 代理、当前端口，确认不是旧实例/Java 8                       |
+| `Permission denied` 执行 mvnw                      | Unix 克隆应保留可执行位；压缩包可 `chmod +x backend/mvnw`，Windows 用 cmd            |
+| Maven 缺依赖/下载失败                              | 第一次需要 Maven Central 网络，检查代理/证书；不要以关闭 TLS 校验长期解决            |
+| GHCR denied/找不到 SHA                             | 确认 Actions 成功、所有者小写、tag 存在、当前 Linux 用户已 login、有 package 权限    |
+| API unhealthy/Flyway mismatch                      | 查 API 日志及原 SQL/历史；有差异停止部署，不能直接 repair                            |
+| 上传权限拒绝/图片打不开                            | 查看 uploads bind mount、UID 10001、对应子目录、文件确实被备份；私有图片还需正确身份 |
+| HTTPS 无法访问                                     | 核对 DNS A/AAAA、80/443、安全组和 Caddy 日志，不发布 8080 代替 HTTPS                 |
+| 改环境/外观不生效                                  | 环境需重建容器；外观和品牌需重建两镜像，固定 SHA 避免缓存旧版本                      |
+| 积分未立即增加                                     | 任务为到期定时结算（默认每小时第 5 分钟），检查状态/截止/结算开关与日志              |
+| 备份失败/磁盘增长                                  | 查 timer 日志、权限、留存和 `df -h`；占用对不上先 `lsof +L1` 查已删除但仍占用文件    |
+
+容器日志限制为 10MB × 3/服务，不使用无限追加后台日志。任何上线记录应区分已运行验证、静态检查与待生产实机验证。

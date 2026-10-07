@@ -6,8 +6,9 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ENV_FILE="$PROJECT_ROOT/deploy/.env.production"
 SITE_ADDRESS=""
 ADMIN_USERNAME="teacher"
-ADMIN_DISPLAY_NAME="汤洪大王"
+ADMIN_DISPLAY_NAME="系统管理员"
 ADMIN_MEMBER_CODE="T-001"
+IMAGE_NAMESPACE="yeslab-uavtech"
 
 usage() {
   cat <<'EOF'
@@ -17,8 +18,9 @@ usage() {
 选项：
   --domain DOMAIN        正式域名，不含 http:// 或路径（必填）
   --admin-user USER      首个管理员登录名，默认 teacher
-  --admin-name NAME      首个管理员显示名，默认 汤洪大王
+  --admin-name NAME      首个管理员显示名，默认 系统管理员
   --admin-code CODE      首个管理员内部编号，默认 T-001
+  --image-namespace NAME GHCR 命名空间，默认 yeslab-uavtech；Fork 填自己的小写组织/用户名
   --help                 显示帮助
 
 脚本只支持 Ubuntu 24.04 LTS。重复执行不会覆盖生产环境配置、数据库或上传文件。
@@ -59,6 +61,11 @@ while [[ $# -gt 0 ]]; do
       ADMIN_MEMBER_CODE="$2"
       shift 2
       ;;
+    --image-namespace)
+      [[ $# -ge 2 ]] || fail "--image-namespace 缺少值"
+      IMAGE_NAMESPACE="$2"
+      shift 2
+      ;;
     --help|-h)
       usage
       exit 0
@@ -77,7 +84,7 @@ source /etc/os-release
   || fail "此脚本仅支持 Ubuntu 24.04 LTS，当前为 ${PRETTY_NAME:-未知系统}"
 [[ "$PROJECT_ROOT" != *[[:space:]]* ]] || fail "服务器项目路径不能包含空格：$PROJECT_ROOT"
 [[ -d "$PROJECT_ROOT/.git" && -f "$PROJECT_ROOT/compose.yaml" ]] \
-  || fail "请先将 YES-Lab 仓库克隆到服务器，再从仓库内运行脚本"
+  || fail "请先将 OpenLIMS 仓库克隆到服务器，再从仓库内运行脚本"
 
 if [[ -z "$SITE_ADDRESS" && ! -f "$ENV_FILE" && -t 0 ]]; then
   read -r -p "请输入已解析到本服务器的域名（不含 https://）：" SITE_ADDRESS
@@ -95,6 +102,7 @@ fi
   || fail "管理员内部编号仅允许字母、数字、点、下划线和连字符"
 
 export DEBIAN_FRONTEND=noninteractive
+[[ "$IMAGE_NAMESPACE" =~ ^[a-z0-9][a-z0-9-]*$ ]] || fail "镜像命名空间必须为小写 GitHub 用户/组织名"
 apt-get update
 apt-get install -y ca-certificates curl git openssl
 
@@ -134,7 +142,7 @@ if [[ -z "$(swapon --show=NAME --noheadings)" ]]; then
   swapon /swapfile
   grep -qF '/swapfile none swap sw 0 0' /etc/fstab \
     || echo '/swapfile none swap sw 0 0' >> /etc/fstab
-  cat > /etc/sysctl.d/90-yeslab-memory.conf <<'EOF'
+  cat > /etc/sysctl.d/90-openlims-memory.conf <<'EOF'
 vm.swappiness=10
 EOF
   sysctl --system >/dev/null
@@ -149,19 +157,19 @@ if [[ ! -f "$ENV_FILE" ]]; then
   mysql_root_password="$(openssl rand -hex 24)"
   jwt_secret="$(openssl rand -hex 64)"
   cat > "$ENV_FILE" <<EOF
-YESLAB_SITE_ADDRESS=$SITE_ADDRESS
-YESLAB_CORS_ALLOWED_ORIGINS=https://$SITE_ADDRESS
-YESLAB_IMAGE_TAG=latest
-YESLAB_API_IMAGE=ghcr.io/kaoxiaoyu/yes-lab-api
-YESLAB_WEB_IMAGE=ghcr.io/kaoxiaoyu/yes-lab-web
-YESLAB_DATA_ROOT=/srv/yeslab/data
-YESLAB_DATABASE_USERNAME=yeslab
-YESLAB_DATABASE_PASSWORD=$database_password
-YESLAB_MYSQL_ROOT_PASSWORD=$mysql_root_password
-YESLAB_JWT_SECRET=$jwt_secret
-YESLAB_JWT_ISSUER=yes-lab-api
-YESLAB_BACKUP_ROOT=/srv/yeslab/backups
-YESLAB_BACKUP_RETENTION_DAYS=7
+OPENLIMS_SITE_ADDRESS=$SITE_ADDRESS
+OPENLIMS_CORS_ALLOWED_ORIGINS=https://$SITE_ADDRESS
+OPENLIMS_IMAGE_TAG=latest
+OPENLIMS_API_IMAGE=ghcr.io/$IMAGE_NAMESPACE/openlims-api
+OPENLIMS_WEB_IMAGE=ghcr.io/$IMAGE_NAMESPACE/openlims-web
+OPENLIMS_DATA_ROOT=/srv/openlims/data
+OPENLIMS_DATABASE_USERNAME=openlims
+OPENLIMS_DATABASE_PASSWORD=$database_password
+OPENLIMS_MYSQL_ROOT_PASSWORD=$mysql_root_password
+OPENLIMS_JWT_SECRET=$jwt_secret
+OPENLIMS_JWT_ISSUER=openlims-api
+OPENLIMS_BACKUP_ROOT=/srv/openlims/backups
+OPENLIMS_BACKUP_RETENTION_DAYS=7
 EOF
   chmod 600 "$ENV_FILE"
   echo "已生成仅服务器保存的生产配置：$ENV_FILE"
@@ -169,12 +177,12 @@ else
   echo "检测到已有生产配置，保持不变：$ENV_FILE"
 fi
 
-data_root="$(awk -F= '$1 == "YESLAB_DATA_ROOT" { print substr($0, index($0, "=") + 1) }' "$ENV_FILE" | tail -n 1)"
-backup_root="$(awk -F= '$1 == "YESLAB_BACKUP_ROOT" { print substr($0, index($0, "=") + 1) }' "$ENV_FILE" | tail -n 1)"
-data_root="${data_root:-/srv/yeslab/data}"
-backup_root="${backup_root:-/srv/yeslab/backups}"
-[[ "$data_root" == /* && "$data_root" != "/" ]] || fail "YESLAB_DATA_ROOT 必须是安全的绝对路径"
-[[ "$backup_root" == /* && "$backup_root" != "/" ]] || fail "YESLAB_BACKUP_ROOT 必须是安全的绝对路径"
+data_root="$(awk -F= '$1 == "OPENLIMS_DATA_ROOT" { print substr($0, index($0, "=") + 1) }' "$ENV_FILE" | tail -n 1)"
+backup_root="$(awk -F= '$1 == "OPENLIMS_BACKUP_ROOT" { print substr($0, index($0, "=") + 1) }' "$ENV_FILE" | tail -n 1)"
+data_root="${data_root:-/srv/openlims/data}"
+backup_root="${backup_root:-/srv/openlims/backups}"
+[[ "$data_root" == /* && "$data_root" != "/" ]] || fail "OPENLIMS_DATA_ROOT 必须是安全的绝对路径"
+[[ "$backup_root" == /* && "$backup_root" != "/" ]] || fail "OPENLIMS_BACKUP_ROOT 必须是安全的绝对路径"
 install -d -m 0750 "$data_root/mysql" "$data_root/uploads" "$backup_root"
 chown -R 999:999 "$data_root/mysql"
 chown -R 10001:10001 "$data_root/uploads"
@@ -186,10 +194,10 @@ COMPOSE=(docker compose --env-file "$ENV_FILE")
 if ! "${COMPOSE[@]}" pull; then
   cat >&2 <<'EOF'
 无法拉取私有 GHCR 镜像。请在执行本脚本的同一个 Linux 用户下，使用
-GitHub 用户名 KaoXiaoYu 和具有 read:packages 权限的 classic PAT 执行
+具有镜像读取权限的 GitHub 账号和 read:packages classic PAT 执行
 docker login ghcr.io，然后原样重跑本脚本。
 
-不要删除 /opt/yes-lab 或 deploy/.env.production；本次停止不会删除数据库
+不要删除 /opt/openlims 或 deploy/.env.production；本次停止不会删除数据库
 或上传文件。完整步骤见 docs/production-deployment.md 的首次安装章节。
 EOF
   exit 1
@@ -206,11 +214,11 @@ if [[ -z "$account_role" ]]; then
   initial_password="$(openssl rand -base64 24 | tr -d '\n')"
   echo "正在创建首个教师管理员账号（不会创建演示账号或演示项目）……"
   echo "请现在保存管理员凭据：用户名 $ADMIN_USERNAME，初始密码 $initial_password"
-  YESLAB_INITIAL_ADMIN_ENABLED=true \
-  YESLAB_INITIAL_ADMIN_USERNAME="$ADMIN_USERNAME" \
-  YESLAB_INITIAL_ADMIN_PASSWORD="$initial_password" \
-  YESLAB_INITIAL_ADMIN_DISPLAY_NAME="$ADMIN_DISPLAY_NAME" \
-  YESLAB_INITIAL_ADMIN_MEMBER_CODE="$ADMIN_MEMBER_CODE" \
+  OPENLIMS_INITIAL_ADMIN_ENABLED=true \
+  OPENLIMS_INITIAL_ADMIN_USERNAME="$ADMIN_USERNAME" \
+  OPENLIMS_INITIAL_ADMIN_PASSWORD="$initial_password" \
+  OPENLIMS_INITIAL_ADMIN_DISPLAY_NAME="$ADMIN_DISPLAY_NAME" \
+  OPENLIMS_INITIAL_ADMIN_MEMBER_CODE="$ADMIN_MEMBER_CODE" \
     "${COMPOSE[@]}" up -d --wait --wait-timeout 240 api
 
   account_role="$("${COMPOSE[@]}" exec -T mysql sh -c \
@@ -226,21 +234,21 @@ fi
 
 "${COMPOSE[@]}" up -d --wait --wait-timeout 180 web
 
-cat > /etc/systemd/system/yeslab-backup.service <<EOF
+cat > /etc/systemd/system/openlims-backup.service <<EOF
 [Unit]
-Description=YES Lab database and uploads backup
+Description=OpenLIMS database and uploads backup
 Requires=docker.service
 After=docker.service
 
 [Service]
 Type=oneshot
-Environment=YESLAB_ENV_FILE=$ENV_FILE
+Environment=OPENLIMS_ENV_FILE=$ENV_FILE
 ExecStart=$PROJECT_ROOT/deploy/scripts/backup.sh
 EOF
 
-cat > /etc/systemd/system/yeslab-backup.timer <<'EOF'
+cat > /etc/systemd/system/openlims-backup.timer <<'EOF'
 [Unit]
-Description=Run YES Lab backup every day
+Description=Run OpenLIMS backup every day
 
 [Timer]
 OnCalendar=*-*-* 03:30:00
@@ -252,12 +260,12 @@ WantedBy=timers.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now yeslab-backup.timer
+systemctl enable --now openlims-backup.timer
 
-configured_site="$(awk -F= '$1 == "YESLAB_SITE_ADDRESS" { print substr($0, index($0, "=") + 1) }' "$ENV_FILE" | tail -n 1)"
+configured_site="$(awk -F= '$1 == "OPENLIMS_SITE_ADDRESS" { print substr($0, index($0, "=") + 1) }' "$ENV_FILE" | tail -n 1)"
 "${COMPOSE[@]}" ps
 echo
-echo "YES Lab 部署完成：https://$configured_site"
+echo "OpenLIMS 部署完成：https://$configured_site"
 if [[ -n "$initial_password" ]]; then
   echo "首个管理员用户名：$ADMIN_USERNAME"
   echo "首个管理员初始密码：$initial_password"

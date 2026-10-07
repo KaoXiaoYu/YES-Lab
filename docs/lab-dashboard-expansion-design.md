@@ -75,7 +75,7 @@
 
 ## 6. 界面依据与布局
 
-使用 ui-ux-pro-max，优先 `design-system/yes-lab/MASTER.md` 和 `pages/public-home.md`；新基金页继承现有管理表单、海军蓝与科研蓝、语义色及亮暗主题，不另换字体或主色。
+使用 ui-ux-pro-max，优先 `design-system/openlims/MASTER.md` 和 `pages/public-home.md`；新基金页继承现有管理表单、海军蓝与科研蓝、语义色及亮暗主题，不另换字体或主色。
 
 本次设计系统检索 `university fund ledger dashboard` 首次返回作品集布局；缩小为 `administration dashboard ledger` 后仍返回营销首屏布局，不适用于本次账本。采用已有存档而不保存这两次不匹配的推荐。UX 检索 `disclosure accordion keyboard` 采纳键盘导航与可见焦点规则；后续施工再取 Vue 折叠、表格与状态表单的具体规则。
 

@@ -1,4 +1,4 @@
-{$YESLAB_SITE_ADDRESS:localhost} {
+{$OPENLIMS_SITE_ADDRESS:localhost} {
     encode zstd gzip
 
     header {
@@ -13,7 +13,7 @@
     @hashedAssets path /assets/*
     header @hashedAssets Cache-Control "public, max-age=31536000, immutable"
 
-    @staticMedia path /yes-lab-logo.png /og.png /favicon.svg /sponsors/* /logo-variants/*
+    @staticMedia path /openlims-logo.svg /openlims-logo.png /og.svg /og.png /favicon.svg /sponsors/* /logo-variants/*
     header @staticMedia Cache-Control "public, max-age=604800"
 
     handle /api/* {

@@ -28,18 +28,18 @@ function resume() {
   if (document.visibilityState === 'visible') load()
 }
 function storage(event) {
-  if (event.key === 'yeslab-fund-changed') load()
+  if (event.key === 'openlims-fund-changed') load()
 }
 onMounted(() => {
   load()
-  window.addEventListener('yeslab:fund-changed', load)
+  window.addEventListener('openlims:fund-changed', load)
   window.addEventListener('focus', resume)
   window.addEventListener('storage', storage)
   document.addEventListener('visibilitychange', resume)
 })
 onBeforeUnmount(() => {
   ++version
-  window.removeEventListener('yeslab:fund-changed', load)
+  window.removeEventListener('openlims:fund-changed', load)
   window.removeEventListener('focus', resume)
   window.removeEventListener('storage', storage)
   document.removeEventListener('visibilitychange', resume)

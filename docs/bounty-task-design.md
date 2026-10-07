@@ -1,4 +1,4 @@
-# YES Lab 悬赏任务设计
+# OpenLIMS 悬赏任务设计
 
 > 本文是悬赏任务**本体**的实现前技术设计。
 > **到期冻结与到期结算的通用规则不在本文**——它们对三类任务统一，见 [`docs/task-settlement-design.md`](task-settlement-design.md)；需求清单见 [`docs/bounty-task-requirements.md`](bounty-task-requirements.md)。冲突时以需求清单为准。
@@ -383,7 +383,7 @@ DRAFT 草稿 ──发布（校验奖励、奖金说明与份数、日期与人�
 
 `V15` 是 MySQL 专用语法（`ENUM`、`MODIFY COLUMN`、`information_schema` 动态 SQL），测试环境关闭 Flyway 且用 H2，**自动化测试覆盖不到**。必须人工演练：
 
-1. 备份生产 MySQL（沿用现有 `backup.sh`；禁止 `docker compose down -v`，不得删除 `/srv/yeslab/data` 下任何数据）。
+1. 备份生产 MySQL（沿用现有 `backup.sh`；禁止 `docker compose down -v`，不得删除 `/srv/openlims/data` 下任何数据）。
 2. 在预生产库按 `V1`—`V14` 建库 → **造存量数据**：一条 `STANDARD` 任务（含 `SUBMITTED` 对象）、一条 `ONBOARDING` 任务与对象。
 3. 执行 `V15`，核对三处 ENUM 定义已含新取值、**存量行的 `task_type` 与 `status` 读回值完全不变**、五处新列已加上（`prize_awarded` 为 `NOT NULL DEFAULT 0`）。
 4. **重复执行 `V15`** 确认幂等；再以 `ddl-auto=validate` 启动后端确认结构校验通过。
@@ -427,7 +427,7 @@ DRAFT 草稿 ──发布（校验奖励、奖金说明与份数、日期与人�
 
 ### 14.2 UI 规则取用（`ui-ux-pro-max`）
 
-先读 `design-system/yes-lab/MASTER.md`（Swiss Modernism 2.0、编辑风留白、语义色令牌），本次检索与采纳结论：
+先读 `design-system/openlims/MASTER.md`（Swiss Modernism 2.0、编辑风留白、语义色令牌），本次检索与采纳结论：
 
 | 查询                                                        | 命中                                                          | 采纳结论                                                                                                                               |
 | ----------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |

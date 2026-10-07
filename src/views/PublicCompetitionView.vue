@@ -1,4 +1,5 @@
 <script setup>
+import { brand } from '../config/site'
 import ThemeToggle from '../components/ThemeToggle.vue'
 import {
   ArrowLeft,
@@ -48,8 +49,8 @@ onMounted(async () => {
   <div class="public-competition-page">
     <header class="public-result-topbar">
       <RouterLink to="/" class="public-back-link"
-        ><ArrowLeft :size="17" aria-hidden="true" />返回 YES Lab 首页</RouterLink
-      ><img src="/yes-lab-logo.png" alt="YES Lab" width="900" height="506" /><ThemeToggle />
+        ><ArrowLeft :size="17" aria-hidden="true" />返回 {{ brand.name }} 首页</RouterLink
+      ><img :src="brand.logo" :alt="brand.name" width="900" height="300" /><ThemeToggle />
     </header>
     <main v-if="item" class="public-result-main">
       <header class="public-result-hero">
@@ -200,7 +201,7 @@ onMounted(async () => {
             >
             <div>
               <strong>{{ member.displayName }}</strong
-              ><small>{{ member.captain ? '队长' : member.linkedProfileId ? 'YES Lab 成员' : '外部成员' }}</small>
+              ><small>{{ member.captain ? '队长' : member.linkedProfileId ? `${brand.name} 成员` : '外部成员' }}</small>
             </div>
             <ExternalLink v-if="member.linkedProfileId" :size="15" aria-hidden="true"
           /></component>

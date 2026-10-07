@@ -227,7 +227,7 @@ function safeMemberRedirect(candidate) {
   return candidate
 }
 
-const chunkRecoveryKey = 'yeslab-route-chunk-recovery'
+const chunkRecoveryKey = 'openlims-route-chunk-recovery'
 const chunkLoadFailure =
   /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|ChunkLoadError/i
 

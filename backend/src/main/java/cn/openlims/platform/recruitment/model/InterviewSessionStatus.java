@@ -1,0 +1,9 @@
+package cn.openlims.platform.recruitment.model;
+
+public enum InterviewSessionStatus {
+    SCHEDULED,
+    ACTIVE,
+    COMPLETED,
+    CANCELLED,
+    ENDED_EARLY
+}

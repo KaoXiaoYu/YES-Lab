@@ -1,12 +1,12 @@
 # 参与贡献
 
-感谢你愿意改进 YES Lab。为了让变更容易审查、验证和回滚，请遵循下面的协作约定。
+感谢你愿意改进 OpenLIMS。为了让变更容易审查、验证和回滚，请遵循下面的协作约定。
 
 ## 开始之前
 
-1. 阅读 [`README.md`](README.md)、[`DEVLOG.md`](DEVLOG.md) 和相关模块文档。
+1. 阅读 [`README.md`](README.md)、[`DEVLOG.md`](DEVLOG.md) 和相关模块文档及 [使用指南](docs/user-guide.md)。
 2. 对较大的功能先提交 Issue，说明用户场景、范围、数据变化和权限影响。
-3. 不要自行扩展尚未实现的测验、积分或即时聊天业务；这类功能需要先确认产品与安全边界。
+3. 不要自行扩展尚未实现的测验、写题或即时聊天业务；这类功能需要先确认产品与安全边界。
 4. 安全漏洞不要提交公开 Issue，请阅读 [`SECURITY.md`](SECURITY.md)。
 
 ## 本地开发
@@ -57,7 +57,7 @@ bash -n deploy/scripts/bootstrap-ubuntu.sh
 bash -n deploy/scripts/deploy.sh
 ```
 
-涉及界面时请检查桌面端、窄屏、键盘焦点和亮色/暗色主题。涉及权限时至少覆盖允许与拒绝两条路径。
+涉及界面时沿用 `config/appearance.json` 与 `design-system/openlims/`；在真实前后端上检查 375/768/1024/1440 明暗截图、四套外观、键盘焦点、44px 控件与减少动态，截图不进入 Git。涉及权限时至少覆盖允许与拒绝两条路径。
 
 ## 文档与开发日志
 

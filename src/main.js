@@ -6,5 +6,6 @@ import './portal.css'
 import './theme.css'
 import './refinement.css'
 import './admin.css'
+import './presets.css'
 
 createApp(App).use(router).mount('#app')

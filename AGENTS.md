@@ -1,4 +1,4 @@
-# YES Lab 项目协作约定
+# OpenLIMS 项目协作约定
 
 ## 协作流程
 
@@ -24,6 +24,7 @@
 
 - 已实现：公开展示、公开成员详情、JWT 身份认证、游客招新流程、成员个人主页、成员管理、招新管理、项目团队管理、竞赛成果审核与外部新闻引用、讨论板、站内消息、积分账本与管理员积分发放。
 - 已实现：**任务模块**（新手任务为全实验室共享的大任务、管理员在其下增删子任务、子任务全部完成后审核转正；普通任务按等级条件发放或指定个人；任务进度与统一审核）。迁移为 `V11__task_module.sql`、`V12__retire_probation_stage.sql`、`V13__subtask_submission.sql`（`V11`/`V12` 已上线，禁止再改；子任务提交内容走 `V13`）；施工依据 `docs/task-module-requirements.md` 与 `docs/task-module-design.md`，两者冲突时以需求清单为准。
+- 已实现：**基金、参赛登记与全局/个人日程**（V21/V22），积分关联库内来源及真实公开榜（V20），转正后首次资料补全、普通任务角色/年级/按人补发；使用流程见 `docs/user-guide.md`。本轮开源适配保留这些能力及通知吉祥物设置。
 - 仍只保留权限与字段、不实现业务功能：**测验、写题**（`QUIZ_MANAGE`、`QUIZ_PARTICIPATE`、`QUESTION_WRITE`）。删除这些预留权限前必须先确认。
 - 已实现：**到期结算与到期冻结**（迁移 `V14__task_settlement.sql`）——所有任务到期后成员不能再提交、管理员不能再审核或驳回；积分改由**定时任务统一结算**，只发给结算那一刻状态为「已完成」的对象。普通任务因此由「审核通过即计分」变为「到期结算」。新手任务到期后可按人延长截止日期（唯一解锁动作），管理端在逾期行就地提供入口与延长留痕。
 - 已实现：**悬赏任务**（迁移 `V15__bounty_task.sql`）——第三类任务，成员自主接取、接取人数可设上限或不限、**最先完成的 m 人获得奖金**，驳回后奖金顺延给下一位完成者；可绑定积分，同样到期结算。悬赏对象不参与「按等级条件发放」流程。
@@ -35,7 +36,7 @@
 > 以下口径**已生效**：任务模块第 2 批（删除试用期阶段与精简成员状态）已施工完成，`RecruitmentView` 的阶段序列为 `SIGNUP → SCREENING → INTERVIEW → SKILL_TEST → FORMAL_MEMBER`。
 
 - 流程为：报名 → 初筛 → 面试 → **技能测试** → **正式成员**，**没有试用期阶段**。
-- 技能测试阶段被分配到**共享的新手任务大任务**，勾完全部子任务后提交、经管理员审核通过即**直接转为正式成员**，要求同时填写学号/内部编号与能力标签。管理员在大任务里增删子任务即时对所有在途报名者生效。
+- 技能测试阶段被分配到**共享的新手任务大任务**，勾完全部子任务后提交、经管理员审核通过即**直接转为正式成员**，学号/内部编号与能力标签可在转正后首次进入成员系统时补全，完整档案不重复要求填写。管理员在大任务里增删子任务即时对所有在途报名者生效。
 - `RecruitmentStage.PROBATION` 已停用；`MemberStatus` 只保留 `TRIAL`（试用）与 `OFFICIAL`（正式）可选，`CANDIDATE`、`PAUSED`、`EXITED` 已停用。
 
 ## 阶段与状态变更原则
@@ -50,7 +51,7 @@
 
 - Flyway 迁移只写 MySQL 语法；测试环境关闭 Flyway 且使用 H2，因此**迁移脚本无法被自动化测试覆盖**。
 - 每个迁移都必须在文档中列出人工验收步骤（备份、预生产演练、部署后核对数据），不得以「构建或测试通过」代替实机验证。
-- 禁止执行 `docker compose down -v`，不得删除 `/srv/yeslab/data` 下的业务数据与上传文件。
+- 禁止执行 `docker compose down -v`，不得删除 `/srv/openlims/data` 下的业务数据与上传文件。
 
 ## 后台进程与临时实例约定
 
@@ -62,10 +63,10 @@
 
 ## 网站与界面构建约定
 
-- 所有影响界面的工作（新页面、改版、组件、可访问性、响应式、动效）必须先加载 `ui-ux-pro-max` skill 并按其流程取用规则，再决定视觉与交互方案；纯后端、API、数据库、部署改动不使用该 skill。
-- skill 装在用户级 `~/.agents/skills/ui-ux-pro-max`，DSH 会自动发现。若某会话未发现，可直接调用脚本：
-  `python3 ~/.agents/skills/ui-ux-pro-max/scripts/search.py "<query>" --design-system -p "yes-lab" --output-dir .`（技能正文里的 `${CLAUDE_PLUGIN_ROOT}` 在本项目不解析，勿照抄）。
-- 动手前先读本项目设计系统存档 `design-system/yes-lab/MASTER.md`；若同一目录下存在 `pages/<page>.md`，以页面级规则覆盖 MASTER。未经用户授权不得用 `--force` 覆盖既有存档。
-- 交付前自查：对比度 ≥ 4.5:1、触控目标 ≥ 44px、键盘可见焦点、`prefers-reduced-motion`、375/768/1024/1440 断点、图标用 SVG 不用 emoji；细则查 skill 的 `references/pro-rules.md`。
-- 界面改动必须做**真机截图自检**，不得以「构建通过」代替视觉验收：本地起前后端（`npm run dev` + 后端 8080），用 `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless=new --no-sandbox --remote-debugging-port=9222` 经 CDP 截取 1440/375 × 亮/暗，截图放 `.codex-run/ui-review/`（已 gitignore）。注意：Chrome 自带沙箱在 DSH 沙箱下无法初始化，必须加 `--no-sandbox`。
-- 视觉规则发生变化时更新 `design-system/yes-lab/` 并在 DEVLOG 记录所用查询与采纳结论。
+- 保留当前业务模块、路由、权限与数据边界，不用静态预览替代真实平台。
+- 影响界面时先加载可用的 `ui-ux-pro-max` skill、读 `design-system/openlims/MASTER.md` 与页面覆盖；纯后端/部署不需要该 skill。技能未安装时按已存档规则执行并报告，贡献者不必安装个人工具链。
+- 品牌源为 `config/branding.json`；外观源为 `config/appearance.json`（通用、学术、工程、生命科学）；视觉配置不能改变业务流程。历史自动生成的字体、营销布局与旧机构特定插图指示不再约束新版本。
+- 当前设计文件不得通过生成器 `--force` 覆盖；规则变化局部更新设计存档和 DEVLOG。
+- 交付需真实前后端截图，不以 build 替代：375/768/1024/1440 × 明暗，默认外观及其他预设桌面/手机，保存 `.codex-run/ui-review/`。检查文字对比度 4.5:1、控件 44px、可见焦点、减少动态、无横向溢出，图标用 SVG。
+- 本地验收用 Vite + 8080 隔离后端。macOS 沙箱可用 Chrome `--headless=new --no-sandbox --remote-debugging-port=9222` 经 CDP 截图；该标志仅用于受控本地验收，不代表生产浏览器设置。
+- 上传时已取回官方 Git 历史，并恢复上轮被更名的 V20 原件；历史 SQL 内部旧变量名为校验和兼容性例外保留。实际已部署迁移与生产 checksum 未确认之前停止既有库升级，不得用 repair 代替审计。

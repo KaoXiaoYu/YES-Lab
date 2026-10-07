@@ -35,11 +35,11 @@ refreshTimer = window.setInterval(() => {
     loadCountdown()
   }
 }, 60_000)
-window.addEventListener('yeslab:competitions-changed', loadCountdown)
+window.addEventListener('openlims:competitions-changed', loadCountdown)
 
 onBeforeUnmount(() => {
   window.clearInterval(refreshTimer)
-  window.removeEventListener('yeslab:competitions-changed', loadCountdown)
+  window.removeEventListener('openlims:competitions-changed', loadCountdown)
 })
 
 async function loadCountdown() {

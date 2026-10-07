@@ -3,7 +3,7 @@
   min-height: 100vh;
   color: var(--color-foreground);
   background: var(--color-surface-soft);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
 }
 
 .profile-completion-page {
@@ -13,7 +13,7 @@
   padding: clamp(20px, 5vw, 72px);
   color: var(--color-foreground);
   background: var(--color-surface-soft);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
 }
 
 .profile-completion-card {
@@ -265,7 +265,7 @@
   object-fit: cover;
 }
 .portal-account-avatar b {
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 14px;
 }
 .portal-account > span {
@@ -350,7 +350,7 @@
   grid-column: 1;
   margin: 0;
   color: var(--color-primary);
-  font-family: 'EB Garamond', 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(52px, 6vw, 84px);
   font-weight: 600;
   line-height: 0.95;
@@ -540,7 +540,7 @@
 }
 .auth-story h1 {
   margin: 48px 0 16px;
-  font-family: 'EB Garamond', 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(54px, 6vw, 94px);
   font-weight: 600;
   line-height: 0.98;
@@ -571,7 +571,7 @@
 }
 .auth-story li span {
   color: #f1c779;
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .auth-panel {
@@ -770,7 +770,7 @@ textarea {
   border-radius: 50%;
   color: var(--color-accent);
   background: var(--color-accent-surface);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 34px;
 }
 .profile-avatar img {
@@ -813,7 +813,7 @@ textarea {
 .profile-identity-card dd {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 15px;
   font-weight: 600;
 }
@@ -861,7 +861,7 @@ textarea {
 .growth-grid strong {
   margin: 8px 0 4px;
   color: #f1c779;
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 38px;
 }
 .growth-grid small {
@@ -915,7 +915,7 @@ textarea {
   max-width: 880px;
   padding-top: 28px;
   color: var(--color-text-strong);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.9;
 }
@@ -923,7 +923,7 @@ textarea {
 .profile-rich-content h3 {
   margin: 1.3em 0 0.5em;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
 }
 .profile-rich-content blockquote {
   margin: 1em 0;
@@ -1237,7 +1237,7 @@ textarea {
 .profile-showcase-editor h3 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 24px;
 }
 .profile-showcase-editor > header > span {
@@ -1262,7 +1262,7 @@ textarea {
 .profile-showcase-grid h4 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .profile-showcase-grid > article > p {
@@ -1320,7 +1320,7 @@ textarea {
 }
 .profile-showcase-order li > span {
   color: var(--color-accent);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
 }
 .profile-showcase-order strong {
   overflow: hidden;
@@ -1380,7 +1380,7 @@ textarea {
 .avatar-editor h3 {
   margin: 0 0 6px;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 20px;
 }
 .avatar-editor p,
@@ -1481,7 +1481,7 @@ textarea {
   min-height: 340px;
   padding: 24px;
   outline: 0;
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.8;
 }
@@ -1492,7 +1492,7 @@ textarea {
 .profile-editor-content h3 {
   margin: 1.2em 0 0.5em;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   letter-spacing: 0;
 }
 .profile-editor-content h2 {
@@ -1579,7 +1579,7 @@ textarea {
 .melina-visibility-manager > header h2 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 26px;
 }
 .melina-visibility-manager > header small {
@@ -1788,7 +1788,7 @@ textarea {
   border-radius: 50%;
   color: #fff;
   background: var(--color-primary-fill);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .member-list-actions > button {
@@ -1940,7 +1940,7 @@ textarea {
 .member-admin-form legend {
   padding: 0 8px;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 15px;
   font-weight: 700;
 }
@@ -2056,7 +2056,7 @@ textarea {
 .password-settings-card > header h3 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
 }
 .password-settings-card > header h2 {
   font-size: clamp(28px, 4vw, 40px);
@@ -2150,7 +2150,7 @@ textarea {
 }
 .default-password-reset strong {
   color: var(--color-primary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-body);
   font-size: 12px;
 }
 .default-password-reset .portal-primary {
@@ -2173,7 +2173,7 @@ textarea {
   gap: 8px;
   min-height: 44px;
   color: var(--color-primary);
-  font-family: 'Noto Sans SC', sans-serif;
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 700;
   text-decoration: none;
@@ -2203,7 +2203,7 @@ textarea {
 .public-member-heading h1 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'EB Garamond', 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(52px, 6vw, 84px);
   font-weight: 600;
   line-height: 0.95;
@@ -2780,7 +2780,7 @@ textarea {
 .application-history li strong,
 .admin-history li strong {
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 14px;
 }
 .application-history li p,
@@ -2849,7 +2849,7 @@ textarea {
   border-radius: 50%;
   color: #fff;
   background: var(--color-primary-fill);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .applicant-tools {
@@ -2902,7 +2902,7 @@ textarea {
   border-radius: 50%;
   color: var(--color-accent);
   background: var(--color-accent-highlight);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-weight: 700;
 }
 .applicant-list > button div {
@@ -2996,7 +2996,7 @@ textarea {
 .screening-decision-card h3 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 24px;
 }
 .screening-decision-card > header > span {
@@ -3138,7 +3138,7 @@ textarea {
 .admin-history h3 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 22px;
 }
 .admin-form-card .portal-primary {
@@ -3201,7 +3201,7 @@ textarea {
 }
 .project-empty strong {
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 24px;
 }
 .project-empty span {
@@ -3417,7 +3417,7 @@ textarea {
   border-radius: 50%;
   color: #fff;
   background: var(--color-primary-fill);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 16px;
 }
 .project-form-section header p,
@@ -3489,7 +3489,7 @@ textarea {
 .member-picker legend {
   padding: 0 8px;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 14px;
   font-weight: 700;
 }
@@ -3716,7 +3716,7 @@ textarea {
   border-radius: 50%;
   color: #fff;
   background: var(--color-primary-fill);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
 }
 .project-roster > section {
   padding: 18px;
@@ -3843,7 +3843,7 @@ textarea {
 }
 .project-goals span {
   color: var(--color-accent);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .project-goals p {
@@ -3976,7 +3976,7 @@ textarea {
 .project-cover-editor h3 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 24px;
 }
 .project-cover-editor span {
@@ -4098,7 +4098,7 @@ textarea {
 }
 .achievement-empty strong {
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 24px;
 }
 .achievement-empty span {
@@ -4263,7 +4263,7 @@ textarea {
   border-radius: 50%;
   color: #fff;
   background: var(--color-primary-fill);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 16px;
 }
 .competition-form-section header p,
@@ -4336,7 +4336,7 @@ textarea {
 .participant-editor legend {
   padding: 0 8px;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 15px;
   font-weight: 700;
 }
@@ -4442,7 +4442,7 @@ textarea {
 .upload-preview-panel > header strong,
 .selected-image-gallery > header strong {
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 16px;
 }
 .upload-preview-panel > header small,
@@ -4570,7 +4570,7 @@ textarea {
 }
 .existing-image-gallery > header strong {
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 16px;
 }
 .existing-image-gallery > header small {
@@ -4740,7 +4740,7 @@ textarea {
   border-radius: 50%;
   color: #fff;
   background: var(--color-primary-fill);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .achievement-admin-list > button {
@@ -4769,7 +4769,7 @@ textarea {
   border-radius: 50%;
   color: var(--color-accent);
   background: var(--color-accent-highlight);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-weight: 700;
 }
 .achievement-admin-list > button > div {
@@ -4944,7 +4944,7 @@ body.submission-feedback-open {
 .submission-feedback-dialog > h2 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(30px, 6vw, 40px);
   line-height: 1.18;
 }
@@ -5251,7 +5251,7 @@ body.submission-feedback-open {
 }
 .homepage-proof-editor > header > span {
   color: var(--color-accent);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 17px;
 }
 .homepage-proof-editor > header > strong {
@@ -5292,7 +5292,7 @@ body.submission-feedback-open {
 .homepage-module-links h3 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 19px;
 }
 .homepage-array-block > header p,
@@ -5331,7 +5331,7 @@ body.submission-feedback-open {
 }
 .homepage-simple-list > div > span {
   color: var(--color-accent);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 16px;
 }
 .homepage-simple-list button,
@@ -5371,7 +5371,7 @@ body.submission-feedback-open {
 .homepage-direction-row > span {
   align-self: center;
   color: var(--color-accent);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 16px;
 }
 .homepage-direction-row > label {
@@ -5417,13 +5417,13 @@ body.submission-feedback-open {
 }
 .homepage-about-feature-editor > header > span {
   color: var(--color-accent);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 17px;
 }
 .homepage-about-feature-editor > header > strong {
   overflow: hidden;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 15px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -5457,14 +5457,14 @@ body.submission-feedback-open {
 }
 .homepage-model-editor > header span {
   color: var(--color-accent);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .homepage-model-editor > header h3 {
   overflow: hidden;
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 19px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -5547,7 +5547,7 @@ body.submission-feedback-open {
 .homepage-copy-card > h3 {
   margin: 0 0 18px;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 20px;
 }
 .homepage-selection-card > header a,
@@ -5622,7 +5622,7 @@ body.submission-feedback-open {
 }
 .homepage-order-list li > span {
   color: var(--color-accent);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
 }
 .homepage-order-list strong {
   color: var(--color-text-strong);
@@ -5679,7 +5679,7 @@ body.submission-feedback-open {
 }
 .homepage-sponsor-editor > header > div:first-child > span {
   color: var(--color-accent);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .homepage-sponsor-editor > header > div:last-child {
@@ -5802,7 +5802,7 @@ body.submission-feedback-open {
 .achievement-review-box h3,
 .achievement-display-box h3 {
   margin: 0;
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 20px;
 }
 .achievement-review-box > div {
@@ -5888,7 +5888,7 @@ body.submission-feedback-open {
 }
 .news-admin-list time {
   color: var(--color-accent);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 17px;
 }
 .news-admin-list small {
@@ -5898,7 +5898,7 @@ body.submission-feedback-open {
 .news-admin-list h3 {
   margin: 6px 0 8px;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 17px;
 }
 .news-admin-list p {
@@ -6893,7 +6893,7 @@ body.submission-feedback-open {
 }
 .inbox-summary strong {
   color: var(--color-primary);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 30px;
   line-height: 1;
 }
@@ -6922,7 +6922,7 @@ body.submission-feedback-open {
 .inbox-card > header h2 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 28px;
 }
 .inbox-toolbar {
@@ -7106,7 +7106,7 @@ body.submission-feedback-open {
 .discussion-compose h2 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 25px;
 }
 .interview-manager-head span,
@@ -7436,7 +7436,7 @@ body.submission-feedback-open {
   font-size: 11px;
 }
 .booking-number strong {
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 68px;
   line-height: 1;
 }
@@ -7820,7 +7820,7 @@ body.submission-feedback-open {
 .discussion-pinned > header h2 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 20px;
 }
 .discussion-pinned > header > b {
@@ -8123,7 +8123,7 @@ body.submission-feedback-open {
 .discussion-editor-content h3 {
   margin: 1.1em 0 0.45em;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
 }
 .discussion-rich-content blockquote,
 .discussion-editor-content blockquote {
@@ -8156,7 +8156,7 @@ body.submission-feedback-open {
   border-radius: 4px;
   color: var(--color-danger-strong);
   background: var(--color-surface-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-body);
 }
 .discussion-rich-content img,
 .discussion-editor-content img {
@@ -8330,7 +8330,7 @@ body.submission-feedback-open {
 .discussion-gate-dialog h2 {
   margin: 18px 0 8px;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 28px;
 }
 .discussion-gate-dialog p {
@@ -8387,7 +8387,7 @@ body.submission-feedback-open {
 .profile-discussion-card > header h2 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: clamp(28px, 4vw, 42px);
 }
 .profile-discussion-card > header > span {
@@ -8763,7 +8763,7 @@ body.submission-feedback-open {
 }
 .points-rule-grid strong {
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 17px;
 }
 .points-rule-grid small {
@@ -8797,7 +8797,7 @@ body.submission-feedback-open {
 .points-ledger-card > header h2 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 28px;
 }
 .points-grant-card > header > svg {
@@ -8812,7 +8812,7 @@ body.submission-feedback-open {
   border-radius: 50%;
   color: #fff;
   background: var(--color-primary-fill);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .points-grant-form {
@@ -8882,7 +8882,7 @@ body.submission-feedback-open {
 .points-allocation-editor legend {
   padding: 0 8px;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 15px;
   font-weight: 700;
 }
@@ -9018,7 +9018,7 @@ body.submission-feedback-open {
 .points-ledger-list article > header h3 {
   margin: 5px 0 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 17px;
 }
 .points-ledger-list article > header > strong {
@@ -9218,7 +9218,7 @@ body.submission-feedback-open {
 .points-ranking-card h2 {
   margin: 0;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 27px;
 }
 .points-heatmap-card > header > div:first-child > span {
@@ -9248,7 +9248,7 @@ body.submission-feedback-open {
   font-size: 9px;
 }
 .points-heatmap-total strong {
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 24px;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -9466,7 +9466,7 @@ body.submission-feedback-open {
 .points-leaderboard-overview strong {
   overflow: hidden;
   color: var(--color-primary);
-  font-family: 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 19px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -9584,7 +9584,7 @@ body.submission-feedback-open {
 }
 .points-score strong {
   color: var(--color-primary);
-  font-family: 'EB Garamond', serif;
+  font-family: var(--font-body);
   font-size: 24px;
   font-variant-numeric: tabular-nums;
 }
@@ -9679,7 +9679,7 @@ body.submission-feedback-open {
 .points-heatmap-heading h2 {
   margin: 0;
   color: var(--color-text-strong);
-  font-family: inherit;
+  font-family: var(--font-body);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -9726,7 +9726,7 @@ body.submission-feedback-open {
 }
 .points-heatmap-stats strong {
   color: var(--color-foreground);
-  font-family: 'EB Garamond', 'Noto Serif SC', serif;
+  font-family: var(--font-body);
   font-size: 30px;
   font-weight: 600;
   line-height: 1;

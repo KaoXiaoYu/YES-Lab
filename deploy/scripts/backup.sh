@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-ENV_FILE="${YESLAB_ENV_FILE:-$PROJECT_ROOT/deploy/.env.production}"
+ENV_FILE="${OPENLIMS_ENV_FILE:-$PROJECT_ROOT/deploy/.env.production}"
 
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "缺少生产环境文件：$ENV_FILE" >&2
@@ -14,25 +14,31 @@ set -a
 source "$ENV_FILE"
 set +a
 
-BACKUP_ROOT="${YESLAB_BACKUP_ROOT:-/srv/yeslab/backups}"
-DATA_ROOT="${YESLAB_DATA_ROOT:-/srv/yeslab/data}"
-RETENTION_DAYS="${YESLAB_BACKUP_RETENTION_DAYS:-7}"
+BACKUP_ROOT="${OPENLIMS_BACKUP_ROOT:-/srv/openlims/backups}"
+DATA_ROOT="${OPENLIMS_DATA_ROOT:-/srv/openlims/data}"
+RETENTION_DAYS="${OPENLIMS_BACKUP_RETENTION_DAYS:-7}"
 if [[ ! "$RETENTION_DAYS" =~ ^[0-9]+$ ]]; then
-  echo "YESLAB_BACKUP_RETENTION_DAYS 必须是非负整数" >&2
+  echo "OPENLIMS_BACKUP_RETENTION_DAYS 必须是非负整数" >&2
   exit 1
 fi
 if [[ "$BACKUP_ROOT" != /* || "$BACKUP_ROOT" == "/" ]]; then
-  echo "YESLAB_BACKUP_ROOT 必须是安全的绝对路径" >&2
+  echo "OPENLIMS_BACKUP_ROOT 必须是安全的绝对路径" >&2
   exit 1
 fi
 if [[ "$DATA_ROOT" != /* || "$DATA_ROOT" == "/" ]]; then
-  echo "YESLAB_DATA_ROOT 必须是安全的绝对路径" >&2
+  echo "OPENLIMS_DATA_ROOT 必须是安全的绝对路径" >&2
   exit 1
 fi
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-DESTINATION="$BACKUP_ROOT/$STAMP"
-install -d -m 0750 "$DESTINATION"
+[[ -d "$DATA_ROOT" ]] || { echo "业务数据目录不存在，拒绝备份。" >&2; exit 1; }
+install -d -m 0750 "$BACKUP_ROOT"
+BACKUP_ROOT="$(cd "$BACKUP_ROOT" && pwd -P)"
+DATA_ROOT="$(cd "$DATA_ROOT" && pwd -P)"
+if [[ "$BACKUP_ROOT" == "$DATA_ROOT" || "$BACKUP_ROOT" == "$DATA_ROOT/"* || "$DATA_ROOT" == "$BACKUP_ROOT/"* ]]; then
+  echo "备份目录与业务数据目录不能重合或互相嵌套，拒绝备份与清理。" >&2
+  exit 1
+fi
 
 cd "$PROJECT_ROOT"
 COMPOSE=(docker compose --env-file "$ENV_FILE")
@@ -41,15 +47,20 @@ if ! "${COMPOSE[@]}" ps --status running --services | grep -qx mysql; then
   exit 1
 fi
 
+# Failed backups stay visibly incomplete and are never candidates for retention.
+DESTINATION="$(mktemp -d "$BACKUP_ROOT/.incomplete-$STAMP-XXXXXX")"
+chmod 0750 "$DESTINATION"
+
 "${COMPOSE[@]}" exec -T mysql sh -c \
-  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --user=root --single-transaction --quick --routines --triggers --events --set-gtid-purged=OFF yeslab' \
-  > "$DESTINATION/yeslab.sql"
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --user=root --single-transaction --quick --routines --triggers --events --set-gtid-purged=OFF openlims' \
+  > "$DESTINATION/openlims.sql"
+[[ -s "$DESTINATION/openlims.sql" ]] || { echo "SQL 备份为空，已停止。" >&2; exit 1; }
 
 if [[ -d "$DATA_ROOT/uploads" ]]; then
   tar -C "$DATA_ROOT" -czf "$DESTINATION/uploads.tar.gz" uploads
 fi
 
-backup_files=(yeslab.sql)
+backup_files=(openlims.sql)
 if [[ -f "$DESTINATION/uploads.tar.gz" ]]; then
   backup_files+=(uploads.tar.gz)
 fi
@@ -57,5 +68,13 @@ fi
   cd "$DESTINATION"
   sha256sum "${backup_files[@]}" > SHA256SUMS
 )
-find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -mtime "+$RETENTION_DAYS" -print -exec rm -rf -- {} +
+COMPLETED="$BACKUP_ROOT/${DESTINATION##*/.incomplete-}"
+mv "$DESTINATION" "$COMPLETED"
+DESTINATION="$COMPLETED"
+while IFS= read -r -d '' candidate; do
+  if [[ -f "$candidate/SHA256SUMS" && -s "$candidate/openlims.sql" ]]; then
+    echo "清理过期备份：$candidate"
+    rm -rf -- "$candidate"
+  fi
+done < <(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name '????????T??????Z*' -mtime "+$RETENTION_DAYS" -print0)
 echo "备份完成：$DESTINATION"

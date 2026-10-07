@@ -13,11 +13,11 @@
 #   scripts/temp-mysql.sh status   [--dir DIR]
 #   scripts/temp-mysql.sh stop     [--dir DIR]        # 关停并删除整个目录
 #
-# 默认：DIR=/tmp/yeslab-rehearsal，端口 3399，TTL 60 分钟，run.log 上限 200 MB。
+# 默认：DIR=/tmp/openlims-rehearsal，端口 3399，TTL 60 分钟，run.log 上限 200 MB。
 
 set -uo pipefail
 
-DIR=${DIR:-/tmp/yeslab-rehearsal}
+DIR=${DIR:-/tmp/openlims-rehearsal}
 PORT=${PORT:-3399}
 TTL_MIN=${TTL_MIN:-60}
 LOG_CAP_MB=${LOG_CAP_MB:-200}

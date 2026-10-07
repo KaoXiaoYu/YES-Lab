@@ -1,4 +1,4 @@
-# YES Lab 开发日志
+# OpenLIMS 开发日志
 
 > 本日志已于 2026-08-25 合并重复的 UI、Logo、启动与验证记录，仅保留关键决策、当前能力和后续待办。
 > 2026-09-20 起本文件只保留最近 20 条记录及当日新增记录；超出时把最早一条移入 [`docs/devlog-archive.md`](docs/devlog-archive.md)（已归档 90 条，含完整索引）。
@@ -318,8 +318,8 @@
 - **本机存在可用的 MySQL，因此本次突破了此前「迁移无法验证」的限制**：用独立 datadir 与端口在 `/tmp` 启动了一个临时 MySQL 实例（9.5.0），完整执行 `V1`—`V11` 全部历史迁移，**14 个迁移文件全部成功**。
 - 构造测试数据（2 条试用期、1 条技能测试、1 条面试）后执行 `V12`：试用期记录数由 2 变为 0，两条记录全部转为 `SKILL_TEST`，其余阶段记录未被改动；`recruitment_status_history` 新增 2 行 `PROBATION → SKILL_TEST` 的 `system` 记录。重复执行 `V12` 后历史行数不变，确认幂等。
 - 验证 `V11` 的 `CHECK` 约束：`member_profile_id` 与 `recruitment_application_id` 同时为空或同时非空都被 MySQL 拒绝（错误 3819），恰好一个非空时插入成功。
-- **用真实 MySQL 完成 Hibernate 结构校验**：以 `ddl-auto=validate`、`flyway.enabled=false` 连接该实例启动 Spring Boot，应用正常启动（`Started YesLabApplication`，JDBC URL 为 `jdbc:mysql://127.0.0.1:3399/yeslab_probe`，驱动 MySQL Connector/J），说明 `V1`—`V12` 建出的表结构与全部实体映射一致，包含新增的 7 张任务表。
-- 验证后已关闭临时实例并删除 `/tmp/yeslab-mysql`，未触碰本机原有的两个 MySQL 实例，也未改动生产环境。
+- **用真实 MySQL 完成 Hibernate 结构校验**：以 `ddl-auto=validate`、`flyway.enabled=false` 连接该实例启动 Spring Boot，应用正常启动（`Started OpenLIMSApplication`，JDBC URL 为 `jdbc:mysql://127.0.0.1:3399/openlims_probe`，驱动 MySQL Connector/J），说明 `V1`—`V12` 建出的表结构与全部实体映射一致，包含新增的 7 张任务表。
+- 验证后已关闭临时实例并删除 `/tmp/openlims-mysql`，未触碰本机原有的两个 MySQL 实例，也未改动生产环境。
 - 局限性说明：本机 MySQL 为 9.5.0，而生产目标是 8.4，因此 `V11`/`V12` 的正式演练仍应在上线检查清单中的预生产 8.4 库执行；本次验证覆盖了语法、约束语义、回退结果、幂等性与实体结构一致性。
 - 本批不含 Java 代码，未运行后端测试；`git diff --check` 通过。
 
@@ -417,7 +417,7 @@
 
 - **后端**：以隔离的内存 H2 与 `target/smoke-*` 上传目录启动，健康检查 `UP`；冒烟脚本 **35 项检查全部通过（0 失败）**。
 - **前端**：Vite dev server 在 `127.0.0.1:5173` 启动，首页返回 200，同源代理 `/actuator/health` 与 `/api/v1/auth/login` 均返回 200，确认前后端联调链路可用。
-- 验证完成后已停止前后端进程并释放 8080/5173 端口；冒烟使用独立内存数据库，**本机 `backend/data/yeslab.mv.db` 的修改时间仍为 9/16，未被写入**。
+- 验证完成后已停止前后端进程并释放 8080/5173 端口；冒烟使用独立内存数据库，**本机 `backend/data/openlims.mv.db` 的修改时间仍为 9/16，未被写入**。
 - 脚本调试过程中修正了 4 处**脚本自身的断言写法问题**（用 `.` 匹配 UUID、`len()` 路径拼接错误、成员编号跨次运行重复导致预期冲突），均为测试脚本缺陷，不是产品缺陷；修正后全部通过。
 - `npm run check` 与 `git diff --check` 通过；脚本通过 `bash -n` 语法检查。
 
@@ -430,10 +430,10 @@
 
 ### 完成内容
 
-- 逐字执行 `.vscode/tasks.json` 中定义的启动命令，验证「YES Lab: 一键启动本地开发」可用。说明：无法在 VS Code 界面内点击运行任务，因此改为按任务定义的原命令、原工作目录执行，并额外校验任务配置本身。
+- 逐字执行 `.vscode/tasks.json` 中定义的启动命令，验证「OpenLIMS: 一键启动本地开发」可用。说明：无法在 VS Code 界面内点击运行任务，因此改为按任务定义的原命令、原工作目录执行，并额外校验任务配置本身。
 - 静态检查：`tasks.json` 为合法 JSON，包含 3 个任务；「启动后端」工作目录为 `backend`，「启动前端」为仓库根；「一键启动」以 `parallel` 顺序依赖两者。
 - 依赖检查：`/usr/libexec/java_home -v 21` 正常解析到本机 Microsoft OpenJDK 21；`npm` 与 `node` 位于 nvm 的 `v22.22.2` 目录下，在非交互 shell（`zsh -c` / `bash -c`）中同样可解析，因此任务不依赖交互式 shell 的初始化脚本。
-- 后端按任务原命令启动（`task_java_home=$(/usr/libexec/java_home -v 21) && export JAVA_HOME=... && ./mvnw spring-boot:run`），10.9 秒完成启动，`Started YesLabApplication`，Tomcat 监听 8080。
+- 后端按任务原命令启动（`task_java_home=$(/usr/libexec/java_home -v 21) && export JAVA_HOME=... && ./mvnw spring-boot:run`），10.9 秒完成启动，`Started OpenLIMSApplication`，Tomcat 监听 8080。
 - 前端按任务原命令启动（`VITE_API_BASE_URL=http://127.0.0.1:8080 npm run dev -- --host 127.0.0.1`），Vite v8.3.0 在 671 毫秒内就绪并监听 `127.0.0.1:5173`。
 
 ### 验证结果
@@ -441,10 +441,10 @@
 - 后端健康检查 `UP`；前端首页返回 200，入口 HTML 标题正常，`/src/main.js` 存在。
 - **跨域 + Cookie 会话链路全部通过**（这是设置 `VITE_API_BASE_URL` 后最容易出问题的环节）：
   - CORS 预检（`OPTIONS`，带 `Authorization` 与 `Content-Type` 请求头，Origin 为 `http://127.0.0.1:5173`）返回 200，响应包含 `Access-Control-Allow-Origin: http://127.0.0.1:5173`、`Access-Control-Allow-Credentials: true` 与允许的方法列表。
-  - 跨域登录返回 200，下发 `yeslab_refresh_token`，属性为 `Path=/api/v1/auth; HttpOnly; SameSite=Lax`；由于前后端同属 `127.0.0.1` 站点（端口不同不影响 SameSite 判定），Lax Cookie 会被正常携带。
+  - 跨域登录返回 200，下发 `openlims_refresh_token`，属性为 `Path=/api/v1/auth; HttpOnly; SameSite=Lax`；由于前后端同属 `127.0.0.1` 站点（端口不同不影响 SameSite 判定），Lax Cookie 会被正常携带。
   - 携带该 Cookie 跨域调用 `/api/v1/auth/refresh` 返回 200，正确恢复账号（范桌轩大王 / MEMBER）并完成 Cookie 轮换，说明页面刷新后的 `restoreSession` 在跨域模式下可用。
 - Vite dev server 按需编译新增文件全部返回 200 且无错误标记：`OnboardingTaskPanel.vue`、`TasksView.vue`、`TaskDetailView.vue`、`AdminTasksView.vue`、`AdminTaskProgressView.vue`、`AdminOnboardingTemplateView.vue`、`router/index.js`、`services/authApi.js`。
-- 验证后已停止前后端进程，8080 与 5173 均已释放；后端使用内存 H2 与 `target/vs-*` 上传目录，**本机 `backend/data/yeslab.mv.db` 修改时间仍为 9/16，未被写入**；临时目录与日志已清理。
+- 验证后已停止前后端进程，8080 与 5173 均已释放；后端使用内存 H2 与 `target/vs-*` 上传目录，**本机 `backend/data/openlims.mv.db` 修改时间仍为 9/16，未被写入**；临时目录与日志已清理。
 
 ### 发现的一项配置不一致（未擅自修改）
 
@@ -455,14 +455,14 @@
 ### 待办
 
 - 浏览器点击与截图视觉验收仍未执行（当前环境无可用浏览器实例）。用一键启动后建议手工过一遍：报名页新手任务面板、`/tasks`、`/admin/tasks`、`/admin/tasks/onboarding`、任务完成情况页。
-- 一键启动为并行启动，后端约需 11 秒；在日志出现 `Started YesLabApplication` 之前打开页面会看到连接失败提示，属预期现象。
+- 一键启动为并行启动，后端约需 11 秒；在日志出现 `Started OpenLIMSApplication` 之前打开页面会看到连接失败提示，属预期现象。
 
 ### 补充：tasks.json 前端任务改为同源代理
 
-- 按确认把 `.vscode/tasks.json` 中「YES Lab: 启动前端」的命令由 `VITE_API_BASE_URL=http://127.0.0.1:8080 npm run dev -- --host 127.0.0.1` 改为 `npm run dev -- --host 127.0.0.1`，去掉跨域直连，改为经 `vite.config.js` 的同源 `/api` 代理访问后端，与生产环境由 Caddy 代理的同源行为保持一致。只改这一处，其余任务定义未动。
+- 按确认把 `.vscode/tasks.json` 中「OpenLIMS: 启动前端」的命令由 `VITE_API_BASE_URL=http://127.0.0.1:8080 npm run dev -- --host 127.0.0.1` 改为 `npm run dev -- --host 127.0.0.1`，去掉跨域直连，改为经 `vite.config.js` 的同源 `/api` 代理访问后端，与生产环境由 Caddy 代理的同源行为保持一致。只改这一处，其余任务定义未动。
 - 验证结果：以改后的原命令重新启动前后端，后端健康检查与前端首页均正常；经 5173 同源路径 `/actuator/health` 返回 200；同源登录 200、同源刷新会话 200 并正确恢复账号（范桌轩大王 / MEMBER）；未带令牌经 5173 调用 `/api/v1/recruitment/me/questions` 返回 401，说明请求确实走相对路径经 Vite 代理转发。前端模块中 `apiBaseUrl` 解析为空字符串，确认 `VITE_API_BASE_URL` 已不再注入。
 - Cookie 仍为 `Path=/api/v1/auth; HttpOnly; SameSite=Lax`；同源模式下不再依赖跨域 Cookie 行为，本地与生产的会话表现一致。
-- 验证后已停止前后端进程并释放 8080/5173；后端仍使用内存 H2 与 `target/vs2-*` 目录，本机 `backend/data/yeslab.mv.db` 未被写入；临时产物已清理。
+- 验证后已停止前后端进程并释放 8080/5173；后端仍使用内存 H2 与 `target/vs2-*` 目录，本机 `backend/data/openlims.mv.db` 未被写入；临时产物已清理。
 - 还原方式：如需回到跨域直连，把该行改回 `VITE_API_BASE_URL=http://127.0.0.1:8080 npm run dev -- --host 127.0.0.1` 即可。
 
 ## 2026-09-20：本地登录报 502 的根因定位与修复
@@ -475,9 +475,9 @@
 
 502 来自 Vite 代理：前端经同源 `/api` 代理转发到 `127.0.0.1:8080`，而后端进程并未在运行，代理返回 502。进一步定位到后端**无法完成启动**，因果链如下：
 
-1. 本地 H2 持久化库 `backend/data/yeslab.mv.db` 的 `member_profiles` 表**缺少 `showcase_configured` 列**。
+1. 本地 H2 持久化库 `backend/data/openlims.mv.db` 的 `member_profiles` 表**缺少 `showcase_configured` 列**。
 2. `application.yml` 本地使用 `ddl-auto: update`，Hibernate 尝试执行 `alter table member_profiles add column showcase_configured boolean not null`；由于该表已有 3 行数据且 DDL 未带 DEFAULT，H2 拒绝（`NULL not allowed for column "SHOWCASE_CONFIGURED"`）。
-3. **Hibernate 只把这条 DDL 失败记为 WARNING 并继续**，因此应用看起来「启动成功」（日志出现 `Tomcat started on port 8080` 与 `Started YesLabApplication`）。
+3. **Hibernate 只把这条 DDL 失败记为 WARNING 并继续**，因此应用看起来「启动成功」（日志出现 `Tomcat started on port 8080` 与 `Started OpenLIMSApplication`）。
 4. 紧接着启动流程中第一次查询 `member_profiles` 就抛 `Column "MPE1_0.SHOWCASE_CONFIGURED" not found`，应用优雅关闭，Maven 以 `BUILD FAILURE` 退出。
 
 这是 `DEVLOG.md` 于 2026-09-06 记录、当时明确搁置的遗留问题（「本地持久化 H2 的历史 `showcase_configured` 缺列问题仍待单独处理」），与本次任务模块改动无关。
@@ -488,17 +488,17 @@
 
 选择**修复本地库**而非重建：先确认本地库里的成员资料包含使用者自行修改的内容（S-001 姓名已从播种值「范桌轩大王」改为「烤小鱼大王」），重建会丢失这些本地数据。
 
-- 修改前已备份到 `/tmp/yeslab-before.mv.db`。
+- 修改前已备份到 `/tmp/openlims-before.mv.db`。
 - 执行并验证：`ALTER TABLE member_profiles ADD COLUMN IF NOT EXISTS showcase_configured BOOLEAN DEFAULT FALSE NOT NULL;`，3 位既有成员正确回填为 `FALSE`，列属性为 `BOOLEAN / NOT NULL / DEFAULT FALSE`。
 - 已在数据库副本上先验证该语句，再应用到真实库；修改时确认 8080 无进程占用。
 
 ### 验证结果
 
-- 按 `.vscode/tasks.json` 的后端原命令、使用真实的本地库配置启动：**启动成功且无任何 schema 报错**（`SHOWCASE_CONFIGURED` 相关错误数为 0），健康检查 `UP`，`Started YesLabApplication in 12.2s`。
+- 按 `.vscode/tasks.json` 的后端原命令、使用真实的本地库配置启动：**启动成功且无任何 schema 报错**（`SHOWCASE_CONFIGURED` 相关错误数为 0），健康检查 `UP`，`Started OpenLIMSApplication in 12.2s`。
 - 复现使用者的操作路径——经已运行的前端 `127.0.0.1:5173` 同源代理登录：返回 **200**，正确显示「汤洪大王 / TEACHER」，502 消失。
 - 在真实本地库上抽查任务模块只读接口，全部 200：`/api/v1/admin/tasks`、`/admin/tasks/onboarding-template`、`/admin/tasks/onboarding-overview`、`/admin/tasks/member-options`，以及回归项 `/admin/members`、`/points/rules`。
 - 数据核对：新手任务模板返回内置默认内容（时长 7 天、5 项子任务）；本地库 3 位成员资料完整（汤洪大王 T-001 TEACHER、范桌轩大王 S-CORE-001 CORE_STUDENT、烤小鱼大王 S-001 MEMBER），使用者自行修改的姓名未受影响。
-- 验证结束后已停止本次启动的后端进程以释放 8080，便于使用者用自己的 VS Code 任务启动（其前端进程仍在 5173 运行）；临时文件已清理，修复前备份保留在 `/tmp/yeslab-before.mv.db`。
+- 验证结束后已停止本次启动的后端进程以释放 8080，便于使用者用自己的 VS Code 任务启动（其前端进程仍在 5173 运行）；临时文件已清理，修复前备份保留在 `/tmp/openlims-before.mv.db`。
 
 ### 待办与建议
 
@@ -520,13 +520,13 @@
 - 技能原先只装在 Codex 目录 `~/.codex/skills/ui-ux-pro-max`，不在 DSH 扫描的根目录（`.dsh/skills`、`.agents/skills`、`~/.dsh/skills`、`~/.agents/skills`）内，因此会话内 `skill ui-ux-pro-max` 曾报 unknown。
 - 已复制到用户级 `~/.agents/skills/ui-ux-pro-max`（3.5 MB / 70 文件，排除 `__pycache__`）；`~/.codex` 原目录保持原样，技能本体未做任何修改。
 - 约定中同时写明脚本直达路径 `python3 ~/.agents/skills/ui-ux-pro-max/scripts/search.py`：技能正文示例使用 `${CLAUDE_PLUGIN_ROOT}` 变量，该变量在 DSH 下不解析。
-- 明确设计系统取用顺序：先读 `design-system/yes-lab/MASTER.md`，再看 `pages/<page>.md` 覆盖；未经用户授权不得用 `--force` 覆盖既有存档。
+- 明确设计系统取用顺序：先读 `design-system/openlims/MASTER.md`，再看 `pages/<page>.md` 覆盖；未经用户授权不得用 `--force` 覆盖既有存档。
 
 ### 验证
 
 - `python3 ~/.agents/skills/ui-ux-pro-max/scripts/search.py --help` 正常输出，`--domain`、`--stack`、`--design-system`、`--persist` 参数齐全。
 - 安装后无需重启，本会话技能目录即时刷新出 `ui-ux-pro-max`，`skill ui-ux-pro-max` 成功加载正文，基目录解析为 `/Users/kaoxiaoyu/.agents/skills/ui-ux-pro-max`。
-- 仓库内未新增技能文件，`design-system/yes-lab/` 既有存档保持不变。
+- 仓库内未新增技能文件，`design-system/openlims/` 既有存档保持不变。
 
 ### 待办与建议
 
@@ -537,7 +537,7 @@
 
 ### 完成内容
 
-- 按「网站与界面构建约定」做首次全站 UI 评审：先读 `design-system/yes-lab/MASTER.md` 与页面级覆盖，再开三路只读子审计（设计令牌与视觉一致性、可访问性、响应式与交互动效），每路都按技能契约检索规则并给出 `文件:行号` 证据。
+- 按「网站与界面构建约定」做首次全站 UI 评审：先读 `design-system/openlims/MASTER.md` 与页面级覆盖，再开三路只读子审计（设计令牌与视觉一致性、可访问性、响应式与交互动效），每路都按技能契约检索规则并给出 `文件:行号` 证据。
 - 首次打通真机截图：本地起后端（8080，H2）与前端（5173），用无头 Chrome 153 经 CDP 截取首页桌面三段、移动端、暗色主题等 10 张图，存放于 `.codex-run/ui-review/`（已 gitignore，不进版本库）。
 - 结论：视觉识别度与桌面完成度高于同类实验室站点；欠账集中在移动端交互、对比度与设计系统一致性三处。
 
@@ -547,14 +547,14 @@
 - **移动端交互近乎缺失**：`portal.css` 9892 行中仅 2 处 `:active`，hover 规则全部隔离在 `@media (hover:hover) and (pointer:fine)` 内；积分日历触控目标 14×14px（`portal.css:9008-9010`）；≤760px 时顶栏退化为管理员 13 项横向滚动（`portal.css:5872-5888`）。
 - **设计系统已漂移**：`MASTER.md` 中 5 个语义色与 `--shadow-xl` 从未定义；实际正文字体为 `Noto Sans SC`、标题常用 `Noto Serif SC`，`Crimson Text` 仅在 `style.css:4` 声明一次即被覆盖；四份样式共存 171 个跨文件重复选择器、33 处 `!important`、约 257 处规则体内硬编码颜色。
 - **暗色模式覆盖约 0.6% 选择器**：`admin.css` 对 `var(--color-*)` 引用为 0；暗色下 `--color-accent-fill` 仍为亮色 `#a16207` 未重调。
-- **首屏体量偏重**：`public/models/go2.glb` 6.7 MB 挂载即加载；`yes-lab-logo.png` 620 KB 被当装饰水印重复 3 次（`PublicHomeView.vue:646-648`）；构建产物单文件 CSS 305 KB；`melina-mail.svg` 598 KB。
+- **首屏体量偏重**：`public/models/go2.glb` 6.7 MB 挂载即加载；`openlims-logo.png` 620 KB 被当装饰水印重复 3 次（`PublicHomeView.vue:646-648`）；构建产物单文件 CSS 305 KB；`melina-mail.svg` 598 KB。
 - **肉眼可见的观感问题**：首屏 3 个透明度 0.055/0.035 的位图 Logo 水印（`refinement.css:164-186`）在机器人模型附近呈糊状杂点；项目区仅 1 张卡、动态仅 1 条，使三栏网格右侧大片留白，`Portfolio Grid` 形态被内容量拖累。
 
 ### 验证
 
-- 截图确认真机渲染正常：桌面/移动/暗色三态均能出图，无横向滚动；`localStorage.yeslab-theme` + `data-theme` 暗色切换生效。
+- 截图确认真机渲染正常：桌面/移动/暗色三态均能出图，无横向滚动；`localStorage.openlims-theme` + `data-theme` 暗色切换生效。
 - 三路子审计均为只读，未修改任何产品代码；本次评审新增文件仅 `.codex-run/ui-review/`（gitignore 内）。
-- 评审结束后已停止本次启动的前后端与无头 Chrome，8080/5173 端口释放；`backend/data/yeslab.mv.db` 未被写入。
+- 评审结束后已停止本次启动的前后端与无头 Chrome，8080/5173 端口释放；`backend/data/openlims.mv.db` 未被写入。
 
 ### 待办与建议
 
@@ -579,7 +579,7 @@
 
 ### 完成内容
 
-- 按「网站与界面构建约定」加载 ui-ux-pro-max 后做界面精修，先读 `design-system/yes-lab/MASTER.md`，检索 3 次并据此定调：`"editorial academic research visual refinement" --domain style`（命中 `editorial-grid-magazine`：非对称网格、编辑字体、印刷感分隔）、`"touch target size tap feedback" --domain ux`（命中 Touch Target Size / Tap Delay）、`"empty state sparse list placeholder" --domain ux`（命中 Empty States / Placeholder Content）。结论是保留瑞士编辑风的留白，只收干净四处：装饰杂点、灰字偏浅、内容稀疏、触屏无反馈。
+- 按「网站与界面构建约定」加载 ui-ux-pro-max 后做界面精修，先读 `design-system/openlims/MASTER.md`，检索 3 次并据此定调：`"editorial academic research visual refinement" --domain style`（命中 `editorial-grid-magazine`：非对称网格、编辑字体、印刷感分隔）、`"touch target size tap feedback" --domain ux`（命中 Touch Target Size / Tap Delay）、`"empty state sparse list placeholder" --domain ux`（命中 Empty States / Placeholder Content）。结论是保留瑞士编辑风的留白，只收干净四处：装饰杂点、灰字偏浅、内容稀疏、触屏无反馈。
 - **对比度**：`--color-text-subtle` `#94a3b8 → #5b6b80`（2.45 → 5.2:1）；`--color-text-secondary` `#64748b → #475569`（4.55 → 7.24:1，同时与 MASTER 的 `--color-muted-foreground` 对齐）；新增 `--color-border-strong`（亮 `#74849a`、暗 `#5b708f`）专供输入控件边界，达到 3:1（WCAG 1.4.11）。`admin.css` 的 `--admin-subtle #98a2b3 → #5b6b80`、`--admin-border-strong #d0d5dd → #74849a`（暗 `#3a4657 → #5b708f`）同步。
 - **首屏净化**：删除 3 个 620 KB 位图水印（`PublicHomeView.vue` 的 `.hero-brand-mark`），并清掉 `refinement.css` 中对应的 3 处规则与漂移动画，保留轨道圆环。首屏不再有糊状杂点，同时减少约 1.9 MB 位图解码。
 - **稀疏内容版式**：项目数少于 3 时给网格加 `project-grid--solo` / `--pair`（单条居中放大到 8 栏、图 16:9；两条并排各 6 栏），避免三栏网格右侧留下大片空白。
@@ -604,7 +604,7 @@
 
 ### 完成内容
 
-- 用 README 的本地演示账号（`teacher` / `YesLab-Teacher-2026!`，见 `README.md:126`）打通登录态截图：在浏览器页面上下文调用 `POST /api/v1/auth/login`（`rememberMe: true`）写入刷新 Cookie，之后逐页导航由应用自身 `restoreSession` 恢复会话，共截 12 张——后台成员/任务/积分/主页编辑/招新管理（含亮暗与移动端）＋成员端任务、积分榜、个人主页、讨论板。
+- 用 README 的本地演示账号（`teacher` / `OpenLIMS-Teacher-2026!`，见 `README.md:126`）打通登录态截图：在浏览器页面上下文调用 `POST /api/v1/auth/login`（`rememberMe: true`）写入刷新 Cookie，之后逐页导航由应用自身 `restoreSession` 恢复会话，共截 12 张——后台成员/任务/积分/主页编辑/招新管理（含亮暗与移动端）＋成员端任务、积分榜、个人主页、讨论板。
 - 复核结论：后台与成员端与公开端共用同一套令牌，输入框边界、区块 eyebrow、侧栏对比度、暗色分支均正常；任务页在无数据时给出规范空态（「暂无任务」+ 说明 + 操作指引），不是白屏。
 - 修掉登录态截图才暴露的真问题：**成员系统顶栏在 1024–1440px 文字重叠**。实测 `.portal-topbar nav` 所在的 `1fr` 列宽不足而 nav 是 `overflow: visible`：1440px 内容溢出约 103px、1080px 约 121px，导致「后台管理」压在右侧账号区上。
   - 将导航压缩规则由 `max-width: 1400px` 提前到 `max-width: 1680px`（`padding-inline` 收到 11px、`gap` 收到 5px、隐藏与 Logo 重复的「MEMBER SYSTEM」副标）。
@@ -667,7 +667,7 @@
 - **接口**：删除 `GET|PUT /admin/tasks/onboarding-template`；新增 `GET|PUT /admin/tasks/onboarding`（保存返回影响面）、保留 `GET /admin/tasks/onboarding-overview` 与 `POST /admin/tasks/onboarding-tasks/backfill`（改为在大任务上补建对象）。
 - **前端**：新增共用组件 `TaskSubtaskEditor.vue`（逐条添加 / 删除 / 上移 / 下移，带序号、计数与 `aria-label`），新手任务与普通任务共用；`AdminOnboardingTemplateView.vue` 重命名为 `AdminOnboardingTaskView.vue` 并去掉模板与同步开关，改为大任务编辑 + 完成情况审核；`OnboardingTaskPanel.vue` 增加进度条与「还差 N 项才能提交」的禁用提示；`AdminTasksView.vue` 的「每行一项」文本框换成同一编辑器。
 - **文档**：`docs/task-module-requirements.md`（B 组 15 条重写为共享大任务口径）、`docs/task-module-design.md`（数据模型 4.1/4.4/4.6/4.7、第 5 节、接口表、前端与测试计划）、`backend/docs/module-boundaries.md`、`backend/docs/access-control.md`、`README.md`、`AGENTS.md` 同步。
-- **UI 规则取用**：加载 `ui-ux-pro-max` 后读 `design-system/yes-lab/MASTER.md`，检索 `"editable list add remove item reorder" --domain ux`（命中 Chip Collection Reflow：集合必须换行而不是裁掉标签）、`"progress indicator task completion checklist" --domain ux`（命中 Progress Indicators 与 Focus States：多步进度要有进度条、每个控件都要可见焦点）。据此实现子任务行换行布局、进度条 + 「x / y」文本、行内按钮 44px 与键盘焦点环。
+- **UI 规则取用**：加载 `ui-ux-pro-max` 后读 `design-system/openlims/MASTER.md`，检索 `"editable list add remove item reorder" --domain ux`（命中 Chip Collection Reflow：集合必须换行而不是裁掉标签）、`"progress indicator task completion checklist" --domain ux`（命中 Progress Indicators 与 Focus States：多步进度要有进度条、每个控件都要可见焦点）。据此实现子任务行换行布局、进度条 + 「x / y」文本、行内按钮 44px 与键盘焦点环。
 
 ### 验证结果
 
@@ -675,13 +675,13 @@
 - **冒烟**：更新 `scripts/smoke-task-module.sh` 后以隔离内存 H2 运行真实 HTTP 链路，**46 项检查全部通过（0 失败）**，含「未完成全部子任务时拒绝提交」「管理员新增子任务 → 已提交对象退回待完成 → 勾选新项 → 重新提交」。
 - **前端**：`npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 生产构建），`git diff --check` 通过。
 - **真机截图自检**（无头 Chrome 153 + CDP，脚本与截图在 `.codex-run/ui-review/`，已 gitignore）：管理端新手任务页 1440 亮 / 暗、375 亮；报名者「我的报名」新手任务卡片 1440 / 375；提交区 1440 / 375；普通任务创建表单 1440。实测：提交区提示「还需要完成 4 项子任务才能提交」且按钮 `disabled`，进度条 `role=progressbar` 且 `aria-valuenow=2 / aria-valuemax=6`；子任务编辑器 18 个行内按钮全部带 `aria-label`、行高 44px、「添加子任务」在触屏 / 窄屏下 44px（桌面沿用后台既有的 40px 次要按钮尺寸）；键盘 Tab 聚焦时出现 2px 可见焦点环；375px 下 `scrollWidth == innerWidth`，无横向滚动，子任务行自动换行不裁字。
-- 验证用前后端与无头 Chrome 已停止，8080 / 5173 / 9222 释放；后端全程使用隔离内存 H2 与 `target/smoke-*` 目录，**未写入 `backend/data/yeslab.mv.db`**。
+- 验证用前后端与无头 Chrome 已停止，8080 / 5173 / 9222 释放；后端全程使用隔离内存 H2 与 `target/smoke-*` 目录，**未写入 `backend/data/openlims.mv.db`**。
 
 ### 待办与说明
 
 - **有意保留的一处差异**：普通任务仍允许随时提交完成说明，是否达标由管理员人工判断（不强制勾完全部子任务）；新手任务因为是转正门槛才强制全勾。若要两者完全一致，可再改为普通任务也强制全勾。
 - `V11` 已改动但**仍未上线**，需按原计划在预生产 MySQL 演练 `V11` + `V12`，部署后执行一次「批量补发新手任务」，并补做真实浏览器点击验收（报名者勾完全部子任务 → 管理员审核转正 → 普通任务发布与计分 → 驳回重提）。
-- 本地 H2 开发库（`backend/data/yeslab.mv.db`）若曾用旧模型创建过 `onboarding_task_template` 表或每人一条 `ONBOARDING` 任务，`ddl-auto=update` 不会自动清理，理论上会让单例读取命中旧任务；如遇到，可手工执行 `DROP TABLE onboarding_task_template_subtasks; DROP TABLE onboarding_task_template;` 并删除旧 `task_type='ONBOARDING'` 的 `tasks` 行（本次未擅自改动本地库）。
+- 本地 H2 开发库（`backend/data/openlims.mv.db`）若曾用旧模型创建过 `onboarding_task_template` 表或每人一条 `ONBOARDING` 任务，`ddl-auto=update` 不会自动清理，理论上会让单例读取命中旧任务；如遇到，可手工执行 `DROP TABLE onboarding_task_template_subtasks; DROP TABLE onboarding_task_template;` 并删除旧 `task_type='ONBOARDING'` 的 `tasks` 行（本次未擅自改动本地库）。
 
 ## 2026-09-20：子任务改为「独立页面 + 富文本正文」设计（待审，未施工）
 
@@ -721,7 +721,7 @@
 - **修掉一个会丢数据的隐患**：管理端保存时，对「已存在、有正文、但这次没展开」的子任务，先按需拉取正文再提交，失败则中止保存；否则会把管理员上次写的说明写空。已在真机点击中实测（改标题但不展开 → 保存后正文仍在）。
 - **修掉一个窄屏布局缺陷**：子任务里嵌富文本编辑器后，工具栏在 ≤760px 的 `nowrap` 把整页撑到 801px（真机截图实测 `innerWidth` 从 375 变 801）。给编辑器容器加 `min-width: 0 / max-width: 100%` 并让工具栏换行后恢复 375px 无横向滚动。
 - **文档**：`docs/task-module-requirements.md`（B12/B16/B17、C9.1/C9.2、界面入口、第 8 批）、`docs/task-module-design.md`（4.2、4.7、新增 4.10、接口表、前端与路由、交互要点、测试计划、懒加载不丢数据的约定）。
-- **UI 规则取用**：沿用 `design-system/yes-lab/MASTER.md` 与上一批的检索结论（Chip Collection Reflow 要求集合换行不裁字、Progress Indicators 要求多步进度可量化、Focus States 要求每个控件可见焦点），本批新增的子任务入口整行可点、状态用文字表达不只靠颜色、按钮保持 44px 与可见焦点。
+- **UI 规则取用**：沿用 `design-system/openlims/MASTER.md` 与上一批的检索结论（Chip Collection Reflow 要求集合换行不裁字、Progress Indicators 要求多步进度可量化、Focus States 要求每个控件可见焦点），本批新增的子任务入口整行可点、状态用文字表达不只靠颜色、按钮保持 44px 与可见焦点。
 
 ### 验证结果
 
@@ -729,7 +729,7 @@
 - **冒烟**：真实 HTTP 端到端 **53 项检查全部通过（0 失败）**，新增「大任务列表只带 hasContent 不带正文」「报名者/成员子任务页能读到富文本说明」「子任务页返回本人进度上下文」「在子任务页勾选完成」「按 id 新增子任务后已勾选进度保留」。
 - **前端**：`npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 构建），`git diff --check` 通过。
 - **真机截图自检**（无头 Chrome 153 + CDP，`.codex-run/ui-review/`）：成员端任务列表、大任务入口页（1440/375）、子任务页（1440/375）、报名者端子任务页（1440/375）、管理端子任务说明展开（1440 亮/暗、375）。实测：各页无横向滚动（375px 下 `scrollWidth == innerWidth`）、大任务入口列表显示「未完成 · 有说明」与进度条、子任务页正文与进度上下文正确、管理端展开后编辑器可用且窄屏工具栏换行。
-- 验证用前后端与无头 Chrome 已停止，端口释放；后端使用隔离内存 H2 与 `target/smoke-*` 目录，**未写入 `backend/data/yeslab.mv.db`**。
+- 验证用前后端与无头 Chrome 已停止，端口释放；后端使用隔离内存 H2 与 `target/smoke-*` 目录，**未写入 `backend/data/openlims.mv.db`**。
 
 ### 待办
 
@@ -778,7 +778,7 @@
 
 ### 验证结果
 
-- **在自己的隔离环境验收**（后端 `8081` + 内存库 `yeslabui4` + 前端 `5174`，刻意不碰用户正在运行的 8080/5173）：
+- **在自己的隔离环境验收**（后端 `8081` + 内存库 `openlimsui4` + 前端 `5174`，刻意不碰用户正在运行的 8080/5173）：
   - 普通任务表单字段顺序实测：`任务标题 → 富文本字段(大任务描述) → 开始日期 → 截止日期 → 积分 → 子任务区块`；
   - 新手任务页：`任务标题 → 富文本字段(新手任务说明) → 时长`，其后才是子任务区块；
   - 可见标题已渲染：`labelVisible: true`、`labelFont: 11px/700`；1440px 与 375px 均 `scrollWidth == innerWidth`。
@@ -851,7 +851,7 @@
 
 ### 验证结果
 
-- 真机复验（隔离环境：后端 8081 + 内存库 `yeslabzero`，前端 5174，无头 Chrome；**13 项断言全部通过**，退出码 0）：创建一个 0 子任务的普通任务并发布后——成员端卡片不再出现 0 / 0 进度条、大任务页不再出现「子任务（0 / 0 已完成）」与空列表、改为空态说明、成员可正常提交、管理端完成情况页显示「该任务没有子任务。」；新手任务页显示「至少需要一项」、子任务全部删空后保存按钮变禁用、空态给出添加提示。
+- 真机复验（隔离环境：后端 8081 + 内存库 `openlimszero`，前端 5174，无头 Chrome；**13 项断言全部通过**，退出码 0）：创建一个 0 子任务的普通任务并发布后——成员端卡片不再出现 0 / 0 进度条、大任务页不再出现「子任务（0 / 0 已完成）」与空列表、改为空态说明、成员可正常提交、管理端完成情况页显示「该任务没有子任务。」；新手任务页显示「至少需要一项」、子任务全部删空后保存按钮变禁用、空态给出添加提示。
 - 截图：`.codex-run/ui-review/zero-subtask-*.png`（亮色）。
 - `npm run check` 与 `git diff --check` 通过；本轮只改前端模板与文档，未改后端接口与数据模型，未重跑后端测试。
 
@@ -908,7 +908,7 @@
   - **成员端复用既有提交端点**：`TaskService.submitMyTask` 只校验任务 `PUBLISHED` 与对象非 `APPROVED`（`:824`、`:936`），不看任务类型；`myTasks`（`:788`）也不筛类型，因此「已接取的悬赏进入我的任务」零新增列表接口，只需视图模型补悬赏字段。
   - **迁移 `V14__bounty_task.sql`**：`tasks.task_type` 追加 `BOUNTY`、`task_assignments.source` 追加 `CLAIM`、`status` 追加 `ABANDONED`，`tasks` 新增 `headcount_limit` 与 `prize_description`。**ENUM 新值只能追加到末尾**——MySQL 按序号存储，插到中间会让存量行读出错值；加列沿用 `V13` 的 `information_schema` 幂等模式。
   - 独立 `BountyService` + `BountyController` / `AdminBountyController`，管理端接口与普通任务的列表/汇总/条件预览按类型双向隔离，避免悬赏混进「按等级发放」流程。
-- **UI 规则取用**（已加载 `ui-ux-pro-max` 并先读 `design-system/yes-lab/MASTER.md`）：`"limited slots remaining claim" --domain ux` **0 命中**，按技能契约改写查询重试；`"remaining count scarcity"` 命中 Contextual Live Badge Updates（剩余名额用单一 `role="status" aria-atomic="true"` 播报完整句子，不播裸数字）、`"irreversible action confirmation"` 命中 Confirmation Dialogs + Confirmation Messages（接取不可逆需二次确认、成功要有明确反馈）、`"loading feedback async submit"` 命中 Loading Buttons + Submit Feedback（提交期间禁用防重复点击）。结论已写入设计文档 13.2 节。
+- **UI 规则取用**（已加载 `ui-ux-pro-max` 并先读 `design-system/openlims/MASTER.md`）：`"limited slots remaining claim" --domain ux` **0 命中**，按技能契约改写查询重试；`"remaining count scarcity"` 命中 Contextual Live Badge Updates（剩余名额用单一 `role="status" aria-atomic="true"` 播报完整句子，不播裸数字）、`"irreversible action confirmation"` 命中 Confirmation Dialogs + Confirmation Messages（接取不可逆需二次确认、成功要有明确反馈）、`"loading feedback async submit"` 命中 Loading Buttons + Submit Feedback（提交期间禁用防重复点击）。结论已写入设计文档 13.2 节。
 
 ### 验证结果
 
@@ -945,7 +945,7 @@
   - **截止日期在悬赏上是硬边界**：新增 `requireBountyEditable`，要求「已发布 且 今天在 `[start_date, end_date]` 内」；这与普通任务**有意不同**——`requireStandardEditable`（`:936`）与 `isMemberEditable`（`:920`）只看任务状态，普通任务的 `end_date` 只是显示层「已逾期」标记。两者分开写并加了「普通任务 `end_date` 仍只作显示」的回归用例，避免施工时照抄。
 - 人数与份数拆成两个独立设置：`headcount_limit`（可空 = 不限）只管接取规模，`prize_slots` 只管获奖份数；已发布后两者只增不减，`end_date` 可延长（延长后成员侧立即恢复可提交，因为窗口每次实时读取）。
 - 迁移 `V14` 在原有三处 ENUM 追加之上，新增 `tasks.headcount_limit / prize_slots / prize_description` 与 `task_assignments.completion_rank / prize_awarded`；`prize_awarded` 为 `NOT NULL DEFAULT FALSE`（带默认值，避免旧库加列失败）。`tasks.points` 与起止日期复用现有列，积分子类不新增、`point_grants` 表结构不变。
-- **UI 规则取用**（已加载 `ui-ux-pro-max` 并先读 `design-system/yes-lab/MASTER.md`）：除上一轮的三条外，新增两次检索——`"deadline expiry countdown" --domain ux` **0 命中**，改写为 `"expired unavailable disabled state" --domain ux` 命中 **Disabled States**（已截止/已满员的按钮必须明显区别于可用状态：降透明度 + `cursor: not-allowed`，不能只在文案上区分）。查询词与采纳结论均记入设计文档 15.2 节。
+- **UI 规则取用**（已加载 `ui-ux-pro-max` 并先读 `design-system/openlims/MASTER.md`）：除上一轮的三条外，新增两次检索——`"deadline expiry countdown" --domain ux` **0 命中**，改写为 `"expired unavailable disabled state" --domain ux` 命中 **Disabled States**（已截止/已满员的按钮必须明显区别于可用状态：降透明度 + `cursor: not-allowed`，不能只在文案上区分）。查询词与采纳结论均记入设计文档 15.2 节。
 
 ### 验证结果
 
@@ -972,18 +972,18 @@
 - 重写 `docs/bounty-task-requirements.md` 的 D 组为「积分到期结算」（D1—D13），并在第 1 节写明**范围边界**：到期结算只针对悬赏，普通任务维持「审核通过即发放积分」。上线验收补到 10 步，其中第 8 步专验结算。
 - 重写 `docs/bounty-task-design.md` 第 7 节为「积分到期结算」，本次的四个关键结论：
   - **结算资格只看结算那一刻的状态**：只发 `APPROVED`；`PENDING`（到期未提交）、`ABANDONED`（放弃/被移除）、`REJECTED`（被驳回）一律不发、不改变状态。到期后成员不能再提交，因此**结算时的 `APPROVED` 集合是冻结的**——这正是把「截止硬边界」与「到期结算」配套设计带来的确定性。
-  - **触发方式沿用仓库既有基础设施**：`YesLabApplication.java:8` 已有 `@EnableScheduling`，既有先例 `recruitment/service/InterviewRetentionScheduler.java:21` 是「`@Component` + `@Scheduled(cron = "${...}", zone = ...)`，调度器不持事务、事务在同名 Service」。结算照抄这套分工（新增 `BountySettlementScheduler` + `BountySettlementService`），不引入新框架。**有意与先例不同的是时区**：到期判定用实验室时区，因此显式写 `zone = "Asia/Shanghai"`（interviews 清理用的是 UTC），漏写会算错一天。
+  - **触发方式沿用仓库既有基础设施**：`OpenLIMSApplication.java:8` 已有 `@EnableScheduling`，既有先例 `recruitment/service/InterviewRetentionScheduler.java:21` 是「`@Component` + `@Scheduled(cron = "${...}", zone = ...)`，调度器不持事务、事务在同名 Service」。结算照抄这套分工（新增 `BountySettlementScheduler` + `BountySettlementService`），不引入新框架。**有意与先例不同的是时区**：到期判定用实验室时区，因此显式写 `zone = "Asia/Shanghai"`（interviews 清理用的是 UTC），漏写会算错一天。
   - **幂等与跨实例互斥分两层**：任务级 `points_settled_at` 用**条件更新认领**（`UPDATE ... WHERE id = ? AND points_settled_at IS NULL`，返回 1 才继续）作跨实例互斥，不需要分布式锁；每人一笔的来源编号 `BOUNTY:{taskId}:{memberProfileId}` 唯一保证重复执行不重复计分。`compose.yaml` 的 api 目前是单实例，但按多实例安全设计。同时记录了一个 JPA 陷阱：`@Modifying` 批量更新不同步持久化上下文，认领后必须重新读取任务或用 `clearAutomatically`，否则会把标记又写回 `NULL`。
   - **延长截止日期会重置结算标记**：这是我自己识别出的边界——若已结算的任务延长截止日期，新完成者会永远拿不到积分。处理为「延长且已结算时把 `points_settled_at` 置回 `NULL`」，任务重新进入待结算队列，已发过的人靠来源编号幂等跳过。文档、接口与前端提示三处都写明。
-- **测试隔离成为必做项**：测试有独立的 `backend/src/test/resources/application.yml`（H2 + `ddl-auto: create-drop` + Flyway 关闭），新增 `yeslab.bounty.settlement.enabled: false` 关闭调度。理由是调度线程使用**独立事务并会提交**，而 `PointApiTests` 之类依赖逐用例回滚做绝对断言——`DEVLOG` 已记录过两次同类隔离事故。
+- **测试隔离成为必做项**：测试有独立的 `backend/src/test/resources/application.yml`（H2 + `ddl-auto: create-drop` + Flyway 关闭），新增 `openlims.bounty.settlement.enabled: false` 关闭调度。理由是调度线程使用**独立事务并会提交**，而 `PointApiTests` 之类依赖逐用例回滚做绝对断言——`DEVLOG` 已记录过两次同类隔离事故。
 - 其他连带更新：迁移 `V14` 新列由 5 个增至 6 个（新增 `tasks.points_settled_at`）；`close` 接口内同步触发一次结算（不必等下一个调度周期）；结算**不新增任何对外端点**（无「手动结算」接口）；完成消息不再含积分结果，改为「积分将在任务到期后统一发放」；新增「结算完成后给创建者发汇总消息」；结算不对未完成者发催办消息；前端交互要点补「积分待结算 / 已结算 +N」两种时态。
-- **UI 规则取用**：沿用本日已加载的 `ui-ux-pro-max` 与 `design-system/yes-lab/MASTER.md`，本轮无新增检索（未新增页面类型，仍是既有三条规则 + Disabled States 的适用）。
+- **UI 规则取用**：沿用本日已加载的 `ui-ux-pro-max` 与 `design-system/openlims/MASTER.md`，本轮无新增检索（未新增页面类型，仍是既有三条规则 + Disabled States 的适用）。
 
 ### 验证结果
 
 - 本轮**只改文档与开发日志，未改任何代码**：`npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 生产构建），`git diff --check` 通过。
 - 未运行后端测试（后端未改动）；未连接生产环境，也未执行部署。
-- 新引用的实现事实已逐条核对源码：`YesLabApplication.java:8` 的 `@EnableScheduling`、`InterviewRetentionScheduler.java:21` 的 cron 与 zone 写法、`InterviewRetentionService` 的 `@Transactional` 位置、`backend/src/test/resources/application.yml` 的内容、`compose.yaml` 中 `api` 服务无 `deploy.replicas`。
+- 新引用的实现事实已逐条核对源码：`OpenLIMSApplication.java:8` 的 `@EnableScheduling`、`InterviewRetentionScheduler.java:21` 的 cron 与 zone 写法、`InterviewRetentionService` 的 `@Transactional` 位置、`backend/src/test/resources/application.yml` 的内容、`compose.yaml` 中 `api` 服务无 `deploy.replicas`。
 
 ### 待办
 
@@ -1020,7 +1020,7 @@
 
 - 本轮**只改文档与开发日志，未改任何代码**：`npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 生产构建），`git diff --check` 通过。
 - 未运行后端测试（后端未改动）；未连接生产环境，也未执行部署。
-- 新引用的实现事实已核对源码：`TaskService.isMemberEditable:920` / `requireStandardEditable:936` 只判断任务状态、`reviewStandard` 的即时计分位置、`PointService.grantForTask:136` 的 `@PreAuthorize` 与 operator 来源、`taskRecipientIneligibleReason:183-188`、`OnboardingTaskIssuerService:78` 的 `due_date` 计算、`OnboardingTaskService:191-192` 的时长变更重算、`TaskAssignmentEntity.assignDueDate:170`、`YesLabApplication:8` 与 `InterviewRetentionScheduler:21`、测试 `application.yml`、`compose.yaml` 单实例。
+- 新引用的实现事实已核对源码：`TaskService.isMemberEditable:920` / `requireStandardEditable:936` 只判断任务状态、`reviewStandard` 的即时计分位置、`PointService.grantForTask:136` 的 `@PreAuthorize` 与 operator 来源、`taskRecipientIneligibleReason:183-188`、`OnboardingTaskIssuerService:78` 的 `due_date` 计算、`OnboardingTaskService:191-192` 的时长变更重算、`TaskAssignmentEntity.assignDueDate:170`、`OpenLIMSApplication:8` 与 `InterviewRetentionScheduler:21`、测试 `application.yml`、`compose.yaml` 单实例。
 
 ### 待办
 
@@ -1039,13 +1039,13 @@
 
 ### 验证结果
 
-- **临时 MySQL 真机演练（9.5.0，独立 datadir `/tmp/yeslab-v14`、端口 3399，未触碰任何既有实例）**：**13 项断言全部通过**。覆盖加列与列属性、索引三列、历史普通任务已回填、新手任务未回填、存量 `task_type`/`assignment.status` 读回值不变、重复执行无报错（幂等）、历史结算时间未被刷新、**迁移后新建任务未被误标**、已结算总数仍为 1。
+- **临时 MySQL 真机演练（9.5.0，独立 datadir `/tmp/openlims-v14`、端口 3399，未触碰任何既有实例）**：**13 项断言全部通过**。覆盖加列与列属性、索引三列、历史普通任务已回填、新手任务未回填、存量 `task_type`/`assignment.status` 读回值不变、重复执行无报错（幂等）、历史结算时间未被刷新、**迁移后新建任务未被误标**、已结算总数仍为 1。
 - **修正了一个演练方法问题**：手工用 `sort -V` 排序会得到 `V7_1_1 → V7_1_2 → V7_1 → V7` 的错误顺序（`V7` 之后才创建 `discussion_posts`），导致 `V7_1*` 报「表不存在」——这正是 `DEVLOG` 之前记过的「简陋执行器」问题。演练脚本已写死 Flyway 的正确版本序 `V7 < V7_1 < V7_1_1 < V7_1_2`。
 - 本批不含 Java 代码，未跑后端测试；`git diff --check` 通过。
 
 ### 待办
 
-- 临时 MySQL 实例（端口 3399，后台 job `bash-37`）暂时保留，供第 7 批 `V15` 演练与 `ddl-auto=validate` 结构校验复用，**施工收尾时必须关闭并删除 `/tmp/yeslab-v14`**。
+- 临时 MySQL 实例（端口 3399，后台 job `bash-37`）暂时保留，供第 7 批 `V15` 演练与 `ddl-auto=validate` 结构校验复用，**施工收尾时必须关闭并删除 `/tmp/openlims-v14`**。
 
 ## 2026-09-21：任务到期结算施工第 2 批（统一窗口判定与到期冻结守卫）
 
@@ -1075,9 +1075,9 @@
 - **`TaskEntity`**：新增 `pointsSettledAt`（结算标记）与 `isPointsSettled()` / `hasBoundPoints()` / `markPointsSettled()` / `resetPointsSettlement()`。`resetPointsSettlement` 供第 4 批「延长截止日期」使用。
 - **`TaskRepository`**：新增 `findDueSettlementTaskIds(today, onboardingType, closedStatus)`（到期或已结束、绑了积分、未结算；显式排除新手任务）与 `claimSettlement(taskId, settledAt)`——**条件更新认领**，`@Modifying(clearAutomatically, flushAutomatically)` 让后续读取拿到认领后的状态（否则会把刚写的标记当成未结算写回去）。
 - **`TaskSettlementService`**：`findDue` + 事务方法 `settle(taskId)`。`settle` 先查「是否绑积分」再查「是否到期」，然后认领、逐人发放、写回 `point_grant_id` / `awarded_points` / `points_skipped_reason`，最后给任务创建者发一条结算汇总消息。只给 `APPROVED` 发放，其余状态只计数不改状态。
-- **`TaskSettlementScheduler`**：`@Scheduled(cron = "${yeslab.task.settlement.cron:0 5 * * * *}", zone = "Asia/Shanghai")` + `@ConditionalOnProperty`，循环与 try/catch 容错放在调度器里。**这是对设计草稿的一处收敛**：原稿的 `settleAllDue` 不再存在，从而天然避开「同 bean 内直调导致 `@Transactional` 失效」的自调用陷阱，不需要自注入代理。
+- **`TaskSettlementScheduler`**：`@Scheduled(cron = "${openlims.task.settlement.cron:0 5 * * * *}", zone = "Asia/Shanghai")` + `@ConditionalOnProperty`，循环与 try/catch 容错放在调度器里。**这是对设计草稿的一处收敛**：原稿的 `settleAllDue` 不再存在，从而天然避开「同 bean 内直调导致 `@Transactional` 失效」的自调用陷阱，不需要自注入代理。
 - **`TaskService`**：`reviewStandard` **删除即时计分**（不再注入 `PointService`），通过消息改为「N 积分将在任务到期后统一结算」；`closeStandardTask` 在关闭后同步调用一次结算（结束 = 到期 = 结算 = 终局）；删掉随之失效的 `evidenceFor` 与 `grantDescription`。
-- **配置**：`application.yml` 新增 `yeslab.task.settlement.enabled` 与 `yeslab.task.settlement.cron`；`src/test/resources/application.yml` 设 `enabled: false`（调度线程用独立事务并会提交，会污染依赖逐用例回滚的测试）。
+- **配置**：`application.yml` 新增 `openlims.task.settlement.enabled` 与 `openlims.task.settlement.cron`；`src/test/resources/application.yml` 设 `enabled: false`（调度线程用独立事务并会提交，会污染依赖逐用例回滚的测试）。
 - **测试按新口径改造（未放宽任何断言）**：`TaskApiTests` 的「审核通过自动计分且幂等」改名为 `approvalRecordsResultButPointsAreOnlyGrantedAtSettlement`，断言审核后 `awardedPoints` 为空且总积分不变 → `close` 后积分才 +25 → 再结算一次 `settled=false`；「三种不可计分情形」改为审核后触发结算再核对跳过原因，其中「自己给自己」那条按新口径改成**完成者即任务创建者**（原先测的是审核人本人，结算没有审核人）。
 - **新增 `TaskSettlementApiTests`（4 项）**：只发已通过且幂等、未到期不结算、`points=0` 不进队列且不写标记、结束任务即结算。
 
@@ -1086,8 +1086,8 @@
 - Java 21 全量测试：**55 项通过，0 失败、0 错误、0 跳过**（51 + 新增 4）。
 - **首轮全套出现 1 项失败，是真实的测试隔离问题**：`dueTaskGrantsApprovedOnlyAndIsIdempotent` 在单独跑时通过、在全套跑时 `notApprovedCount` 期望 1 实际 3——因为它用「角色条件」发布任务，匹配到了**其它测试类遗留在共享 H2 上下文里的成员档案**。修法是改用**按成员显式指派**（`memberProfileIds`），让用例与全局成员集合解耦，而不是把断言放宽成 `>= 1`。
 - **冒烟脚本按新口径改造并实跑通过**：`scripts/smoke-task-module.sh` 由 53 项增至 **60 项全部通过**，新增/改写的检查点——「审核通过只记录结论、不写入积分」「审核通过后成员总积分不变」「结束即结算，成员总积分增加 17」「结束（到期）后管理员也不能再审核」「结束（到期）后管理员也不能再驳回」，积分流水仍断言来源为 `TASK:{taskId}`。
-- **定时任务路径端到端实测**：以 `YESLAB_TASK_SETTLEMENT_CRON='*/5 * * * * *'` 启动打包后的 jar（隔离内存库），内联脚本 `.codex-run/settlement-rehearsal/verify-scheduled-settlement.sh` **5 项断言全部通过**（审核不发分 → 把截止日期改到昨天 → 等一个调度周期积分自动 +23 → 再等两个周期不重复计分），后端日志出现 `[scheduling-1] 任务结算完成：待结算 1 个，成功 1 个，失败 0 个`，确认 cron 绑定、时区与「未结算」扫描都生效。
-- 说明：`./mvnw spring-boot:run` 在本沙箱下失败（Maven 需写 `~/.m2` 的插件元数据，被文件沙箱拒绝），改用 `./mvnw package -DskipTests` + `java -jar target/yes-lab-api-0.1.0-SNAPSHOT.jar` 启动，效果等同。
+- **定时任务路径端到端实测**：以 `OPENLIMS_TASK_SETTLEMENT_CRON='*/5 * * * * *'` 启动打包后的 jar（隔离内存库），内联脚本 `.codex-run/settlement-rehearsal/verify-scheduled-settlement.sh` **5 项断言全部通过**（审核不发分 → 把截止日期改到昨天 → 等一个调度周期积分自动 +23 → 再等两个周期不重复计分），后端日志出现 `[scheduling-1] 任务结算完成：待结算 1 个，成功 1 个，失败 0 个`，确认 cron 绑定、时区与「未结算」扫描都生效。
+- 说明：`./mvnw spring-boot:run` 在本沙箱下失败（Maven 需写 `~/.m2` 的插件元数据，被文件沙箱拒绝），改用 `./mvnw package -DskipTests` + `java -jar target/openlims-api-0.1.0-SNAPSHOT.jar` 启动，效果等同。
 - `npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 生产构建）；`git diff --check` 通过。
 
 ### 待办
@@ -1113,7 +1113,7 @@
   - `OnboardingTaskApiTests` 新增 `overdueApplicantIsFrozenUntilDueDateIsExtendedPerPerson`：直接把本人 `due_date` 改到昨天（沿用本仓库「直接改写实体模拟时间」的既有做法）→ 断言本人提交 409、管理员审核 409 → 按人延长（断言返回的原日期/新日期/操作人/理由）→ 断言「今天」与「同一天」两个非法日期返回 400 → 总览能查到留痕 → 延长后可提交、可审核、正常转正 → 已通过后再延长 409。
   - `TaskSettlementApiTests` 新增 `extendingDeadlineAfterSettlementGrantsOnlyNewCompleters`：两位成员的任务，第一轮只有 A 完成 → 到期结算 A 得 21 分；把截止日期延长到未来 → 断言 `pointsSettledAt` 被清空（**同时断言此时它不该出现在 `findDue` 里**，因为 `findDue` 还要求「已到期」）→ B 在延长期内完成并审核 → 再次到期结算 → `grantedCount=1 / reusedCount=1`，B +21、A 不变。
 - **`V14` 重新演练：15 项断言全部通过**（原 13 项 + 三列与外键的存在性核对），含幂等与「迁移后新建任务未被误标」。
-- **补做了第 3 批遗留的 `ddl-auto=validate` 结构校验**：用打包后的 jar 连接临时 MySQL（由 `V1`—`V14` 建出的 `yeslab_probe_v14`），以 `spring.jpa.hibernate.ddl-auto=validate`、`flyway.enabled=false` 启动，**应用正常启动**（`Started YesLabApplication`，MySQL Connector/J、`MySQLDialect`），说明实体映射（含 `points_settled_at` 与三个延长留痕字段）与迁移建出的表结构完全一致。
+- **补做了第 3 批遗留的 `ddl-auto=validate` 结构校验**：用打包后的 jar 连接临时 MySQL（由 `V1`—`V14` 建出的 `openlims_probe_v14`），以 `spring.jpa.hibernate.ddl-auto=validate`、`flyway.enabled=false` 启动，**应用正常启动**（`Started OpenLIMSApplication`，MySQL Connector/J、`MySQLDialect`），说明实体映射（含 `points_settled_at` 与三个延长留痕字段）与迁移建出的表结构完全一致。
 - `npm run check` 通过；`git diff --check` 通过。
 
 ### 待办
@@ -1143,7 +1143,7 @@
 
 ### 待办
 
-- 进入第 6 批（前端）：到期只读态与「已截止」文案、管理端「待审核 N 人（到期后将无法审核）」与「待结算 / 已结算」、逾期对象的「延长截止日期」入口与留痕展示、导航不变。前端改动必须按约定加载 `ui-ux-pro-max`、先读 `design-system/yes-lab/MASTER.md`，并做真机截图自检。
+- 进入第 6 批（前端）：到期只读态与「已截止」文案、管理端「待审核 N 人（到期后将无法审核）」与「待结算 / 已结算」、逾期对象的「延长截止日期」入口与留痕展示、导航不变。前端改动必须按约定加载 `ui-ux-pro-max`、先读 `design-system/openlims/MASTER.md`，并做真机截图自检。
 - 第 7 批悬赏本体（`V15` + `BountyService` + 悬赏前后端）仍未开始；临时 MySQL（端口 3399）继续保留给它演练。
 
 ## 2026-09-21：任务到期结算施工第 6 批（前端：只读态、审批提示、延长入口）
@@ -1169,7 +1169,7 @@
   1. 成员端详情页一开始用 `teacher` 账号打开，页面显示「任务不存在」——截图脚本要按账号分组（成员端用 member、管理端用 teacher），这是脚本问题，但也确认了成员端接口按成员档案归属校验生效；
   2. 全局 `scroll-behavior: smooth` 让 `scrollIntoView` 还在动画中，脚本读到的坐标是滚动前的，点击落空、延长表单没展开——改为 `behavior: 'instant'` + 滚动后重新测量，并在点击后**校验预期文案出现**（含 `expectText` 断言）；
   3. 截图看出「通过后 +N 积分」与「积分已结算：+N」重复显示、延长表单提示文字被栅格挤成窄列——分别改为已通过时不渲染前者、提示段落加 `full` 跨满整行。
-- 验证用进程已全部停止（8080 / 5173 / 9222 均释放），Chrome 临时 profile 已删除；后端全程使用隔离内存库，未触碰本机 `backend/data/yeslab.mv.db`。
+- 验证用进程已全部停止（8080 / 5173 / 9222 均释放），Chrome 临时 profile 已删除；后端全程使用隔离内存库，未触碰本机 `backend/data/openlims.mv.db`。
 - 临时 MySQL（端口 3399）继续保留给第 7 批的 `V15` 演练。
 
 ### 待办
@@ -1196,7 +1196,7 @@
 
 - Java 21 全量测试：**72 项通过，0 失败、0 错误、0 跳过**（62 + 新增 `BountyApiTests` 10 项）。新增用例覆盖：名额 1 的接取与「名额已满」拦截、同一人不能接两次、放弃后名额归还但本人不可再接、不限人数、完成名次递增与「只有前 m 名获奖」、**驳回第 1 名后奖金顺延给第 2 名且名次保留**、唯一完成者被驳回后份额空置并等下一个完成者、提交即完成（状态直接已通过且不发积分）、到期结算只发已完成的且来源编号为 `BOUNTY:`、到期后不能接取与驳回但管理员仍可移除接取者、奖励成对校验与人数只增不减、悬赏与普通任务流程的双向隔离与权限。
 - **`V15` 真机演练 19 项断言全部通过**（`.codex-run/settlement-rehearsal/rehearse-v15.sh`）：三处 ENUM 追加后**存量行读回值不变**、五处新列与 `prize_awarded` 默认值、悬赏行与 `CLAIM`/`ABANDONED` 可写入读回、`CHECK`（双目标恰一个非空）与唯一约束（同一人重复接取）仍生效、重复执行幂等。
-- **`ddl-auto=validate` 结构校验通过**：用打包后的 jar 连接由 `V1`—`V15` 建出的真实 MySQL 库启动成功（`Started YesLabApplication`），确认悬赏字段与新增 ENUM 取值的实体映射与迁移完全一致。
+- **`ddl-auto=validate` 结构校验通过**：用打包后的 jar 连接由 `V1`—`V15` 建出的真实 MySQL 库启动成功（`Started OpenLIMSApplication`），确认悬赏字段与新增 ENUM 取值的实体映射与迁移完全一致。
 - 施工中修掉三处**测试自身**的问题（不是产品缺陷）：`createBounty` 辅助少传参数；断言用了 `==` 匹配只含两段的来源编号（实际是 `BOUNTY:{taskId}:{profileId}`），改为前缀正则；以及一条断言方向写反——本脚本里那条普通任务是 `V14` 之后新建的，「未被回填」才是正确结果。
 - **一处产品问题在测试中被发现并修正**：`requireNotDecreased` 原先把 `null` 当作下调，导致「只改截止日期」的部分更新被拒；改为 `null` 表示保持原值。
 - `npm run check` 通过；`git diff --check` 通过。
@@ -1206,7 +1206,7 @@
 - **悬赏前端尚未施工**（本批只做后端）：悬赏榜 `/bounties`、悬赏详情 `/bounties/:taskId`、管理端 `/admin/bounties`（列表 + 创建/编辑表单）与 `/admin/bounties/:taskId/claims`（名单与事后复核）、`PortalShell` 导航、我的任务的悬赏分支（奖金与名次、提交即完成的文案）。落地后同样要做真机截图自检与程序化界面断言。
 - 冒烟脚本 `scripts/smoke-task-module.sh` 尚未加入悬赏链路（可新增 `scripts/smoke-bounty.sh` 或在现有脚本追加一段）。
 - 悬赏上线前需按设计文档第 13 节在预生产 MySQL 演练 `V15` 并做并发接取验证（H2 的锁行为不能替代 InnoDB）。
-- 施工收尾时关闭临时 MySQL（端口 3399）并删除 `/tmp/yeslab-v14`。
+- 施工收尾时关闭临时 MySQL（端口 3399）并删除 `/tmp/openlims-v14`。
 
 ## 2026-09-21：悬赏任务第 7b 批（前端：悬赏榜、详情、管理端表单与名单）
 
@@ -1235,7 +1235,7 @@
 
 ### 待办
 
-- 第 7c 批：悬赏冒烟脚本（`scripts/smoke-bounty.sh` 或追加到现有脚本）、同步 `AGENTS.md` / `README.md` / `backend/docs/module-boundaries.md` / `access-control.md`，并做施工收尾（关闭临时 MySQL、删除 `/tmp/yeslab-v14`）。
+- 第 7c 批：悬赏冒烟脚本（`scripts/smoke-bounty.sh` 或追加到现有脚本）、同步 `AGENTS.md` / `README.md` / `backend/docs/module-boundaries.md` / `access-control.md`，并做施工收尾（关闭临时 MySQL、删除 `/tmp/openlims-v14`）。
 - 悬赏上线前需按 `docs/bounty-task-design.md` 第 13 节在预生产 MySQL 演练 `V15` 并做并发接取验证（H2 的锁行为不能替代 InnoDB）。
 
 ## 2026-09-21：悬赏任务第 7c 批（冒烟脚本、文档同步与收尾）
@@ -1253,7 +1253,7 @@
 
 ### 待办
 
-- 施工收尾：关闭临时 MySQL（端口 3399）并删除 `/tmp/yeslab-v14`（本次验证已无残留进程占用 8080/5173/9222）。
+- 施工收尾：关闭临时 MySQL（端口 3399）并删除 `/tmp/openlims-v14`（本次验证已无残留进程占用 8080/5173/9222）。
 - 上线前必须在预生产 MySQL 演练 `V14` + `V15`：核对 ENUM 追加后存量行读回值不变、`V14` 回填历史普通任务、`V16`（如后续再改表）不得修改已应用脚本；并按 `docs/bounty-task-design.md` 第 13 节用两个并发请求验证悬赏不超发。
 - 部署后需执行一次「批量补发新手任务」，并补做真实浏览器点击验收（悬赏接取 → 提交 → 驳回顺延 → 到期结算）。
 
@@ -1306,7 +1306,7 @@
 - `npm run check` 通过（ESLint `--max-warnings=0`、Prettier、Vite 构建）；`git diff --check` 通过。
 - **真机浏览器验收 17 项断言全部通过**：`.codex-run/ui-review/verify-bounty-form-validation.mjs`（隔离内存库后端 8099 + Vite 5199 代理 + 无头 Chrome CDP 9222）。覆盖：越界值被拦下且**未发出创建请求**、就近提示文案、`aria-invalid`/`aria-describedby` 关联、焦点落到奖金份数字段、改成 100 后提示即时消失并成功保存草稿（列表出现新卡片）、份数多于人数上限的提示、人数上限越界提示、无横向滚动。
 - 截图 5 张（`bounty-form-error-desktop/dark/mobile`、`bounty-form-saved` 等，已 gitignore）：1440 亮/暗与 375 亮下均确认顶部汇总与就近提示可见、未被固定顶栏遮挡、明暗对比可读。
-- 未触碰用户正在运行的 8080 实例与 `backend/data/yeslab.mv.db`；验证用 8099/5199/9222 进程与 Chrome 临时 profile 在收尾时停止。
+- 未触碰用户正在运行的 8080 实例与 `backend/data/openlims.mv.db`；验证用 8099/5199/9222 进程与 Chrome 临时 profile 在收尾时停止。
 
 ### 待办（发现但未改，需用户确认）
 
@@ -1317,20 +1317,20 @@
 
 ### 背景
 
-用户截图 Activity Monitor：两个 `mysqld` 各写盘 74.74 GB / 75.47 GB，`kernel_task` 191.13 GB，`df` 显示 Data 卷 **427 GiB 已用 / 仅 12 GB 可用（98%）**，质问「你在我的磁盘里干了什么」。两个 `mysqld` 指向同一临时实例：`--datadir=/tmp/yeslab-mig13/data --socket=/tmp/yeslab-mig13/m.sock --port=3399 --log-error=/tmp/yeslab-mig13/run.log`。
+用户截图 Activity Monitor：两个 `mysqld` 各写盘 74.74 GB / 75.47 GB，`kernel_task` 191.13 GB，`df` 显示 Data 卷 **427 GiB 已用 / 仅 12 GB 可用（98%）**，质问「你在我的磁盘里干了什么」。两个 `mysqld` 指向同一临时实例：`--datadir=/tmp/openlims-mig13/data --socket=/tmp/openlims-mig13/m.sock --port=3399 --log-error=/tmp/openlims-mig13/run.log`。
 
 ### 根因
 
 - 这两个进程是**历史会话遗留的临时演练实例**（PID 96710 / 96886，均已 `ppid=1`，已运行 11 小时 45 分），与本次会话无关，但确是本项目施工的产物。
-- `/tmp/yeslab-mig13` 目录**事后被删掉**，而两个进程仍持有该目录下 `run.log` 的写句柄：`lsof` 显示 `NLINK=0`、`SIZE/OFF` 分别为 **79,067,327,604** 与 **78,028,492,888** 字节（合计 **146 GB**）。已 unlink 的文件不占用任何目录项，因此 `du`、Finder、磁盘分析工具**都看不见**，空间却真实被占。
+- `/tmp/openlims-mig13` 目录**事后被删掉**，而两个进程仍持有该目录下 `run.log` 的写句柄：`lsof` 显示 `NLINK=0`、`SIZE/OFF` 分别为 **79,067,327,604** 与 **78,028,492,888** 字节（合计 **146 GB**）。已 unlink 的文件不占用任何目录项，因此 `du`、Finder、磁盘分析工具**都看不见**，空间却真实被占。
 - 实测膨胀速率 **171 MB / 20 秒 ≈ 30 GB/小时**（采样两次 `lsof -p <pid>` 的 FD 1w 大小），磁盘剩余 12 GB → 约 24 分钟撑满。
 
 ### 处置
 
-- `kill`（SIGTERM）**无效**，进程未退出且继续写；改用 `kill -9 96710 96886` 后两个进程结束，`lsof +L1` 中 `yeslab-mig13` 归零。
+- `kill`（SIGTERM）**无效**，进程未退出且继续写；改用 `kill -9 96710 96886` 后两个进程结束，`lsof +L1` 中 `openlims-mig13` 归零。
 - 空间回收**有明显延迟**：刚杀完 `df` 只回来约 4 GB（一度以为被 APFS 快照钉住），约 1 分钟后对账正常。**Data 卷 459.5 GB → 304.2 GB；可用 12 GB → 155 GB；占用率 98% → 65%**（`tmutil listlocalsnapshots` 只有两条系统更新快照，与本事故无关）。
-- 清理 `/tmp` 下本会话历史的残留 **约 906 MB**：`yeslab-*.log`、`yeslab-chrome-profile*`、`chrome-bounty-flow`、`DEVLOG.orig*.md`、`_devlog_split.json`、`yeslab-before.mv.db`。
-- **未触碰**用户自己的实例与数据：PID 230（`/usr/local/mysql/data`）、Homebrew `/usr/local/var/mysql`、`backend/data/yeslab.mv.db`。
+- 清理 `/tmp` 下本会话历史的残留 **约 906 MB**：`openlims-*.log`、`openlims-chrome-profile*`、`chrome-bounty-flow`、`DEVLOG.orig*.md`、`_devlog_split.json`、`openlims-before.mv.db`。
+- **未触碰**用户自己的实例与数据：PID 230（`/usr/local/mysql/data`）、Homebrew `/usr/local/var/mysql`、`backend/data/openlims.mv.db`。
 
 ### 验证结果
 
@@ -1357,7 +1357,7 @@
 - **修掉脚本自身一个坑**：中文全角标点紧跟 `$VAR`（如 `$DIR。`、`$pid）`）会被 bash 当成变量名的一部分，`set -u` 下报 `unbound variable`；全部改为 `${VAR}` 后 0 报错。
 - **3306 端口争用（独立问题，一并修复）**：机器上**两套 MySQL 抢 3306**——Oracle 那套（`/usr/local/mysql/data`，root LaunchDaemon，已运行 9 天）实际占着端口，Homebrew 那套（`/usr/local/var/mysql`）因此**累计失败重启 41,701 + 57,907 = 99,608 次**，从 2026-06-15 一直滚到今天；而 Homebrew 实例里**只有 `mysql`/`sys`/`performance_schema`、零用户库，从未成功服务过**。按用户选择执行 `brew services stop mysql`；因该 plist 的 `RunAtLoad` 与 `KeepAlive` 均为 true（不删则下次登录必然复活），另移除 `~/Library/LaunchAgents/homebrew.mxcl.mysql.plist`（需要时 `brew services start mysql` 可重建）。
 - **验证**：`brew services list` → `mysql none`；两个 err 日志 60 秒 **0 KB 增长**（末尾为 `Shutdown complete` / `mysqld_safe ... ended`），无进程持有日志句柄。**未触碰** Oracle 实例与其 datadir（`/usr/local/mysql/data` 无读权限，未做任何改动）。
-- 附带结论：`application.yml` 默认 `jdbc:h2:file:./data/yeslab`、生产走 `YESLAB_DATABASE_URL`，**3306 上跑什么与本项目无关**，停掉 Homebrew 实例不影响施工与本地开发。
+- 附带结论：`application.yml` 默认 `jdbc:h2:file:./data/openlims`、生产走 `OPENLIMS_DATABASE_URL`，**3306 上跑什么与本项目无关**，停掉 Homebrew 实例不影响施工与本地开发。
 
 ## 2026-09-26：核查悬赏验收状态与撤销面试未通过
 
@@ -1440,7 +1440,7 @@
 - 成员首次访问受保护路由时读取本人档案；编号/标签未完整则强制到 `/complete-profile`，保留原页面地址，补全并保存后返回；退出登录保留可用。教师、核心成员与资料完整账号不受门禁影响。
 - 新增本人补全 API，服务端验证编号格式及全局唯一性、能力标签 1—12 项，并只修改自己的编号/标签。移除新手任务提交前的旧资料必填门槛。
 - 新增 `V18__member_profile_code_nullable.sql`，只将 `member_profiles.member_code` 改为可空并保留唯一索引；不修改 `V1` 或 `V17`。需求 §A3/§8 和设计 §16/§17 已同步，旧规则明确标为历史口径。
-- UI 采用现有 YES Lab 设计系统；按 `ui-ux-pro-max` 查询 `mandatory profile completion onboarding form accessibility` 与 `form validation focus management --stack vue`，采用明确标签、就地校验、保存反馈及重试路径。
+- UI 采用现有 OpenLIMS 设计系统；按 `ui-ux-pro-max` 查询 `mandatory profile completion onboarding form accessibility` 与 `form validation focus management --stack vue`，采用明确标签、就地校验、保存反馈及重试路径。
 
 ### 验证与待办
 
@@ -1471,7 +1471,7 @@
 - 悬赏榜、悬赏管理列表与接取名单增加标题/成员搜索、带数量的状态筛选和无匹配状态；简化页面说明与表单提示。悬赏详情与不可逆接取确认区统一轻量过渡。
 - 新手任务审核队列保持待审优先；精简设置、通过/驳回说明。列表筛选变化、审核/延期表单展开加入轻量动效；移动端状态保持单行，表单动作触控区域至少 44px。
 - 统一使用短时 opacity/transform 过渡、卡片微抬升、可见焦点；`prefers-reduced-motion` 下过渡压至近乎即时。不引入动画依赖、不更改业务规则或 API。
-- 按要求使用 `ui-ux-pro-max` 并检查 `design-system/yes-lab/MASTER.md`（本页无专属覆盖）；参考列表动效与减少动态建议，未改变设计系统规范。
+- 按要求使用 `ui-ux-pro-max` 并检查 `design-system/openlims/MASTER.md`（本页无专属覆盖）；参考列表动效与减少动态建议，未改变设计系统规范。
 
 ### 验证与待办
 
@@ -1489,13 +1489,13 @@
 
 ## 2026-09-27：修复 CI 积分排行榜测试时区差异
 
-- 已读取 [Actions #46 原始日志](https://github.com/KaoXiaoYu/YES-Lab/actions/runs/36255869523)：75 项测试中唯一失败的是 `PointApiTests.memberLeaderboardIncludesAllOfficialStudentsAcrossPeriods`，日榜预期 25 分、实际 0 分。
+- 已读取 [Actions #46 原始日志](https://github.com/KaoXiaoYu/OpenLIMS/actions/runs/36255869523)：75 项测试中唯一失败的是 `PointApiTests.memberLeaderboardIncludesAllOfficialStudentsAcrossPeriods`，日榜预期 25 分、实际 0 分。
 - 根因：`PointService` 按 `Asia/Shanghai` 计算积分周期，测试数据却由无时区的 `LocalDate.now()` 生成。失败发生在北京时间 9 月 27 日凌晨，CI 的 UTC 日期仍为 9 月 26 日，积分被测试写入北京时间的前一天，因而不计入当日日榜。
 - 跨日复验进一步发现：`GrantRequest.occurredOn` 的 `@PastOrPresent` 也依赖机器默认时区，改用北京时间的测试数据后会被误判为未来日期而返回 HTTP 400。这同样影响 UTC 部署下凌晨登记当天积分。
 - 修复：`PointApiTests` 在每个用例开始时按北京时间获取并保存 `labToday`；排行榜、热力图和月度封顶的测试数据及断言统一使用该日期。新增 `ValidationConfig`，将 Bean Validation 的 `ClockProvider` 设为北京时间，与业务日期保持一致；保留未来日期限制，面试 `@Future Instant` 仍比较同一绝对时间点。
 - 新增回归：北京时间的明天不能发放积分，接口须返回 `occurredOn` 字段错误且成员积分保持不变；既有用例继续验证今天可发放且当日日榜计入 25 分。
 - 已在 Java 21 下验证：旧测试使用 `GMT-18:00` 强制制造 JVM 日期落后北京时间，准确复现相同的 25/0 断言失败；仅修测试数据会复现 HTTP 400；完整修复后该时区下 `PointApiTests` 4 项全部通过，`-Duser.timezone=UTC test` 全量 76 项通过（0 失败、0 错误）。`git diff --check` 与开发日志格式检查通过，所有本次测试进程均已退出。
-- [Actions #47](https://github.com/KaoXiaoYu/YES-Lab/actions/runs/36293185454) 已通过，但对应提交 `6b2c85c` 仅改开发日志；白天 UTC 与北京时间日期一致会暂时掩盖该问题，该次通过不包含本次修复。
+- [Actions #47](https://github.com/KaoXiaoYu/OpenLIMS/actions/runs/36293185454) 已通过，但对应提交 `6b2c85c` 仅改开发日志；白天 UTC 与北京时间日期一致会暂时掩盖该问题，该次通过不包含本次修复。
 - 待办：本次修复尚未提交/推送，推送后核对 CI。改动涉及日期校验配置、测试与开发日志，无数据库迁移。
 
 ## 2026-09-27：修复普通任务保存 500 与重做任务管理布局
@@ -1507,7 +1507,7 @@
 - 普通任务列表与编辑区分离；增加可用的标题搜索、带数量的状态筛选、待办优先/截止日期/名称排序。顶部整理为普通任务、新手任务、悬赏任务入口；已结束任务只允许查看进度。
 - 编辑区按「任务设置 → 内容与子任务 → 发放对象」组织；角色/状态使用紧凑复选项，指定成员改成可搜索的勾选列表，支持仅看已选和清空，不再依赖 Ctrl/Command 多选。
 - 发布前预览名单，未保存或名单为空时禁用发布并提示原因；保存失败保留输入并聚焦错误摘要，离开未保存表单与删除已发布子任务均须确认。操作期间表单 inert，防止请求期间继续编辑被覆盖。
-- 使用 `ui-ux-pro-max` 与 `emil-design-eng`；查询 `error summary validation --domain ux`、`form list transitions --stack vue`，采纳字段定位、稳定键、短时 opacity/transform 与高频操作减少动态。页面规则新增至 `design-system/yes-lab/pages/task-management.md`；需求流程不变，设计文档增量记录。
+- 使用 `ui-ux-pro-max` 与 `emil-design-eng`；查询 `error summary validation --domain ux`、`form list transitions --stack vue`，采纳字段定位、稳定键、短时 opacity/transform 与高频操作减少动态。页面规则新增至 `design-system/openlims/pages/task-management.md`；需求流程不变，设计文档增量记录。
 
 ### 验证与待办
 
@@ -1571,7 +1571,7 @@
 - 后端复用既有教师专用管理接口，增加可选 `mascotOverrides` 和账号 `mascot` 返回值。新增 `V19__notification_mascot_preferences.sql` 及独立账号偏好表；默认梅琳娜，未带新字段的旧请求保留配置，禁用账号记录不随保存丢失。没有修改已存在的 V1—V18 迁移。
 - 消息中心按本人 JWT 读取形象，每 15 秒（前台）或回到前台同步；隐藏账号也保持设置同步。保存本页通过事件刷新。新增 `NotificationMascot.vue` 复用原梅琳娜组件或奶龙动画 SVG。
 - 角色专属文案集中在 `src/services/notificationMascots.js`：奶龙的面板提示、消息弹窗、信箱介绍/空态及发送者均独立。涉及混合收件人的审核/公告/招新提示改用「站内通知」，不再把所有账号都称为梅琳娜；历史通知内容和 ID 不变。
-- 需求及技术说明：`docs/notification-mascot-settings.md`；页面规则：`design-system/yes-lab/pages/notification-settings.md`。沿用 UI/UX Pro Max，`forms v-model --stack vue` 查询命中并采纳表单双向绑定，选择框/保存按钮至少 44px、键盘焦点可见。
+- 需求及技术说明：`docs/notification-mascot-settings.md`；页面规则：`design-system/openlims/pages/notification-settings.md`。沿用 UI/UX Pro Max，`forms v-model --stack vue` 查询命中并采纳表单双向绑定，选择框/保存按钮至少 44px、键盘焦点可见。
 - 验证：`NotificationMascotApiTests` 与既有 `CollaborationApiTests` 共 7 项通过，覆盖教师授权、核心/成员/访客拒绝、未登录拒绝、账号隔离、非法输入整次拒绝、隐藏优先、旧请求兼容、禁用账号保留及历史消息不变。
 - 真实 Chrome + 独立内存 H2 后端完成保存、筛选、失败保留、教师专属入口、两套角色文案、跨账号轮询更新、隐藏后恢复验证；375/768/1024/1440 明暗主题及消息面板共 17 张截图，无横向溢出，新控件触控目标达标。实际内嵌 SVG 在普通模式运动、减少动态模式连续截图一致；截图为 `.codex-run/ui-review/mascot-*.png`，检查日志为 `mascot-ui-check.log`、`mascot-motion-check.log`。
 - 动画验收中发现外部 SVG 在媒体偏好变化后仍可能播放，已改为 picture/source 在减少动态模式直接选择静态 SVG；真实浏览器像素对比确认静止，普通模式确认运动。
@@ -1621,7 +1621,7 @@
 - 用户批准方案，并明确自动刷新改为每日、取消方向榜。需求/技术文档已同步；首页仅保留真实总榜、月榜、年榜，按北京时间每日零点刷新，后台页面跨日恢复前台时补刷新，同日聚焦不额外刷新。以成员 ID、分数和并列名次直接渲染，取消演示分数兜底；增加初次失败/空态、重试与成功读取时间。
 - 积分管理新增库内来源搜索/选择；竞赛必须已结束、审核通过且有奖项，项目不受公开展示开关限制。前后端均限制为来源关联正式学生（包括符合资格的队长/负责人），保留非教师、非本人、分配与封顶规则；姓名未绑定的参赛者不发分。刷新关联成员保留事项和分配，已离开名单的对象阻止提交；切换来源清空旧分配。
 - 手工编号由后端以北京时间日期时间加 UUID 自动生成；客户端提交键与服务端规范化请求摘要、唯一约束处理重复与并发请求，相同键不同参数拒绝。去掉新增/撤销/流水中的凭证控件，保留事项说明、贡献及撤销原因。历史凭证字段为兼容既有系统任务响应保留，任务结算来源和计分时点不变。
-- 新增 `V20__point_grant_sources.sql`，只补可空来源、名称/ID 快照、请求键/摘要与约束，未修改 V1—V19。来源删除置空关联，历史快照保留；撤销仍为反向流水。新增页面规范 `design-system/yes-lab/pages/points-management.md`，首页覆盖规则增量记录每日刷新；沿用本轮 UI/UX Pro Max 查询。
+- 新增 `V20__point_grant_sources.sql`，只补可空来源、名称/ID 快照、请求键/摘要与约束，未修改 V1—V19。来源删除置空关联，历史快照保留；撤销仍为反向流水。新增页面规范 `design-system/openlims/pages/points-management.md`，首页覆盖规则增量记录每日刷新；沿用本轮 UI/UX Pro Max 查询。
 - 验证：Java 21 / UTC 下全量 `package` 通过，**91 项测试，0 失败/错误/跳过**；新增来源/类型/成员守卫、整批拒绝、请求重试/参数冲突、公开身份/分数/隐私、撤销及并列名次回归。独立 HTTP 并发测试确认同键只记分一次、只通知一次。整理 import 后编译通过；前端完整 `npm run check`（ESLint、全仓 Prettier、生产构建）通过，仅有既有大 chunk 提示；最终文档与差异检查另见收尾。
 - 隔离 H2 + 真实 Chrome CDP 验证来源切换、失败输入/焦点、重试键、系统编号和说明、过期成员刷新与阻止提交、输入保留、首页 280 分正确归属、跨日定时与同日聚焦不刷新、失败重试。1440/1024/768/375 × 明暗及手机分配/流水共 **20 张最终截图**，人工复核桌面/手机明暗，无横向溢出；相关控件 ≥44px，抽查文字对比度最低 **4.76:1**，真实 Tab 焦点与减少动态通过，浏览器运行时异常 0。截图/脚本/结果在 `.codex-run/ui-review/points-*` 与 `check-points-*-20261003.mjs`。
 - 使用 `scripts/temp-mysql.sh` 演练本机 **MySQL 9.5** 的 V1/V8 旧结构加 V20：空表/有历史流水、重复补缺、历史编号/证据保留、来源删除快照、请求唯一约束全部通过；不等同于生产 **MySQL 8.4** 或完整 Flyway 历史演练。日志为 `.codex-run/points-mysql-check.log`；TTL 15 分钟、日志上限 5MB，退出 trap 已 `stop` 并删除临时目录，**已关停**。
@@ -1708,3 +1708,42 @@
 - 本地隔离 H2 + Vite + Chrome CDP：57 条真实数据完整分页/循环、51 条任务及第二页失败保留完整队列、1/2 静态、3 条全容纳循环及接缝成员操作、键盘焦点、减少动态、触摸/离开视口暂停和跨窗口刷新通过。额外真实 API/页面验证逾期 14 保留、15 剔除，个人列表完整分页仍可看到旧事项；基金待登记/已初始化/读取失败重试、访客提示与成员明细入口通过。
 - 1440/1024/768/375 明暗截图与最终源码复核通过，最低文字对比度 6.18:1，所有检查入口 ≥44px，无页面横向溢出或运行时异常；人工复核桌面短队列暗色、手机基金暗色与完整成员。报告 home-strip-final-report.json/home-strip-extra-report.json/carousel-report.json，截图与有界日志均位于 .codex-run/ui-review 或 .codex-run，临时验收数据不进入 Git。
 - 本轮专用 Chrome、Vite、隔离后端已关停，8080/5173/9222 无监听且进程退出；专用 profile、隔离上传目录与运行 JAR 已清理，无本轮 MySQL/后台进程遗留。Git 交付按用户授权提交并推送 main；待办仅为此前模块既有 MySQL 8.4 上线演练与部署验收，本次不增加上线步骤。
+
+## 2026-10-04：OpenLIMS 品牌统一与页脚仓库入口
+
+- 按用户要求更名页面、文档、后端包/入口类、配置/环境变量、存储键、默认密码和部署资源；文件与目录同步改名。真实仓库所有者路径仅作为页脚地址保留。
+- 从原生 SVG 制作全新的 OpenLIMS 开放环形标识与字标，替换全部品牌 PNG、白色/彩色变体、favicon 与分享封面；保留可编辑 SVG，同步图片宽高与暗色导航显示。
+- 首页页脚新增完整 GitHub 仓库地址，支持新窗口、可见焦点、44px 入口与手机换行；更新 MASTER/public-home 品牌规范。ui-ux-pro-max 查询 `image logo alt text`（ux），采纳替代文字和图片优化规则。
+- 验证：后端 115 项测试全部通过，Maven 离线打包成功；前端 ESLint/Prettier/生产构建通过（仅既有大包提示）；Shell 语法、JSON 与品牌图片引用校验通过。
+- 临时内存 H2 后端、Vite、Chrome 联调：375/768/1024/1440 明暗首页/登录页、管理员页，共 18 个页面检查与 26 张截图；无旧品牌界面文案、横向溢出、图片缺失或运行时错误，仓库链接目标校验通过。已人工复核手机首页、手机/桌面页脚、手机登录和管理员暗色截图。报告 `.codex-run/ui-review/brand-report.json`。
+- 已停止本轮 Vite、内存 H2 后端和浏览器，未启动 MySQL，未连接生产或推送仓库。历史 SQL 变量的更名改变校验和，README 已记录既有数据库部署的复核要求；新镜像与正式域名需由部署者配置。
+
+## 2026-10-04：基于真实项目重新完成开源适配
+
+- 用户要求保留原公开官网、主页编辑、成员/个人页、账号权限、招新面试、项目、参赛/成果/新闻、讨论/通知、三类任务与奖金履约、积分、基金及日程。核对原路由、Vue 页面、Controller/Service、Role/Permission、配置与运维脚本后实施；未采用样品管理静态预览，未新增业务模块/改流程/删预留权限。
+- 需求/技术方案为 `docs/open-source-adaptation.md`。用户明确仓库 `YESlab-UAVtech/OpenLIMS`、选择 MIT；组织名仅在真实仓库/镜像路径保留。新增 LICENSE，两 Docker 镜像携带许可，第三方模型原许可/来源不变。
+- 新增共享 `config/branding.json`，Vue、HTML 元数据、Java 默认品牌共同读取，统一 Logo/图标/分享图/名称/仓库；源码身份覆盖旧 CMS 身份字段，主页其他内容继续可编辑，实际 PUT/公开 GET 同步通过。所有页面提供页底仓库，Logo 及项目默认图引用集中；演示人名改为示例身份，去除旧机构默认奖项/伙伴声明，既有数据库不批量改写。
+- 新增 `config/appearance.json` 四预设：通用蓝灰、学术纸面、工程青蓝网格、生命科学绿色；明暗语义色、本地字体和圆角可自改，默认 general、可用 VITE_UI_PRESET/CI 变量/Docker build-arg 选择。非法配置明确报错，共用真实业务页面/权限/API。清理外部字体、旧自动生成视觉建议，保留有效页面规则；后台控件/按钮尺寸补至 44px，过滤 `.codex-run` HMR 干扰。
+- UI/UX Pro Max：读取 MASTER/首页覆盖与规则；`research administration minimal` 命中不适合的 newsletter，未采纳，重试 `dashboard clean modular` 命中 Minimalism & Swiss Style，采用层级、网格、语义色及轻反馈。Vue CSS variables theming 未命中，按项目既有 CSS 变量实现；已增量更新设计系统。文档参照现有中文需求/手册结构，未宣称检索到私人写作风格。
+- 重写 README/使用指南/生产部署，补齐逐模块用途、入口、角色、操作与真实限制；修正审核即计分、完赛必需证书、旧公开假榜/凭证、资料补全等过时描述。增量更新后端文档、贡献指南、AGENTS、任务历史覆盖说明，保留业务/权限/迁移硬约束。
+- 部署：移除与独立部署无关的 Sites 构建依赖；Maven Wrapper 恢复执行权限；CI 自动导出小写仓库所有者镜像命名空间，引导支持 Fork 参数；升级使用 Compose --wait，缺 Git 时安全停止。备份目录规范化防重合/嵌套，随机目录防同秒覆盖，失败产物标 incomplete，留存只清理旧完整备份；文档明确 SQL/上传非原子快照、维护窗口一致备份与隔离恢复。
+- 构建：JDK21 离线 package 全量 115 项、0 失败/错误/跳过；主页测试按源码集中身份规则更新且原文案/权限/链接断言保留。精选展示断言改为共享配置，选测/最终聚合仍为 115 项零失败。前端最终 npm run check（lint/全仓格式/build）通过，仅既有大 chunk 提示。Shell 语法、四 YAML 解析、非法外观、JAR 共享配置打包、无 Git 部署停止均通过。备份 mock Docker 控制流检查成功，不冒充 MySQL 实恢复。
+- 真实 Vite + 8080 内存 H2 + Chrome CDP：业务联合 344 项检查、57 全页截图，最终视觉 225 项/56 更新截图及 16 视口截图，共 73 张最终产物；四预设桌面/手机明暗首页/登录/成员管理，默认另含 768/1024。教师20入口、成员9入口、成员管理API403/路由拒绝、实际主页保存/公开同步、基金读取和游客注册通过；零横向溢出、图片缺失或页面运行时异常。专项8组语义色最低5.36:1、实际标题字型、新增44px入口、Tab焦点及减少动态通过；不宣称逐像素/每个旧组件对比度全量测量。已人工复核桌面/手机的通用管理、学术首页和工程/生命科学首屏。报告/脚本/截图位于 `.codex-run/ui-review/opensource-*` 与 `viewport-*`。
+- 本副本无 `.git`，无法运行 git diff/check 或恢复上轮已更名历史 SQL；本轮全部迁移 SHA-256 前后相同，未修改任何 SQL/历史 checksum、未执行 repair。仍须取得已部署原件与 flyway_schema_history，再做预生产 MySQL8.4 完整迁移/并发、上线新手补发及真实备份恢复。Docker CLI 缺少 Compose/服务，未容器实构、未 Ubuntu 引导/DNS/HTTPS/GHCR/远端CI，详见 `docs/open-source-verification.md`。
+- 本轮四 Vite、内存后端、隔离 Chrome 全部关停，8080/5173—5176/9222 无监听，专用 profile/上传演练目录已清理。未起临时 MySQL，未连接生产、未提交、未推送或部署。
+
+## 2026-10-04：恢复官方 Git 历史并准备 GitHub 上传
+
+- 用户明确要求上传 GitHub，目标为已确认的公开仓库 `YESlab-UAVtech/OpenLIMS`，当前账号 KaoXiaoYu 有 ADMIN 权限，main 无分支保护。取回完整远端历史，基线 `43a3b39d406b1723ed1c7a30e7a9a19cbf2bee30`；原目录无 Git 的限制已解除，不创建独立历史或强制覆盖远端。
+- 按 `git log` 确认 V20 由历史提交 `fe925ed` 引入，逐字节比对发现本地唯一迁移差异为上轮将 yeslab SQL 变量改名；已恢复远端原件，全部历史迁移与官方基线一致，未改数据库 checksum/执行 repair。历史变量名为兼容性例外，已同步更新 README、部署/适配/验证文档与协作说明；生产 history 和 MySQL 实机验收仍未完成。
+- 远端已跟踪的 C++ 练习、编译产物和旧托管配置不新增上传；`.cph` 仅本机路径调整不纳入适配提交。测试日志、截图、临时目录、依赖和环境密钥按 gitignore 排除。已核对 Java 包重命名后的业务差异，继续保留所有模块。
+- 上传前格式检查通过，历史迁移 Git diff 为空，diff --check 无问题。此前前后端验收结果沿用；本次仅恢复原 SQL 与更新审计文档，未改变业务执行代码。提交、远端推送和 GitHub CI 结果待后续记录。
+
+- GitHub 上传进度：本地提交 `d4577eb` 已完成，恢复 C++ 既有执行权限且未提交本机 `.cph` 路径变化；两次实际 HTTPS 推送均被网络 `Empty reply from server` 中断，官方 main 仍为 `43a3b39`，不能报告上传成功。HTTP/1.1 dry-run 连接与快进检查通过。
+- GitHub OAuth 响应确认当前 scopes 为 `gist, read:org, repo`，缺少修改 CI 所需 `workflow`；已请求用户执行 `gh auth refresh -h github.com -s workflow`。本次仅保存已准备的代码与审计记录，等待授权后使用有界日志、缓冲 POST 重试，再核对远端 SHA/Actions。未连接生产，未留下推送后台进程。
+
+## 2026-10-05：开源适配已上传 GitHub
+
+- 用户确认已授权，OAuth scopes 已包含 workflow。通过 HTTP/1.1 和 8 MiB 缓冲 POST 快进推送成功：官方 `YESlab-UAVtech/OpenLIMS` 的 main 从 `43a3b39` 更新到 `ab3d2cbee907cf09c589419e54ac0e6bd148a556`，包含适配代码提交 `d4577eb` 和审计记录；GitHub API 与本地 HEAD 一致，未强推、未改写远端历史。
+- 对官方基线核对全部迁移，Git diff 为空；依赖、环境密钥、截图、临时实例与测试日志未上传。本机 `.cph` 练习路径调整仍单独保留未提交；本轮未改业务代码、未连接生产、未留下后台推送进程。
+- GitHub Actions 仓库权限 enabled、工作流 `Test and publish images` active；首次查询尚无运行记录，不能宣称远端 CI 或 GHCR 镜像已验证。此前本地 115 项后端测试、前端检查与浏览器验收结果不变；MySQL 8.4 实机迁移/并发、生产环境初始化和备份恢复仍按验证文档待验。

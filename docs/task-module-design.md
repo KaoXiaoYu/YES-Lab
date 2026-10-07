@@ -1,4 +1,6 @@
-# YES Lab 任务模块设计
+# OpenLIMS 任务模块设计
+
+> 现行覆盖：任务积分按到期结算（见 `task-settlement-requirements.md`/设计），旧“审核通过即计分”仅为历史方案；转正资料按当前代码允许转正后首次进入成员系统补全；普通任务补发按本文末尾增量章节。完整当前操作见 [使用指南](user-guide.md)。
 
 > 2026-10-02 普通任务按人补发改造见第 18 节，2026-10-02 已批准并实施。
 
@@ -414,7 +416,7 @@ DROP TEMPORARY TABLE tmp_probation_rollback;
 | `src/views/RecruitmentView.vue`                                                            | 阶段数组与标签去掉试用期                                                 |
 | `src/views/AdminRecruitmentView.vue`                                                       | 标签、`nextStages`、试用期转换卡片改为技能测试转正                       |
 | `src/views/AuthView.vue`                                                                   | 流程文案                                                                 |
-| `backend/src/test/java/cn/yeslab/platform/identity/IdentityRecruitmentApiTests.java`       | 第 125 行改为从技能测试转正，并补充新手任务相关用例                      |
+| `backend/src/test/java/cn/openlims/platform/identity/IdentityRecruitmentApiTests.java`     | 第 125 行改为从技能测试转正，并补充新手任务相关用例                      |
 | `backend/docs/access-control.md`                                                           | 招新状态机图、权限矩阵、转正与豁免规则、试用期回退说明、成员状态取值范围 |
 | `backend/docs/module-boundaries.md`、`README.md`                                           | 招新流程说明与上线后补发步骤                                             |
 
@@ -763,7 +765,7 @@ public TaskGrantResult grantForTask(UUID taskId, UUID memberProfileId, int point
 - 草稿保存时先清空旧发放规则并 flush，再写入新规则，避免 Hibernate 插入早于删除造成 V11 唯一约束冲突；整个操作保持同一事务。已有子任务按 ID 同步，不再整体重建。
 - `TaskView.memberProfileIds` 返回手工指定成员编号，供草稿编辑回填；每次保存后更新服务端返回的子任务 ID 与表单快照。
 - 发布前预览名单，未保存或名单为空时禁止发布；保存错误保留输入并聚焦错误摘要。已结束任务只提供查看进度。未改变发布、审核、结算规则，不涉及迁移。
-- 页面规范见 `design-system/yes-lab/pages/task-management.md`。
+- 页面规范见 `design-system/openlims/pages/task-management.md`。
 
 ## 13. 站内消息
 
@@ -922,7 +924,7 @@ public TaskGrantResult grantForTask(UUID taskId, UUID memberProfileId, int point
 
 - `src/views/AdminTaskProgressView.vue` 当前只把能力标签转换成 `SKILL_TAG` 规则，直接提交补发，缺少成员名单与本次人数。
 - 后端 `AudienceRequest` 已支持 `ROLE`、`GRADE` 等规则及最多 100 个 `memberProfileIds`；`GET /api/v1/admin/tasks/member-options` 已提供 `profileId/name/memberCode/grade/memberStatus/role`，进度接口已有任务对象名单。
-- 沿用既有 Vue 3、Lucide SVG、明暗主题和 `design-system/yes-lab/pages/task-management.md`；不增加依赖或数据库字段，不修改既有迁移。
+- 沿用既有 Vue 3、Lucide SVG、明暗主题和 `design-system/openlims/pages/task-management.md`；不增加依赖或数据库字段，不修改既有迁移。
 
 ### 18.2 页面与操作草图
 

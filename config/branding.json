@@ -1,0 +1,11 @@
+{
+  "name": "OpenLIMS",
+  "displayName": "OpenLIMS 实验室",
+  "fullName": "Open Laboratory Information Management System",
+  "description": "面向实验室的公开展示、成员成长、招新与科研协作管理平台。",
+  "logo": "/openlims-logo.svg",
+  "logoOnDark": "/logo-variants/openlims-white.svg",
+  "favicon": "/favicon.svg",
+  "shareImage": "/og.svg",
+  "repositoryUrl": "https://github.com/YESlab-UAVtech/OpenLIMS"
+}

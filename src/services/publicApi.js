@@ -1,3 +1,4 @@
+import { brand } from '../config/site'
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
 export async function fetchPublicHome(onCoreLoaded) {
@@ -12,7 +13,7 @@ export async function fetchPublicHome(onCoreLoaded) {
     ])
     return normalizeHome(home, publicProfiles, publicProjects, competitions, news)
   } catch (error) {
-    console.warn('YES Lab API 暂不可用，继续使用内置展示数据。', error)
+    console.warn('公开 API 暂不可用，请检查后端连接。', error)
     return null
   }
 }
@@ -43,7 +44,7 @@ export async function fetchPublicMemberProfile(profileId) {
         avatarUrl: null,
         status: 'OFFICIAL',
         skillTags: legacy.tags,
-        headline: 'YES Lab 成员',
+        headline: `${brand.name} 成员`,
         profileHtml: '<p>成员详细主页内容正在完善中。</p>',
         totalPoints: legacy.points,
         currentRank: legacy.rank,
@@ -90,13 +91,9 @@ function normalizeHome(home, publicProfiles = [], publicProjects = [], competiti
       : advisorMode === 'SELECTED'
         ? orderedTeachers.filter((member) => featuredAdvisorIds.includes(member.id))
         : orderedTeachers
-  const advisors = publicProfiles.length
-    ? selectedTeachers.slice(0, display.advisorLimit || 6).map(toShowcaseAdvisor)
-    : advisorMode === 'AUTO' && home.advisor
-      ? [home.advisor]
-      : []
+  const advisors = selectedTeachers.slice(0, display.advisorLimit || 6).map(toShowcaseAdvisor)
   const managedMembers = publicProfiles.filter((member) => member.role !== 'TEACHER').map(toShowcaseMember)
-  const sourceMembers = managedMembers.length ? managedMembers : home.members
+  const sourceMembers = managedMembers
   const orderedMembers = orderBySelection(
     sourceMembers,
     featuredMemberIds,
@@ -110,7 +107,7 @@ function normalizeHome(home, publicProfiles = [], publicProjects = [], competiti
           ? featuredMemberIds.includes(member.profileId || member.slug)
           : member.core,
   }))
-  const managedProjects = publicProjects.length ? publicProjects.map(toShowcaseProject) : home.projects
+  const managedProjects = publicProjects.map(toShowcaseProject)
   const orderedProjects = orderBySelection(managedProjects, featuredProjectIds, (project) => project.slug)
   const visibleProjects =
     projectMode === 'HIDDEN'
@@ -161,7 +158,7 @@ function toShowcaseAdvisor(teacher) {
     profileId: teacher.id,
     initials: initialsFor(teacher.name),
     name: teacher.name,
-    role: 'YES Lab 指导老师',
+    role: `${brand.name} 指导老师`,
     description: teacher.headline || '负责实验室研究方向、项目实践与人才培养指导。',
     tags: teacher.skillTags || [],
     avatarUrl: teacher.avatarUrl,

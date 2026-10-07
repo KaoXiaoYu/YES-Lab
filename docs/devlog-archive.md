@@ -1,4 +1,4 @@
-# YES Lab 开发日志 · 历史归档
+# OpenLIMS 开发日志 · 历史归档
 
 > 本文件是 `DEVLOG.md` 的历史归档，收录 2026-08-24 ~ 2026-09-17 共 90 条记录，正文保持原样、未改写。
 > 归档目的是控制每次任务前的必读上下文；`DEVLOG.md` 只保留当前状态、待办和最近 20 条记录。
@@ -104,10 +104,10 @@
 ## 2026-08-24：项目基础与公开展示端
 
 - 完成 Vue 公开首页和 Spring Boot `/api/v1/public` 只读接口，覆盖实验室简介、研究方向、项目、成果、成员、排行榜、动态和赞助伙伴。
-- 明确品牌全称为 `Yichun Embodied Science`；研究方向为无人机、无人机与机器狗空地协同、具身智能及相关人才培养。
+- 明确品牌全称为 `Open Laboratory Information Management System`；研究方向为无人机、无人机与机器狗空地协同、具身智能及相关人才培养。
 - 加入计算机设计大赛全国二等奖、江西省智能机器人大赛飞行巡航定点赛道省赛二等奖、全国智能汽车大赛平衡轮腿组华东赛赛区三等奖。
 - 建立 CUAV 独立赞助商展区，使用其官方 Logo 和官网链接。
-- 定稿融合式 YES Lab Logo：Y/E/S 为蓝/黄/红，LAB 在 S 底部横线内透明镂空；同时保留纯白版与其他审核版本。
+- 定稿融合式 OpenLIMS Logo：OpenLIMS 字标配合开放环形标识，采用蓝色主版；同时保留纯白版与其他审核版本。
 - 使用 UI/UX Pro Max 确立 Swiss Modernism 2.0 设计系统，完成响应式网格、键盘操作、可见焦点、触控尺寸和减少动态效果适配。
 - 成员区调整为指导老师、核心成员和实时榜单；指导老师暂用“汤洪大王”，其他缺失内容继续使用“范桌轩大王”占位。
 
@@ -115,7 +115,7 @@
 
 - 新增 VS Code 一键启动任务，显式使用本机 Java 21；Spring Boot 使用内嵌 Tomcat，无需配置独立 Tomcat。
 - 本地前端默认 `127.0.0.1:5173`，后端默认 `127.0.0.1:8080`；Vite 端口被占用时以前端终端输出为准。
-- 曾发布公开展示版本到 `yes-lab-public.funskii55.chatgpt.site`；该域名出现过 Cloudflare/WAF 403，诊断结果与 Vue/Spring Boot 代码无关。
+- 曾发布公开展示版本到 `openlims.example.com`；该域名出现过 Cloudflare/WAF 403，诊断结果与 Vue/Spring Boot 代码无关。
 - 线上版本目前只适合公开展示；账号和管理功能依赖独立 Spring Boot 服务，未在 Sites 中部署后端。
 
 ## 2026-08-25：账号、权限与招新流程
@@ -184,7 +184,7 @@
 
 - 为项目增加主图元数据和独立文件存储；负责人、项目管理员和系统管理员可上传或替换，普通成员无编辑权限。
 - 内部项目主图通过 JWT 鉴权读取，公开项目通过公开只读接口读取；格式限制为 JPG、PNG、WebP，单文件最大 8MB，并校验文件签名。
-- 项目列表、项目团队空间、公开首页卡片和公开项目弹窗均展示主图；未上传时使用透明底 YES Lab Logo 作为统一默认图。
+- 项目列表、项目团队空间、公开首页卡片和公开项目弹窗均展示主图；未上传时使用透明底 OpenLIMS Logo 作为统一默认图。
 - 项目资料编辑弹窗增加 16:10 预览、文件选择、客户端格式/大小提示和独立上传状态；本地文件默认保存在 `backend/data/projects/covers/`。
 
 ### 验证
@@ -261,7 +261,7 @@
 - 新增独立的生产首管理员初始化器，只创建一个 `TEACHER` 管理员与规范成员档案，不启用三个演示账号或演示项目；已有同名账号不会被修改或提权。
 - 首个管理员使用运行时随机密码初始化；写入数据库并校验角色后，脚本立即以关闭初始化的环境重建 API，使明文初始密码不写入 `.env.production`，只在 SSH 终端显示。
 - 为三个容器统一增加 `10 MB × 3` 的 JSON 日志轮转，避免日志占满 40 GB 磁盘；本机完整备份默认留存从 14 天调整为 7 天，并为备份清理增加绝对路径保护。
-- 新增每天约 03:30 执行的 `yeslab-backup.timer`，生产手册改为 Ubuntu 24.04 SSH 操作流程，并补充 GHCR 默认私有、域名、安全组、健康检查和日常更新说明。
+- 新增每天约 03:30 执行的 `openlims-backup.timer`，生产手册改为 Ubuntu 24.04 SSH 操作流程，并补充 GHCR 默认私有、域名、安全组、健康检查和日常更新说明。
 
 ### 验证
 
@@ -283,10 +283,10 @@
 
 ## 2026-08-26：服务器 GitHub 认证排障
 
-- 确认服务器克隆失败的根因是 GitHub 不再支持使用账号密码进行 HTTPS Git 认证；首次克隆失败导致 `/opt/yes-lab` 未创建，后续 `cd` 和部署脚本报错均为连锁结果。
+- 确认服务器克隆失败的根因是 GitHub 不再支持使用账号密码进行 HTTPS Git 认证；首次克隆失败导致 `/opt/openlims` 未创建，后续 `cd` 和部署脚本报错均为连锁结果。
 - 正式部署手册新增私有仓库只读 Deploy Key 流程，包括独立 Ed25519 密钥、GitHub 仓库绑定、官方主机指纹核验、SSH 克隆和仓库级 `core.sshCommand`，确保后续自动发布脚本可持续执行 `git fetch`。
 - HTTPS 方式只能使用 GitHub 用户名配合 PAT；生产服务器推荐只读 Deploy Key，且不授予写权限。
-- Deploy Key 应复制 `/root/.ssh/yeslab_deploy.pub` 的完整单行内容，格式为 `ssh-ed25519 <Base64 公钥> yes-lab-production`；不得复制无 `.pub` 后缀的私钥，也不要把 GitHub 主机的 `SHA256:` 指纹当作公钥。
+- Deploy Key 应复制 `/root/.ssh/openlims_deploy.pub` 的完整单行内容，格式为 `ssh-ed25519 <Base64 公钥> openlims-production`；不得复制无 `.pub` 后缀的私钥，也不要把 GitHub 主机的 `SHA256:` 指纹当作公钥。
 - 首次部署已在生成 swap 与生产 `.env.production` 后安全停止于 GHCR `denied`；原因范围为镜像尚未由 Actions 发布或两个 Packages 仍为 Private，MySQL/API/Web 尚未启动。处理包可见性或完成 `docker login ghcr.io` 后可直接重跑引导脚本，已有生产密钥会原样复用。
 
 ## 2026-08-26：GitHub Actions Web 镜像构建修复
@@ -302,13 +302,13 @@
 
 ## 2026-08-26：仓库与镜像可见性方案
 
-- 通过 GitHub CLI 确认 `KaoXiaoYu/YES-Lab` 当前仍为 Public；可以改为 Private，现有 Actions 使用仓库 `GITHUB_TOKEN` 的 `contents: read` 与 `packages: write`，不依赖仓库公开状态。
+- 通过 GitHub CLI 确认 `KaoXiaoYu/OpenLIMS` 当前仍为 Public；可以改为 Private，现有 Actions 使用仓库 `GITHUB_TOKEN` 的 `contents: read` 与 `packages: write`，不依赖仓库公开状态。
 - 推荐源代码仓库和两个 GHCR 镜像均保持 Private：服务器使用只读 Deploy Key 拉取 Git，使用仅含 `read:packages` 的 classic PAT 登录 GHCR；Docker 登录状态可供后续发布脚本复用。
 - GHCR Container Package 的可见性与仓库可以独立配置；若镜像改为 Public，服务器可匿名拉取，但 GitHub 官方提示公开后的 Package 不能再改回 Private，因此应在首次成功发布镜像后谨慎选择。
 
 ## 2026-08-26：私有 GHCR 镜像拉取排障
 
-- 通过 GitHub CLI 确认 `KaoXiaoYu/YES-Lab` 已设为 Private；最新 Actions 运行 `32951964039` 的测试、API 镜像和 Web 镜像任务全部成功，两个 `latest` 镜像已经发布。
+- 通过 GitHub CLI 确认 `KaoXiaoYu/OpenLIMS` 已设为 Private；最新 Actions 运行 `32951964039` 的测试、API 镜像和 Web 镜像任务全部成功，两个 `latest` 镜像已经发布。
 - 服务器返回 `unauthorized` 的根因是 Docker 尚未登录私有 GHCR，或登录使用的令牌缺少 `read:packages` 权限；这不是镜像构建失败。
 - Compose 中 API 与 MySQL 显示 `Interrupted` 是 Web 镜像拉取失败后并行任务被取消的连锁结果，并不表示 MySQL 镜像或数据库发生故障。
 - 处理方式为使用 GitHub 用户名 `KaoXiaoYu` 和具有 `read:packages` 权限的 classic PAT 执行一次 `docker login ghcr.io`，随后原样重跑部署引导脚本；已有 `.env.production` 和仓库外数据目录不会被覆盖。
@@ -317,7 +317,7 @@
 
 - GitHub 仓库可见性为 `PRIVATE`；Actions 运行 `32951964039` 总结论为 `success`，三个任务均为 `success`。
 - 本次仅完成远程状态核验与部署故障诊断，未连接生产服务器，也未改动生产配置或用户数据。
-- 服务器实测 `mysql:8.4` 可完整拉取，而 `yes-lab-web:latest` 与 `yes-lab-api:latest` 均返回 `denied`，进一步排除公网连接、Docker daemon 和 Docker Hub 故障，确认问题仅限私有 GHCR 认证。
+- 服务器实测 `mysql:8.4` 可完整拉取，而 `openlims-web:latest` 与 `openlims-api:latest` 均返回 `denied`，进一步排除公网连接、Docker daemon 和 Docker Hub 故障，确认问题仅限私有 GHCR 认证。
 
 ## 2026-09-17：遗漏面试记录补录完善
 
@@ -343,7 +343,7 @@
 
 ## 2026-08-26：生产 API 首次启动未通过健康检查
 
-- 私有镜像拉取问题处理后，部署推进到首个管理员初始化阶段，但 `yes-lab-api-1` 被判定为 `unhealthy`，引导脚本在第 206 行安全停止；MySQL 数据目录和上传文件均未删除。
+- 私有镜像拉取问题处理后，部署推进到首个管理员初始化阶段，但 `openlims-api-1` 被判定为 `unhealthy`，引导脚本在第 206 行安全停止；MySQL 数据目录和上传文件均未删除。
 - 第 206 行实际执行的是带临时管理员环境变量的 `docker compose up --wait api`；脚本行号本身不是根因。需通过 API 容器日志、退出状态、`OOMKilled` 标记和 healthcheck 输出区分应用启动异常、Flyway/JPA 数据库错误、健康接口 503 或内存限制问题。
 - 在取得服务器只读诊断输出前不修改生产配置、不重建数据库，也不重复创建管理员；部署脚本保持可安全重跑。
 - 服务器日志确认 API 可连接 MySQL 8.4，容器未被 OOM kill；实际异常为 `Schema validation: missing table [accounts]`。启动日志没有 Flyway 记录，说明 Hibernate 校验发生前数据库迁移根本未运行。
@@ -392,7 +392,7 @@
 - 新账号使用 BCrypt 编码初始密码并在同一事务中建立成员档案；普通成员不能调用创建接口，核心学生登录后可立即访问系统管理模块。
 - 个人主页编辑页将原头像 URL 输入替换为本地图片选择、即时预览、上传替换和移除；管理员也可在成员管理页协助维护成员头像。
 - 头像仅支持 JPG、PNG、WebP，限制 4 MB，并在前后端校验格式；后端同时检查文件签名，使用成员 UUID 命名并在替换格式时清理旧文件。
-- 生产头像目录为 `/var/lib/yeslab/uploads/members/avatars`，映射到宿主机 `/srv/yeslab/data/uploads`，现有上传文件备份脚本会自动纳入头像，无需新增数据库迁移。
+- 生产头像目录为 `/var/lib/openlims/uploads/members/avatars`，映射到宿主机 `/srv/openlims/data/uploads`，现有上传文件备份脚本会自动纳入头像，无需新增数据库迁移。
 - UI/UX Pro Max 指导本次使用圆形预览、明确文件限制、独立上传反馈、44px 操作目标和移动端纵向操作布局。
 
 ### 验证
@@ -408,9 +408,9 @@
 ## 2026-08-26：生产服务器日常更新说明
 
 - 本地提交并推送 `main` 后，必须等待 GitHub Actions 的测试、API 镜像和 Web 镜像三个任务全部成功，再登录服务器更新，避免再次拉到构建尚未完成的旧 `latest` 镜像。
-- 服务器统一在 root shell 中执行 `/opt/yes-lab/deploy/scripts/deploy.sh`；私有 GHCR 的 `docker login` 凭据按 Linux 用户隔离，因此登录和部署不能分别由 `ubuntu`、`root` 执行。
-- 日常部署脚本会先备份正在运行的 MySQL 和上传文件，再执行 Git 快进更新、镜像拉取、MySQL/API/Web 顺序更新与 API 健康检查；不会删除 `/srv/yeslab/data`，也不得执行 `docker compose down -v`。
-- 正式发布建议将 `deploy/.env.production` 的 `YESLAB_IMAGE_TAG` 固定为 Actions 发布的完整提交 SHA；使用 `latest` 更方便，但不如提交 SHA 易于确认版本和回滚。
+- 服务器统一在 root shell 中执行 `/opt/openlims/deploy/scripts/deploy.sh`；私有 GHCR 的 `docker login` 凭据按 Linux 用户隔离，因此登录和部署不能分别由 `ubuntu`、`root` 执行。
+- 日常部署脚本会先备份正在运行的 MySQL 和上传文件，再执行 Git 快进更新、镜像拉取、MySQL/API/Web 顺序更新与 API 健康检查；不会删除 `/srv/openlims/data`，也不得执行 `docker compose down -v`。
+- 正式发布建议将 `deploy/.env.production` 的 `OPENLIMS_IMAGE_TAG` 固定为 Actions 发布的完整提交 SHA；使用 `latest` 更方便，但不如提交 SHA 易于确认版本和回滚。
 - 本次仅复核并说明现有发布流程，没有连接或修改生产服务器；部署脚本、生产配置和业务代码均未改动。
 
 ## 2026-08-26：成果证书、个人主页展示与成员搜索完善
@@ -432,7 +432,7 @@
 
 ### 上线待办
 
-- 本地提交并推送后，等待 GitHub Actions 的测试、API 镜像和 Web 镜像全部成功，再由服务器 root 账号执行 `/opt/yes-lab/deploy/scripts/deploy.sh`；API 启动时 Flyway 自动执行 V4，无需手工 SQL。
+- 本地提交并推送后，等待 GitHub Actions 的测试、API 镜像和 Web 镜像全部成功，再由服务器 root 账号执行 `/opt/openlims/deploy/scripts/deploy.sh`；API 启动时 Flyway 自动执行 V4，无需手工 SQL。
 - 本次未连接生产服务器，也未改动生产 MySQL 或上传目录；上线前仍应使用现有部署脚本完成自动备份。
 
 ## 2026-08-26：证书主图与成员搜索下拉交互修正
@@ -474,7 +474,7 @@
 
 ## 2026-08-27：生产图片格式修复、上传预览与公开导航
 
-- 直接测量 `yeslab.tech` 生产比赛详情：详情 JSON 为 1.4KB、约 1.97 秒完成；证书与图集均声明为 `image/jpeg`，但文件头实际为 BMP，单文件 4,249,654 字节。证书首字节约 0.98 秒，随后吞吐约 14KB/s，120 秒仅接收约 1.7MB；纯白区域并非数据库未保存，而是 BMP 内容被错误标记为 JPEG且原图传输过慢。
+- 直接测量 `openlims.example.com` 生产比赛详情：详情 JSON 为 1.4KB、约 1.97 秒完成；证书与图集均声明为 `image/jpeg`，但文件头实际为 BMP，单文件 4,249,654 字节。证书首字节约 0.98 秒，随后吞吐约 14KB/s，120 秒仅接收约 1.7MB；纯白区域并非数据库未保存，而是 BMP 内容被错误标记为 JPEG且原图传输过慢。
 - 收紧后端 JPG 兼容规则：`.jpg/.jpeg` 且常见 JPEG MIME 的 BMP 扫描件会经 Java ImageIO 解码、限制最大边长与像素数、以 0.88 质量转成真正 JPEG；纯文本伪装 JPG 不再接受。JPEG 前导字节继续安全剥离，PDF/PNG/WebP 保持原格式。
 - 对已经上传的 BMP/JPG 错配文件加入首次读取自动修复：先在同目录生成规范 JPEG 临时文件，再原子替换原文件；数据库记录、比赛 ID、图片 ID 和 URL 不变，不要求用户删除重传，也不新增数据库迁移。
 - 比赛提交页新增证书与最多 8 张比赛图片的本地预览、说明编辑、单张移除和取消选择；BMP 内容会用正确的本地预览 MIME 展示。保存按钮明确显示“上传并由后端校验中”，前端只有在响应确认包含证书和对应数量图片后才跳转，比赛列表随后明确提示后端已确认接收的文件数量。
@@ -498,14 +498,14 @@
 
 ### 完成内容
 
-- 使用已安装的 UI/UX Pro Max 与 Emil Design Engineering skill，延续现有学院风格，补充语义颜色、可见焦点、按钮反馈、响应式布局和减少动态效果适配；检查了仓库遗留的 Sites 配置，正式部署仍以 `yeslab.tech` 的现有 Vue / Spring Boot / MySQL 方案为准。
+- 使用已安装的 UI/UX Pro Max 与 Emil Design Engineering skill，延续现有学院风格，补充语义颜色、可见焦点、按钮反馈、响应式布局和减少动态效果适配；检查了仓库遗留的 Sites 配置，正式部署仍以 `openlims.example.com` 的现有 Vue / Spring Boot / MySQL 方案为准。
 - 注册页“游客注册”改为“新用户注册”，移除圈出的注册说明、账号说明和底部身份说明；仅允许邮箱注册，密码前后端统一限制 6—18 位，并在密码框下显示提示。原有内部账号与手机号登录归一化逻辑保留。
 - 公开比赛详情为已绑定成员显示头像，姓名和头像共用公开个人主页链接；队长和已关联指导老师也增加头像与主页入口。无头像或加载失败时保留姓名首字/姓名。
 - 增加全站亮色/暗色切换，覆盖首页、公开成员与比赛详情、认证页面、成员和管理后台；默认亮色，通过浏览器本地偏好在刷新、路由切换和同源标签页间保持一致。首屏在应用挂载前读取主题，存储被禁用时仍能切换。品牌图片与证书维持原色。
 - 报名表将联系方式拆分为邮箱、手机号码、微信号，增加自我介绍；专业、班级和年级分别提示“软件工程”“24软件工程1班”“24级”。兴趣方向更新为无人机、机器人、视觉、嵌入式、硬件、新媒体、算法、深度学习，旧报名已选方向仍保留并允许取消。
 - 招新接口与管理详情同步展示新字段；新增 Flyway `V5__recruitment_contact_details.sql`，添加四列并回填可识别的旧邮箱/手机号，不删除原联系方式。邮箱必填；手机、微信和自我介绍可按实际情况补充。
 - “主页编辑 → 赞助伙伴”新增本地 Logo 上传与预览、独立上传反馈，保留名称、简介、官网、类型、合作方向及排序，并增加可编辑合作说明。上传成功后需保存整份主页配置才更新公开首页。
-- Logo 上传接口受 `CONTENT_MANAGE` 权限保护，复用现有 JPG/PNG/WebP 文件签名与 4MB 限制；文件使用随机 UUID 地址和不可变缓存。生产目录 `/var/lib/yeslab/uploads/sponsors/avatars` 包含在现有上传持久化和备份目录内。README 已同步使用及升级说明。
+- Logo 上传接口受 `CONTENT_MANAGE` 权限保护，复用现有 JPG/PNG/WebP 文件签名与 4MB 限制；文件使用随机 UUID 地址和不可变缓存。生产目录 `/var/lib/openlims/uploads/sponsors/avatars` 包含在现有上传持久化和备份目录内。README 已同步使用及升级说明。
 
 ### 验证结果
 
@@ -525,8 +525,8 @@
 
 ### 结论
 
-- 可以将现有正式站迁移到另一台服务器，但不能在 MySQL 运行时直接复制 `/srv/yeslab/data/mysql` 后启动。推荐迁移 `mysqldump` 逻辑备份、完整上传目录、生产环境配置和同版本代码/镜像。
-- 现有 `backup.sh` 已生成可迁移的 `yeslab.sql`、`uploads.tar.gz` 和 `SHA256SUMS`；账号、报名、成员、项目、比赛、主页配置在 SQL 中，证书、比赛图集、项目封面、成员头像及赞助商 Logo 在上传压缩包中。
+- 可以将现有正式站迁移到另一台服务器，但不能在 MySQL 运行时直接复制 `/srv/openlims/data/mysql` 后启动。推荐迁移 `mysqldump` 逻辑备份、完整上传目录、生产环境配置和同版本代码/镜像。
+- 现有 `backup.sh` 已生成可迁移的 `openlims.sql`、`uploads.tar.gz` 和 `SHA256SUMS`；账号、报名、成员、项目、比赛、主页配置在 SQL 中，证书、比赛图集、项目封面、成员头像及赞助商 Logo 在上传压缩包中。
 - `deploy/.env.production` 需要安全复制并保持 `0600` 权限，以保留数据库密码、JWT 密钥、镜像地址和域名设置；不应进入 Git、聊天记录或公开存储。保持 JWT 密钥和签发者可减少切换后已有登录状态受影响。
 - Caddy 的证书卷无需复制。新服务器开放 TCP 80/443 后，将域名 A/AAAA 记录切到新 IP，Caddy 会自动申请和续期证书；切换前应降低 DNS TTL，并移除不再可用的旧 AAAA 记录。
 - 当前 GitHub Actions 未声明多架构构建，镜像随 `ubuntu-latest` 构建，迁移目标应优先选择 `x86_64/amd64` Ubuntu 24.04；若选 ARM 服务器，需要先把工作流改为发布 `linux/amd64,linux/arm64` 多架构镜像。
@@ -535,7 +535,7 @@
 
 - 先在新服务器完成 Docker/Compose、仓库、生产配置和同一提交 SHA 镜像准备，保持旧服务器继续服务。
 - 正式切换时暂停旧服务器的 Web/API 写入，运行最后一次备份，校验 `SHA256SUMS` 后通过 SCP 或支持断点续传的 rsync 复制备份和配置。
-- 在新服务器的空 `yeslab` 数据库导入 `yeslab.sql`，解压 `uploads.tar.gz` 到数据根目录，并恢复 MySQL/上传目录所有者；然后启动 API、检查 Flyway/Hibernate、健康接口和关键业务记录，最后启动 Web。
+- 在新服务器的空 `openlims` 数据库导入 `openlims.sql`，解压 `uploads.tar.gz` 到数据根目录，并恢复 MySQL/上传目录所有者；然后启动 API、检查 Flyway/Hibernate、健康接口和关键业务记录，最后启动 Web。
 - 切换 DNS 后验证 HTTPS、登录、成员页、比赛图片和文件上传。旧服务器至少保留数天且停止写入，用于快速回切；新服务器开始接收写入后，不能直接回切到旧数据库，否则会丢失切换后的数据。
 
 ### 本次检查
@@ -546,18 +546,18 @@
 ## 2026-09-07：镜像跨服务器运行说明
 
 - 核对当前镜像与 Compose：Web 镜像包含 Vue 静态文件和 Caddy，API 镜像包含 Java 21 应用；MySQL 使用官方 `mysql:8.4`，因此同架构 Linux 新服务器可以直接拉取并运行三个容器。
-- 镜像不包含生产业务数据和秘密配置。只迁移镜像会得到空数据库和空上传目录；完整迁移仍需带上 `yeslab.sql`、`uploads.tar.gz` 和 `deploy/.env.production`，由 `compose.yaml` 挂载到新服务器持久目录。
+- 镜像不包含生产业务数据和秘密配置。只迁移镜像会得到空数据库和空上传目录；完整迁移仍需带上 `openlims.sql`、`uploads.tar.gz` 和 `deploy/.env.production`，由 `compose.yaml` 挂载到新服务器持久目录。
 - 推荐复用 GHCR 中以完整提交 SHA 标记的 Web/API 镜像，而不是在两台服务器之间复制 Docker 的内部文件；这样可以确认新旧服务器运行完全相同的程序版本。
 - 当前 GitHub Actions 没有设置多架构输出，现有镜像按 GitHub `ubuntu-latest` 的 amd64 环境构建；新服务器应选 x86_64/amd64。ARM64 服务器需要先增加多架构构建。
 - 本次为部署结构复核与说明，没有构建、推送或启动镜像；`git diff --check` 通过。
 
 ## 2026-09-07：云服务器整机镜像迁移说明
 
-- 用户明确指的是云厂商的系统盘/整机镜像，不是 Docker 镜像。该方式可以迁移现有系统，但是否完整取决于 `/srv/yeslab/data` 是否位于被镜像包含的系统盘；若它属于独立数据盘，系统镜像不会自动包含 MySQL 和上传文件，必须同时创建数据盘快照或另行备份迁移。
+- 用户明确指的是云厂商的系统盘/整机镜像，不是 Docker 镜像。该方式可以迁移现有系统，但是否完整取决于 `/srv/openlims/data` 是否位于被镜像包含的系统盘；若它属于独立数据盘，系统镜像不会自动包含 MySQL 和上传文件，必须同时创建数据盘快照或另行备份迁移。
 - 制作镜像前仍应运行 `deploy/scripts/backup.sh`。为得到干净的一致性整机镜像，建议在短暂停机窗口依次停止 Web/API、正常停止 MySQL 容器，再关机后由云平台创建镜像；不建议在网站继续写入时制作系统镜像。
 - 新服务器需与旧服务器保持 CPU 架构、引导方式和虚拟化驱动兼容，系统盘容量不得小于旧盘已用空间；跨云厂商还需确认其支持的 RAW/QCOW2/VMDK 镜像格式、cloud-init、网卡驱动和 DHCP 网络配置。
 - 若整个根盘及 Docker 数据目录都包含在镜像中，Git 仓库、生产环境文件、Docker、容器镜像、Caddy 证书卷和 systemd 备份定时器通常会一起复制。新机启动后仍需显式执行 `docker compose ... up -d` 并检查容器、挂载、健康接口和证书续期，不能只以系统成功开机作为网站迁移完成。
-- 同域名迁移时更新 A/AAAA 记录到新公网 IP；若改变域名，还需修改 `YESLAB_SITE_ADDRESS` 和 `YESLAB_CORS_ALLOWED_ORIGINS`，并让用户重新登录。新机对公网开放 80/443、保留 22，继续关闭 3306/8080。
+- 同域名迁移时更新 A/AAAA 记录到新公网 IP；若改变域名，还需修改 `OPENLIMS_SITE_ADDRESS` 和 `OPENLIMS_CORS_ALLOWED_ORIGINS`，并让用户重新登录。新机对公网开放 80/443、保留 22，继续关闭 3306/8080。
 - 本次仅复核整机镜像迁移边界，没有连接或操作生产服务器；具体可行性仍需根据新旧服务器的云厂商、CPU 架构和数据盘布局确认。
 
 ## 2026-09-07：服务器迁移方案选择
@@ -565,23 +565,23 @@
 - 推荐采用“新服务器重新部署 + MySQL 逻辑备份恢复 + 上传目录迁移 + 生产配置迁移”，整机镜像仅作为辅助备份或同云厂商快速复制手段。
 - 选择该方案是因为数据库和上传文件属于真正不可替代的业务数据；操作系统、Docker 和应用镜像均可重新安装或拉取。逻辑恢复也比跨机器直接复制 MySQL 数据目录更容易验证和回滚。
 - 正式切换顺序应为：新机准备 → 旧机初始备份 → 停止旧站写入 → 最终备份与校验 → 复制 SQL/上传包/生产配置 → 新机恢复并验收 → 切换 DNS → 保留旧机只读回滚窗口。
-- 若确认系统镜像包含 `/srv/yeslab/data` 且新旧主机兼容，整机镜像也可能直接启动成功，但仍必须先保存独立的 `yeslab.sql` 和 `uploads.tar.gz`，不能把整机镜像作为唯一数据库备份。
+- 若确认系统镜像包含 `/srv/openlims/data` 且新旧主机兼容，整机镜像也可能直接启动成功，但仍必须先保存独立的 `openlims.sql` 和 `uploads.tar.gz`，不能把整机镜像作为唯一数据库备份。
 
 ## 2026-09-07：新服务器 GHCR 拉取认证排障
 
-- 新服务器首次运行引导脚本时，Docker 已正常安装，生产配置与数据目录也已创建；部署停止在拉取私有 `yes-lab-api` / `yes-lab-web` 镜像阶段，注册表返回 `unauthorized`。
+- 新服务器首次运行引导脚本时，Docker 已正常安装，生产配置与数据目录也已创建；部署停止在拉取私有 `openlims-api` / `openlims-web` 镜像阶段，注册表返回 `unauthorized`。
 - 核对 GitHub 最新 `main` 工作流运行 `34042784536` 已成功，排除镜像未发布或构建失败；Compose 中 MySQL/Web 的 `Interrupted` 是 API 拉取认证失败后并行拉取被取消的连锁状态。
 - 根因是 GHCR 登录凭据按服务器和 Linux 用户分别保存在 Docker 配置中，新服务器不会继承旧服务器凭据。应在执行部署的同一个 `root` 用户下，用 GitHub 用户名 `KaoXiaoYu` 和含 `read:packages` 权限的 classic PAT 登录 `ghcr.io`，再重跑原引导命令。
-- 已有 `/opt/yes-lab/deploy/.env.production` 会被幂等脚本保留；重新执行不会覆盖生产密钥，也不会删除 MySQL 或上传目录。本次仅完成只读诊断与操作说明，没有连接或修改新服务器。
+- 已有 `/opt/openlims/deploy/.env.production` 会被幂等脚本保留；重新执行不会覆盖生产密钥，也不会删除 MySQL 或上传目录。本次仅完成只读诊断与操作说明，没有连接或修改新服务器。
 
 ## 2026-09-07：删除失败克隆后的重新拉取说明
 
-- 按新服务器上的 `/opt/yes-lab` 已被删除处理：私有源码需使用仓库只读 Deploy Key 重新克隆，设置仓库级 `core.sshCommand` 后，后续部署脚本才能正常执行 `git fetch`。
-- 后续终端截图已确认 GHCR 返回 `Login Succeeded`，API/Web 两个 `latest` 镜像均为 `Image is up to date`；当前唯一阻塞是 `/opt/yes-lab` 不存在，因而无法进入目录或运行其中的部署脚本。
-- 新服务器进一步实测 SSH 克隆返回 `Permission denied (publickey)`；`/root/.ssh/yeslab_deploy` 与公钥文件存在且权限分别为 `0600/0644`，因此不是本地文件缺失或权限问题，而是该公钥尚未绑定到 `KaoXiaoYu/YES-Lab` 的 Deploy keys，或 GitHub 中绑定的是旧服务器公钥。
+- 按新服务器上的 `/opt/openlims` 已被删除处理：私有源码需使用仓库只读 Deploy Key 重新克隆，设置仓库级 `core.sshCommand` 后，后续部署脚本才能正常执行 `git fetch`。
+- 后续终端截图已确认 GHCR 返回 `Login Succeeded`，API/Web 两个 `latest` 镜像均为 `Image is up to date`；当前唯一阻塞是 `/opt/openlims` 不存在，因而无法进入目录或运行其中的部署脚本。
+- 新服务器进一步实测 SSH 克隆返回 `Permission denied (publickey)`；`/root/.ssh/openlims_deploy` 与公钥文件存在且权限分别为 `0600/0644`，因此不是本地文件缺失或权限问题，而是该公钥尚未绑定到 `KaoXiaoYu/OpenLIMS` 的 Deploy keys，或 GitHub 中绑定的是旧服务器公钥。
 - Git 源码认证与 GHCR 镜像认证彼此独立。源码克隆成功后，仍需在运行部署的同一个 `root` 用户下用含 `read:packages` 的 classic PAT 登录 `ghcr.io`，再运行首次部署脚本。
 - 如果删除整个仓库目录，目录内未提交到 Git 的 `deploy/.env.production` 也会一并丢失。全新且尚未启动数据库的服务器可以重新生成；迁移已有正式数据时必须从旧服务器安全复制原配置，以保持数据库密码、JWT 密钥和域名配置一致。
-- `/srv/yeslab/data` 与 `/srv/yeslab/backups` 位于仓库外，删除 `/opt/yes-lab` 通常不会删除这两处数据；但重新部署前仍应先检查其内容，避免用新配置连接已有数据。本次未连接或更改服务器。
+- `/srv/openlims/data` 与 `/srv/openlims/backups` 位于仓库外，删除 `/opt/openlims` 通常不会删除这两处数据；但重新部署前仍应先检查其内容，避免用新配置连接已有数据。本次未连接或更改服务器。
 
 ## 2026-09-07：私有仓库正式安装说明修订
 
@@ -589,7 +589,7 @@
 - 明确安装顺序：统一进入 root shell → 生成或复用新服务器 Deploy Key → 在 GitHub 仓库绑定公钥 → `ssh -T` 验证 → 克隆并固定仓库 SSH 命令 → 安装 Docker → 用 `read:packages` classic PAT 登录 GHCR → 重跑幂等引导脚本。
 - 所有关键克隆命令改为可直接复制的单行形式，并增加成功文件检查；补充 Deploy Key 和 GHCR PAT 不能互相替代、Docker 登录凭据不跨服务器或 Linux 用户共享的说明。
 - 新增 `No such file or directory`、`Permission denied (publickey)`、GHCR `unauthorized/denied`、Compose `Interrupted` 和克隆失败后 `git -C` 连锁报错的原因与处理表。
-- README 与引导脚本失败提示同步更新，强调认证失败时可以安全重跑，不要删除 `/opt/yes-lab` 或未纳入 Git 的 `.env.production`。
+- README 与引导脚本失败提示同步更新，强调认证失败时可以安全重跑，不要删除 `/opt/openlims` 或未纳入 Git 的 `.env.production`。
 
 ### 验证
 
@@ -599,7 +599,7 @@
 ## 2026-09-07：已部署新服务器的数据迁移手册
 
 - README 新增可直接执行的双服务器迁移步骤，明确区分旧服务器停写备份、SCP 传输、新服务器校验、上传目录恢复、数据库覆盖、服务启动和 DNS 切换。
-- 正式部署手册增加完整迁移章节，说明 `yeslab.sql` 与 `uploads.tar.gz` 必须一起迁移，并覆盖无上传文件、非默认数据目录、UID/GID 权限、Flyway 增量迁移和切换后回滚边界。
+- 正式部署手册增加完整迁移章节，说明 `openlims.sql` 与 `uploads.tar.gz` 必须一起迁移，并覆盖无上传文件、非默认数据目录、UID/GID 权限、Flyway 增量迁移和切换后回滚边界。
 - 新服务器在覆盖前先运行现有 `backup.sh` 保存当前数据库与上传目录；恢复数据库时继续使用新服务器已经初始化的 MySQL 凭据，避免整份旧环境文件覆盖后产生密码不一致。
 - 旧服务器在最终备份前停止 Web/API、保持 MySQL 运行，完成后继续停止写入，避免两台服务器形成各自增长的数据分支；JWT 密钥仅作为可选的单项安全迁移，以减少用户重新登录。
 
@@ -610,8 +610,8 @@
 
 ## 2026-09-07：跨服务器备份校验路径修复
 
-- 定位新服务器执行 `sha256sum -c SHA256SUMS` 失败的原因：旧版 `backup.sh` 把旧服务器备份目录的绝对路径写入校验清单，SCP 到 `/srv/yeslab/migration` 后仍会查找原 `/srv/yeslab/backups` 路径，不能据此判断备份文件已经丢失。
-- 修复 `backup.sh`，以后在备份目录内以相对文件名生成 `SHA256SUMS`，并显式只包含 `yeslab.sql` 与可选的 `uploads.tar.gz`。
+- 定位新服务器执行 `sha256sum -c SHA256SUMS` 失败的原因：旧版 `backup.sh` 把旧服务器备份目录的绝对路径写入校验清单，SCP 到 `/srv/openlims/migration` 后仍会查找原 `/srv/openlims/backups` 路径，不能据此判断备份文件已经丢失。
+- 修复 `backup.sh`，以后在备份目录内以相对文件名生成 `SHA256SUMS`，并显式只包含 `openlims.sql` 与可选的 `uploads.tar.gz`。
 - README 和正式部署手册改用兼容命令 `sed -E 's#  .*/#  #' SHA256SUMS | sha256sum -c -`，旧版绝对路径清单与新版相对路径清单都可在迁移目录中校验。
 
 ### 验证
@@ -622,7 +622,7 @@
 ## 2026-09-07：腾讯云域名解析到外部服务器说明
 
 - 确认腾讯云注册的域名可以继续使用腾讯云云解析 DNS，并将 A 记录直接填写其他厂商服务器的公网 IPv4；域名注册商与网站服务器厂商不需要相同。
-- 正式部署手册新增 `yeslab.tech` 的解析表：根域名 `@` 使用 A 记录指向新公网 IPv4，`www` 可使用 CNAME 指向根域名，默认线路 TTL 示例为 600。
+- 正式部署手册新增 `openlims.example.com` 的解析表：根域名 `@` 使用 A 记录指向新公网 IPv4，`www` 可使用 CNAME 指向根域名，默认线路 TTL 示例为 600。
 - 补充迁移期间旧 A 记录、遗留 AAAA 记录、MX/TXT 记录的处理边界，以及 `dig` 和 `curl --resolve` 验证命令。
 - 备案按实际服务器接入商办理：中国大陆其他厂商服务器应向该厂商申请首次备案或接入备案；腾讯云注册域名无需因此转移注册商。
 
@@ -633,7 +633,7 @@
 
 ## 2026-09-07：数据库迁移后登录 401 排查
 
-- 从公网验证 `https://yeslab.tech/actuator/health` 返回 HTTP 200 和 `UP`，确认新服务器的 DNS、HTTPS、Caddy 反向代理与 API 已可用。
+- 从公网验证 `https://openlims.example.com/actuator/health` 返回 HTTP 200 和 `UP`，确认新服务器的 DNS、HTTPS、Caddy 反向代理与 API 已可用。
 - 使用虚构账号向公开登录接口发起诊断请求，服务端返回预期的 HTTP 401 JSON“账号或密码错误”，确认请求已到达 Spring Boot 的登录校验，而不是代理层或跨域失败。
 - 结合恢复流程定位首要原因：导入旧数据库会覆盖新服务器首次安装创建的同名管理员账号和密码哈希，新服务器首次安装时显示的随机密码随后不再有效，应使用旧服务器账号的原密码。
 - 正式部署手册新增只读账号诊断命令，检查账号名、角色、启用状态和 BCrypt 哈希长度，不输出密码哈希；同时记录账号缺失、停用、哈希异常和 JWT 密钥变化的判断边界。
@@ -670,7 +670,7 @@
 
 ### 完成内容
 
-- 按用户“可以大幅修改 UI、增加动画、保持原有模块”的要求，使用 UI/UX Pro Max 的 Swiss Modernism 2.0 设计建议，保留学院海军蓝、暖金色和现有三色 YES Lab Logo，增加独立的 `src/refinement.css` 视觉层。
+- 按用户“可以大幅修改 UI、增加动画、保持原有模块”的要求，使用 UI/UX Pro Max 的 Swiss Modernism 2.0 设计建议，保留学院海军蓝、暖金色和现有蓝色 OpenLIMS Logo，增加独立的 `src/refinement.css` 视觉层。
 - 公开首页改为深色双栏首屏，新增轻量 `ResearchVisual` 组件，用本地 SVG、Lucide 图标和轨道线呈现自主飞行、空地协同与具身智能；研究方向目录调整为首屏底部卡片，保留原配置与跳转。
 - 重做成果概览、项目筛选与卡片、实验室特色、团队与榜单、赞助商、新闻与竞赛成果的间距、圆角、字号和层次；现有栏目、内容配置、项目弹窗及成员详情入口全部保留。
 - 登录注册页改为独立品牌面板与表单，手机保留紧凑品牌区域；成员、管理与公开详情页面统一标题区、卡片、表单字号和焦点样式。亮暗模式继续复用现有语义颜色，Logo 与证书不改色。
@@ -694,7 +694,7 @@
 
 ### 设计与完成内容
 
-- 根据用户对上一版美观度的反馈，先明确视觉方向；用户选择“清爽科研风：浅色留白、深蓝标题、突出项目内容”。实现前写入 `design-system/yes-lab/pages/public-home.md`，记录顶栏构图、首屏比例、栏目节奏、字体、色彩与动效规则。
+- 根据用户对上一版美观度的反馈，先明确视觉方向；用户选择“清爽科研风：浅色留白、深蓝标题、突出项目内容”。实现前写入 `design-system/openlims/pages/public-home.md`，记录顶栏构图、首屏比例、栏目节奏、字体、色彩与动效规则。
 - 顶栏改为品牌、主题与栏目导航、账号三个独立区域，亮暗切换在栏目跳转左侧；登录、注册与已登录账号固定在最右侧，不再嵌套于导航菜单。
 - 1200px 以下使用两行顶栏：品牌和账号位于第一行，主题切换位于第二行栏目菜单左侧；菜单支持高度限制与滚动，添加 `aria-controls`，锚点偏移同步使用实际顶栏高度。登录注册始终可见。
 - 首屏改为跟随主题的浅色留白、深蓝无衬线标题和蓝色主操作，替换上一版深色轨道卡片为无人机与地面机器人协同的等轴测 SVG 示意图；图形使用主题语义色，不增加外部素材或依赖。
@@ -763,7 +763,7 @@
 - 暗色切换增加圆形揭幕式 View Transition 动画；不支持该 API 的浏览器使用颜色与图标平滑过渡，并遵循减少动态效果偏好。
 - 首屏无人机与地面机器人继续使用原生 SVG 绘制，加入入场、悬浮、行走、扫描、信号脉冲和路径流动动效。
 - 顶栏栏目区在桌面与 1200px 以下两行布局中统一靠右对齐，保留移动端折叠菜单与账号入口。
-- 首屏加入 3 个低透明度 YES Lab 多彩标识与轨道背景动效，增强品牌识别，同时保持正文可读性。
+- 首屏加入 3 个低透明度 OpenLIMS 多彩标识与轨道背景动效，增强品牌识别，同时保持正文可读性。
 - 登录后的项目团队卡片增加固定比例图片区域与 `PROJECT IMAGE` 标识，支持已上传鉴权图片和默认品牌图，并增加轻微悬停缩放。
 
 ### 验证
@@ -821,7 +821,7 @@
 
 ## 2026-09-07：桌面项目本地运行
 
-- 按用户要求切换到 `C:\Users\FUNSKII\Desktop\YES-Lab` 并启动项目。
+- 按用户要求切换到 `C:\Users\FUNSKII\Desktop\OpenLIMS` 并启动项目。
 - 后端使用 Java 21 运行 `backend\mvnw.cmd -q spring-boot:run`，Tomcat 监听 `http://127.0.0.1:8080`，运行态健康检查 `/actuator/health` 返回 `UP`。
 - 前端使用 `pnpm exec vite --host 127.0.0.1` 启动 Vite，监听 `http://127.0.0.1:5173/`。
 - 验证结果：前端首页 HTTP 200，代理接口 `/api/v1/public/home` HTTP 200；项目当前保持本地运行。
@@ -829,8 +829,8 @@
 ## 2026-09-07：修复服务器更新启动失败
 
 - 根据服务器日志定位到 `RecruitmentPortfolioStorageService` 初始化作品图片目录失败；容器开启 `read_only: true`，默认 `./data/recruitment` 在生产环境解析到 `/app/data/recruitment`，不可写。
-- 新增生产配置 `yeslab.storage.recruitment-directory=${YESLAB_RECRUITMENT_DIRECTORY:/var/lib/yeslab/uploads/recruitment}`，并在 `compose.yaml` 的 api 服务中注入 `YESLAB_RECRUITMENT_DIRECTORY=/var/lib/yeslab/uploads/recruitment`。
-- 修复后作品图片目录落到已有可写卷 `${YESLAB_DATA_ROOT:-/srv/yeslab/data}/uploads:/var/lib/yeslab/uploads` 下，和 sponsors/achievements/projects/members 上传目录保持一致。
+- 新增生产配置 `openlims.storage.recruitment-directory=${OPENLIMS_RECRUITMENT_DIRECTORY:/var/lib/openlims/uploads/recruitment}`，并在 `compose.yaml` 的 api 服务中注入 `OPENLIMS_RECRUITMENT_DIRECTORY=/var/lib/openlims/uploads/recruitment`。
+- 修复后作品图片目录落到已有可写卷 `${OPENLIMS_DATA_ROOT:-/srv/openlims/data}/uploads:/var/lib/openlims/uploads` 下，和 sponsors/achievements/projects/members 上传目录保持一致。
 - 验证：后端 `mvnw.cmd -q test` 通过，前端 `pnpm run build` 通过；补丁、修改副本、验证记录和回滚脚本保存于 `.codex-run/server-storage-fix`。
 
 ## 2026-09-09：面试预约、站内消息与讨论板
@@ -862,8 +862,8 @@
 
 ## 2026-09-09：确认本次服务器更新方式
 
-- 本次仍沿用 `deploy/scripts/deploy.sh`：本地提交并推送 `main`，等待 GitHub Actions 测试及 API/Web 镜像发布成功后，在服务器 `/opt/yes-lab` 执行部署脚本。
-- 正式发布建议把 `deploy/.env.production` 的 `YESLAB_IMAGE_TAG` 固定为本次提交完整 SHA，避免 `latest` 标签缓存或镜像更新时序造成版本不确定。
+- 本次仍沿用 `deploy/scripts/deploy.sh`：本地提交并推送 `main`，等待 GitHub Actions 测试及 API/Web 镜像发布成功后，在服务器 `/opt/openlims` 执行部署脚本。
+- 正式发布建议把 `deploy/.env.production` 的 `OPENLIMS_IMAGE_TAG` 固定为本次提交完整 SHA，避免 `latest` 标签缓存或镜像更新时序造成版本不确定。
 - V7 由 API 启动时的 Flyway 自动执行，不手工运行 SQL；部署脚本会先备份 MySQL 和上传文件，API 健康后才更新 Web。禁止执行 `docker compose down -v`，发布失败时可回退 API/Web 镜像并保留 V7 新增表。
 - 本轮仅核对仓库脚本、Compose、GitHub Actions 与生产手册并提供操作说明，未连接服务器、未推送代码、未拉取镜像或执行线上部署。
 
@@ -872,7 +872,7 @@
 - 服务器首次部署重试失败的直接原因是 `deploy/.env.production` 中把示例文字 `完整提交SHA` 或拼写错误的 `lasting/lastimg` 当成了镜像标签，Docker 因而分别报 `invalid reference format` 和 GHCR `not found`；数据库迁移和 API 启动尚未执行。
 - 核对本地及远端 `main` 后，本次 V7 提交完整 SHA 为 `1aa063cba15ad482a532fd3d79da18c0cf2f48df`。
 - 通过 GitHub CLI 只读确认 Actions 运行 `34364808134` 已完成且结论为 `success`，对应 SHA 镜像可以用于部署。
-- 修复方式为在服务器将 `YESLAB_IMAGE_TAG` 精确设为上述完整 SHA，再运行 `./deploy/scripts/deploy.sh`；本轮未连接服务器，也未执行线上修改。
+- 修复方式为在服务器将 `OPENLIMS_IMAGE_TAG` 精确设为上述完整 SHA，再运行 `./deploy/scripts/deploy.sh`；本轮未连接服务器，也未执行线上修改。
 
 ## 2026-09-09：讨论板公开浏览、富文本与通知弹窗修正
 
@@ -1052,7 +1052,7 @@
 ### 完成内容
 
 - 登录账号新增本人改密接口；成员可在个人首页输入当前密码、新密码和确认密码，校验通过后退出当前账号，并使用新密码重新登录。新密码与注册规则一致，限制为 6—18 位，不能与当前密码相同。
-- 成员管理为每个成员增加密码重置操作；教师和核心学生确认后可把成员密码重置为默认密码 `yeslab521`。
+- 成员管理为每个成员增加密码重置操作；教师和核心学生确认后可把成员密码重置为默认密码 `OpenLIMS521`。
 - 招新管理为尚未转为正式成员的报名账号增加相同重置操作；已转为正式成员的账号由后端拒绝从招新入口重置，并提示改用成员管理。
 - 本人改密和管理员重置统一使用 BCrypt 重新生成密码哈希，并删除该账号全部刷新令牌；旧密码立即无法重新登录，其他设备的登录状态无法继续续期。现有访问令牌仍遵循原 15 分钟有效期。
 - UI/UX Pro Max 用于本次密码表单与反馈复核：保留可见标签、密码显示/隐藏、密码管理器 `autocomplete`、字段就近错误、提交禁用与状态反馈、管理员二次确认、44px 以上操作区和移动端单列布局。
@@ -1269,7 +1269,7 @@
 
 ### 完成内容
 
-- 参考《YES Lab 成员积分统计参考》实现竞赛成果、项目贡献、实验室贡献、运营内容制作、运营执行和传播效果六个积分子类；学习成长积分继续保持未启用。
+- 参考《OpenLIMS 成员积分统计参考》实现竞赛成果、项目贡献、实验室贡献、运营内容制作、运营执行和传播效果六个积分子类；学习成长积分继续保持未启用。
 - 新增管理员批量加分接口，可登记事项名称、成果日期、事项总分、唯一来源编号、凭证链接、整体说明，以及一至一百名成员的应得分和个人贡献说明。
 - 竞赛积分按成员个人完整发放；项目、实验室及运营事项按任务总分分配，所有成员应得分之和必须等于事项总分。
 - 实验室贡献按成员每月最多计入 100 分，运营执行和传播效果分别每月最多计入 200 分；按成果发生月份计算，超过上限的后一笔保留应得分并只计入剩余额度，达到上限后拒绝继续发放。
@@ -1337,13 +1337,13 @@
 
 ### 服务器更新补充诊断
 
-- 用户确认问题指向 `deploy.sh` 在线更新。截图显示生产环境使用 `YESLAB_IMAGE_TAG=latest`；该配置可以拉取新镜像，但无法从标签直接判定正在运行的代码提交，生产发布仍建议使用完整提交 SHA。
+- 用户确认问题指向 `deploy.sh` 在线更新。截图显示生产环境使用 `OPENLIMS_IMAGE_TAG=latest`；该配置可以拉取新镜像，但无法从标签直接判定正在运行的代码提交，生产发布仍建议使用完整提交 SHA。
 - 已只读确认 GitHub Actions 运行 `34954612802` 成功：提交 `396240e443c0e2d195ed42ddcf0880499be7e5a3` 的测试、API 镜像和 Web 镜像三个任务均成功完成，因此本次不是 GitHub 端未生成镜像。
 - 该积分提交未包含 `app/` 前端改动，只有后端接口、V8 数据库迁移与文档；即使部署完全成功，公开页面也不会出现积分管理入口，不能以页面外观判断脚本失效。
 - 服务器侧还需根据实际命令输出确认四项：服务器 HEAD 是否到达目标 SHA、Compose 解析的镜像标签、容器是否使用新镜像 ID，以及 API 日志中 V8 Flyway 迁移与健康检查结果。
-- 从外网只读验证 `https://yeslab.tech/actuator/health` 返回 HTTP 200 和 `UP`；`/api/v1/points/rules` 返回 HTTP 401，表明域名、Caddy 与 Spring Security 当前可达，但未登录请求无法单独证明线上容器已是目标积分版本。
+- 从外网只读验证 `https://openlims.example.com/actuator/health` 返回 HTTP 200 和 `UP`；`/api/v1/points/rules` 返回 HTTP 401，表明域名、Caddy 与 Spring Security 当前可达，但未登录请求无法单独证明线上容器已是目标积分版本。
 - 用户提供的截图包含生产数据库密码和 JWT 密钥；这些凭据应视为已泄露并安排轮换，且 MySQL 已有数据目录时不能只修改环境文件密码。
-- 用户后续命令输出显示当前目录为 `/root`，而项目实际位于 `/opt/yes-lab`；`git rev-parse` 和相对路径下的 Compose 命令因此分别报“不是 Git 仓库”和“找不到环境文件”。这一组错误与 `deploy.sh` 本身无关，切换到项目根目录后重试即可继续定位。
+- 用户后续命令输出显示当前目录为 `/root`，而项目实际位于 `/opt/openlims`；`git rev-parse` 和相对路径下的 Compose 命令因此分别报“不是 Git 仓库”和“找不到环境文件”。这一组错误与 `deploy.sh` 本身无关，切换到项目根目录后重试即可继续定位。
 
 ## 2026-09-15：部署后导航恢复与积分管理前端
 
@@ -1438,7 +1438,7 @@
 - 使用临时内存 H2 启动真实后端，并以教师演示账号逐页检查五个后台路由；现有本地 H2 文件因旧结构缺少 `showcase_configured` 无法直接启动，本轮未修改或清理该文件。
 - 在 1440×900 和 375×812 两组视口自动核对全部五个后台路由，十组结果的页面宽度均等于视口宽度，没有整页横向溢出；移动端侧栏抽屉可正常打开和关闭。
 - 明暗主题均完成浏览器检查，浏览器控制台无错误或警告；`git diff --check` 通过。
-- 本轮只使用本地临时数据进行视觉验收，未提交任何表单、未连接或修改 `yeslab.tech` 生产环境，也未执行部署。
+- 本轮只使用本地临时数据进行视觉验收，未提交任何表单、未连接或修改 `openlims.example.com` 生产环境，也未执行部署。
 
 ### 待办
 
@@ -1447,7 +1447,7 @@
 ## 2026-09-16：本地启动命令复核
 
 - 本次后台 UI 改版未修改本地启动脚本：前端仍在仓库根目录运行 `npm run dev`，后端仍在 `backend` 目录运行 `./mvnw spring-boot:run`。
-- VS Code 的“YES Lab: 一键启动本地开发”任务保持不变，继续并行启动 Java 21 后端与 Vite 前端。
+- VS Code 的“OpenLIMS: 一键启动本地开发”任务保持不变，继续并行启动 Java 21 后端与 Vite 前端。
 - 本轮仅核对 README、`package.json` 与 `.vscode/tasks.json`，未启动服务或修改业务代码。
 
 ## 2026-09-16：本地后端启动错误复现

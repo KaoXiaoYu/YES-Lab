@@ -1,10 +1,10 @@
 spring:
   application:
-    name: yes-lab-api
+    name: openlims-api
   datasource:
-    url: ${YESLAB_DATABASE_URL:jdbc:h2:file:./data/yeslab;AUTO_SERVER=TRUE}
-    username: ${YESLAB_DATABASE_USERNAME:sa}
-    password: ${YESLAB_DATABASE_PASSWORD:}
+    url: ${OPENLIMS_DATABASE_URL:jdbc:h2:file:./data/openlims;AUTO_SERVER=TRUE}
+    username: ${OPENLIMS_DATABASE_USERNAME:sa}
+    password: ${OPENLIMS_DATABASE_PASSWORD:}
   jpa:
     open-in-view: false
     hibernate:
@@ -34,40 +34,40 @@ management:
       probes:
         enabled: true
 
-yeslab:
+openlims:
   storage:
-    sponsors-directory: ${YESLAB_SPONSORS_DIRECTORY:./data/sponsors}
-    homepage-models-directory: ${YESLAB_HOMEPAGE_MODELS_DIRECTORY:./data/homepage-models}
-    achievements-directory: ${YESLAB_ACHIEVEMENTS_DIRECTORY:./data/achievements}
-    projects-directory: ${YESLAB_PROJECTS_DIRECTORY:./data/projects}
-    members-directory: ${YESLAB_MEMBERS_DIRECTORY:./data/members}
-    recruitment-directory: ${YESLAB_RECRUITMENT_DIRECTORY:./data/recruitment}
+    sponsors-directory: ${OPENLIMS_SPONSORS_DIRECTORY:./data/sponsors}
+    homepage-models-directory: ${OPENLIMS_HOMEPAGE_MODELS_DIRECTORY:./data/homepage-models}
+    achievements-directory: ${OPENLIMS_ACHIEVEMENTS_DIRECTORY:./data/achievements}
+    projects-directory: ${OPENLIMS_PROJECTS_DIRECTORY:./data/projects}
+    members-directory: ${OPENLIMS_MEMBERS_DIRECTORY:./data/members}
+    recruitment-directory: ${OPENLIMS_RECRUITMENT_DIRECTORY:./data/recruitment}
   cors:
-    allowed-origins: ${YESLAB_CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*,https://yes-lab-public.funskii55.chatgpt.site}
+    allowed-origins: ${OPENLIMS_CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}
   security:
     jwt:
-      issuer: yes-lab-api
-      secret: ${YESLAB_JWT_SECRET:local-development-only-change-this-yes-lab-secret-2026}
+      issuer: openlims-api
+      secret: ${OPENLIMS_JWT_SECRET:local-development-only-change-this-openlims-secret-2026}
       ttl: PT15M
     refresh-token:
       session-ttl: PT12H
       remembered-ttl: P30D
-      secure-cookie: ${YESLAB_SECURE_COOKIE:false}
+      secure-cookie: ${OPENLIMS_SECURE_COOKIE:false}
     bootstrap:
-      enabled: ${YESLAB_BOOTSTRAP_ENABLED:true}
-      teacher-password: ${YESLAB_BOOTSTRAP_TEACHER_PASSWORD:YesLab-Teacher-2026!}
-      core-password: ${YESLAB_BOOTSTRAP_CORE_PASSWORD:YesLab-Core-2026!}
-      member-password: ${YESLAB_BOOTSTRAP_MEMBER_PASSWORD:YesLab-Member-2026!}
+      enabled: ${OPENLIMS_BOOTSTRAP_ENABLED:true}
+      teacher-password: ${OPENLIMS_BOOTSTRAP_TEACHER_PASSWORD:OpenLIMS-Teacher-2026!}
+      core-password: ${OPENLIMS_BOOTSTRAP_CORE_PASSWORD:OpenLIMS-Core-2026!}
+      member-password: ${OPENLIMS_BOOTSTRAP_MEMBER_PASSWORD:OpenLIMS-Member-2026!}
     initial-admin:
-      enabled: ${YESLAB_INITIAL_ADMIN_ENABLED:false}
-      username: ${YESLAB_INITIAL_ADMIN_USERNAME:admin}
-      password: ${YESLAB_INITIAL_ADMIN_PASSWORD:}
-      display-name: ${YESLAB_INITIAL_ADMIN_DISPLAY_NAME:系统管理员}
-      member-code: ${YESLAB_INITIAL_ADMIN_MEMBER_CODE:T-001}
+      enabled: ${OPENLIMS_INITIAL_ADMIN_ENABLED:false}
+      username: ${OPENLIMS_INITIAL_ADMIN_USERNAME:admin}
+      password: ${OPENLIMS_INITIAL_ADMIN_PASSWORD:}
+      display-name: ${OPENLIMS_INITIAL_ADMIN_DISPLAY_NAME:系统管理员}
+      member-code: ${OPENLIMS_INITIAL_ADMIN_MEMBER_CODE:T-001}
   task:
     settlement:
       # 任务积分的到期结算：定时扫描已到期且未结算的任务并统一发放积分。
       # 关闭后不会有任何结算发生（测试环境必须关闭：调度线程用独立事务并会提交，会污染依赖回滚的测试）。
-      enabled: ${YESLAB_TASK_SETTLEMENT_ENABLED:true}
+      enabled: ${OPENLIMS_TASK_SETTLEMENT_ENABLED:true}
       # 默认每小时第 5 分钟检查一次；到期按业务日期判定，晚几分钟无影响。
-      cron: ${YESLAB_TASK_SETTLEMENT_CRON:0 5 * * * *}
+      cron: ${OPENLIMS_TASK_SETTLEMENT_CRON:0 5 * * * *}

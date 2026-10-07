@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:yeslab-test;DB_CLOSE_DELAY=-1
+    url: jdbc:h2:mem:openlims-test;DB_CLOSE_DELAY=-1
     username: sa
     password:
   jpa:
@@ -10,7 +10,7 @@ spring:
   flyway:
     enabled: false
 
-yeslab:
+openlims:
   task:
     settlement:
       # 测试环境关闭到期结算调度：调度线程使用独立事务并会提交，而测试依赖逐用例回滚做绝对断言
@@ -26,8 +26,8 @@ yeslab:
     allowed-origins: http://localhost:5173
   security:
     jwt:
-      issuer: yes-lab-api-test
-      secret: yes-lab-test-secret-key-with-at-least-thirty-two-bytes
+      issuer: openlims-api-test
+      secret: openlims-test-secret-key-with-at-least-thirty-two-bytes
       ttl: PT30M
     refresh-token:
       session-ttl: PT12H
@@ -35,6 +35,6 @@ yeslab:
       secure-cookie: false
     bootstrap:
       enabled: true
-      teacher-password: YesLab-Teacher-2026!
-      core-password: YesLab-Core-2026!
-      member-password: YesLab-Member-2026!
+      teacher-password: OpenLIMS-Teacher-2026!
+      core-password: OpenLIMS-Core-2026!
+      member-password: OpenLIMS-Member-2026!
