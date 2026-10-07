@@ -1823,3 +1823,12 @@
 - ui-ux-pro-max 查询 `drawer focus trap escape unsaved form reduced motion --domain ux`，采纳减少动态/节制动效/表单反馈，MASTER 与首页存档已更新。修正浅色渐变尾部对比度、触控面积和原 YES Lab 长标题/名称引发的手机网格内部裁切。脚本适配 color-mix 和登录路由，并使用唯一搜索词避免时间戳数字误命中，不作为产品故障。
 - 报告/截图：.codex-run/ui-review/openlims-latest-*。30 分钟 TTL 到期后仅为手机补图重起有界 10 分钟实例，现已全部关停；8080/5173—5176/9222 无监听，专用目录与空默认目录已清理。未启动 MySQL、未连接生产；生产部署和原 MySQL 演练/并发实机验证待办保持。
 - 发布确认：应用提交 f90ac2f5e56c7437adb9f41a455643dad1c1647c 已正常快进推送 main，GitHub API SHA 一致；Actions 37638184166（https://github.com/KaoXiaoYu/YES-Lab/actions/runs/37638184166）整体 success，test、yes-lab-web 和 yes-lab-api 镜像任务均 success。本条仅补充发布审计，使用 [skip ci]；应用源码/镜像仍对应 f90ac2f，未部署生产。
+
+## 2026-10-07：首页姓名反色、鼠标背景与按宽度展开导航（完成施工与本地验收）
+
+- 用户确认姓名与头像反色、淡蓝紫鼠标跟随背景方案，追加修复首页讨论板文字对齐，以及成员顶栏仅在宽度不足时折叠入口；设计依据 `docs/homepage-ui-polish-20261007.md`。
+- 姓名使用显式白色、difference 与独立细轮廓，辅助轮廓不重复朗读；加强照片底部遮罩，最不利白色头像姓名对比约 6.25:1。首页按钮/链接统一 44px flex 居中及行高。
+- HomePointerGlow 在桌面精细鼠标且无 reduce 偏好时启用，requestAnimationFrame 合并 transform/opacity 更新；手机/粗指针停用，离开、失焦、隐藏或卸载时停止与清理，装饰层不拦截点击。
+- PortalShell 用不可交互测量项与 ResizeObserver 按实际宽度显示入口，预留账号、后台菜单和必要的更多宽度；1920 完整显示全部 10 项，窄屏仅溢出项进入更多。保持权限、Escape 与返回焦点；菜单有界滚动，测量层移出视口避免横向溢出。
+- ui-ux-pro-max 查询 `text image overlay contrast --domain ux`，采纳对比度规则，更新 MASTER/首页规则；Chrome 1440/1024/768/375 明暗成员卡片、1920/1440/1024/768/375 明暗成员顶栏及桌面亮暗光晕共 20 张截图，22 项检查通过、运行时异常 0。浏览器使用深/浅/彩色/复杂测试头像，内存 H2，无生产数据写入。
+- 已通过本地 npm run check（lint、format、build），无后台接口或迁移变更；最终提交与镜像构建结果收尾记录。临时前后端/Chrome 已关停（8080/5173/9222 无监听）。

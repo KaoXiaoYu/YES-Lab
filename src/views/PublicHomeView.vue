@@ -2,6 +2,7 @@
 import { brand } from '../config/site'
 import ThemeToggle from '../components/ThemeToggle.vue'
 import ResearchVisual from '../components/ResearchVisual.vue'
+import HomePointerGlow from '../components/HomePointerGlow.vue'
 import CompactLeaderboard from '../components/CompactLeaderboard.vue'
 import PublicFundCard from '../components/PublicFundCard.vue'
 import HomepageDeadlineConveyor from '../components/HomepageDeadlineConveyor.vue'
@@ -662,6 +663,7 @@ onBeforeUnmount(() => {
 
 <template>
   <main ref="homeElement" :class="['site-shell', 'ah', { 'awaiting-home': !homepageReady }]">
+    <HomePointerGlow />
     <div v-if="!homepageReady" class="home-bootstrap-state" role="status" aria-live="polite">
       <img :src="brand.logo" alt="" width="900" height="300" />
       <p>正在同步 {{ profile.name }} 最新公开内容…</p>
@@ -917,7 +919,10 @@ onBeforeUnmount(() => {
             </span>
             <span class="ah-person-info">
               <small>{{ person.kind === 'advisor' ? '指导老师' : '核心成员' }}</small>
-              <strong>{{ person.name }}</strong>
+              <strong>
+                <span class="ah-person-name-outline" aria-hidden="true">{{ person.name }}</span>
+                <span class="ah-person-name">{{ person.name }}</span>
+              </strong>
               <span>{{ person.role }}</span>
               <span v-if="person.tags?.length" class="ah-person-tags">
                 <i v-for="tag in person.tags.slice(0, 3)" :key="tag">{{ tag }}</i>

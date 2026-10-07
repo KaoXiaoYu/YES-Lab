@@ -25,7 +25,7 @@ import {
   UsersRound,
   Wallet,
 } from '@lucide/vue'
-import { computed, inject, ref, watch, watchEffect } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDismissibleLayer } from '../composables/useDismissibleLayer'
 import { authState, logout } from '../services/authApi'
@@ -57,8 +57,93 @@ const accountLabel = computed(() => roleLabels[authState.account?.role] || authS
 const accountName = computed(() => authState.account?.displayName || authState.account?.username || '')
 const adminSectionActive = computed(() => route.path.startsWith('/admin'))
 const isMember = computed(() => Boolean(authState.account && authState.account.role !== 'VISITOR'))
-const morePaths = ['/profile', '/points', '/fund', '/competitions']
-const moreSectionActive = computed(() => morePaths.some((path) => route.path.startsWith(path)))
+const navigation = ref(null)
+const navigationMeasure = ref(null)
+const visibleCount = ref(0)
+const navigationItems = computed(() => [
+  ...(isMember.value
+    ? [
+        { to: '/today', label: '今日', icon: Sun },
+        { to: '/tasks', label: '任务', icon: ListChecks },
+        { to: '/bounties', label: '悬赏', icon: Gift },
+        { to: '/projects', label: '项目', icon: FolderKanban },
+      ]
+    : []),
+  ...(authState.account?.role === 'VISITOR' ? [{ to: '/application', label: '我的报名', icon: ClipboardList }] : []),
+  { to: '/discussions', label: '讨论', icon: MessageSquareText },
+  ...(isMember.value
+    ? [
+        { to: '/profile', label: '个人主页', icon: UserRound },
+        { to: '/points', label: '积分榜', icon: Trophy },
+        { to: '/fund', label: '实验室基金', icon: Wallet },
+        { to: '/competitions', label: '比赛管理', icon: Medal },
+      ]
+    : []),
+  { to: '/', label: '公开首页', icon: Home },
+])
+const visibleItems = computed(() => navigationItems.value.slice(0, visibleCount.value))
+const overflowItems = computed(() => navigationItems.value.slice(visibleCount.value))
+const moreSectionActive = computed(() =>
+  overflowItems.value.some((item) => item.to !== '/' && route.path.startsWith(item.to)),
+)
+let navigationObserver
+let navigationFrame = 0
+let disposed = false
+
+function measureNavigation() {
+  navigationFrame = 0
+  if (!navigation.value || !navigationMeasure.value) return
+  const gap = parseFloat(getComputedStyle(navigation.value).columnGap) || 0
+  const widths = [...navigationMeasure.value.querySelectorAll('[data-nav-item]')].map(
+    (item) => item.getBoundingClientRect().width,
+  )
+  const adminWidth = adminMenu.value?.querySelector('summary')?.getBoundingClientRect().width || 0
+  const available = navigation.value.clientWidth - (adminWidth ? adminWidth + gap : 0)
+  const total = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, widths.length - 1)
+  let count = widths.length
+  if (total > available + 0.5) {
+    const moreWidth = navigationMeasure.value.querySelector('[data-nav-more]').getBoundingClientRect().width
+    let used = moreWidth
+    count = 0
+    for (const width of widths) {
+      if (used + gap + width > available + 0.5) break
+      used += gap + width
+      count++
+    }
+  }
+  if (visibleCount.value !== count) closeMoreMenu()
+  visibleCount.value = count
+}
+
+function scheduleNavigationMeasure() {
+  if (disposed || navigationFrame) return
+  navigationFrame = requestAnimationFrame(measureNavigation)
+}
+
+onMounted(() => {
+  if (!navigation.value) return
+  navigationObserver = new ResizeObserver(scheduleNavigationMeasure)
+  navigationObserver.observe(navigation.value)
+  navigationObserver.observe(navigationMeasure.value)
+  document.fonts.ready.then(scheduleNavigationMeasure)
+  scheduleNavigationMeasure()
+})
+watch(navigationItems, async () => {
+  await nextTick()
+  scheduleNavigationMeasure()
+})
+watch(
+  () => authState.account?.systemAdmin,
+  async () => {
+    await nextTick()
+    scheduleNavigationMeasure()
+  },
+)
+onBeforeUnmount(() => {
+  disposed = true
+  navigationObserver?.disconnect()
+  cancelAnimationFrame(navigationFrame)
+})
 const adminMenu = ref(null)
 const moreMenu = ref(null)
 
@@ -110,29 +195,27 @@ async function signOut() {
       <RouterLink class="portal-brand" to="/" :aria-label="`返回 ${brand.name} 公开首页`">
         <img :src="brand.logo" :alt="brand.name" width="900" height="300" />
       </RouterLink>
-      <nav aria-label="成员系统导航">
-        <template v-if="isMember">
-          <RouterLink to="/today"><Sun :size="17" aria-hidden="true" />今日</RouterLink>
-          <RouterLink to="/tasks"><ListChecks :size="17" aria-hidden="true" />任务</RouterLink>
-          <RouterLink to="/bounties"><Gift :size="17" aria-hidden="true" />悬赏</RouterLink>
-          <RouterLink to="/projects"><FolderKanban :size="17" aria-hidden="true" />项目</RouterLink>
-        </template>
-        <RouterLink v-if="authState.account?.role === 'VISITOR'" to="/application"
-          ><ClipboardList :size="17" aria-hidden="true" />我的报名</RouterLink
-        >
-        <RouterLink to="/discussions"><MessageSquareText :size="17" aria-hidden="true" />讨论</RouterLink>
+      <nav ref="navigation" class="portal-navigation" aria-label="成员系统导航">
+        <RouterLink v-for="item in visibleItems" :key="item.to" :to="item.to">
+          <component :is="item.icon" :size="17" aria-hidden="true" />{{ item.label }}
+        </RouterLink>
+        <span ref="navigationMeasure" class="portal-nav-measure" aria-hidden="true" inert>
+          <a v-for="item in navigationItems" :key="item.to" data-nav-item>
+            <component :is="item.icon" :size="17" />{{ item.label }}
+          </a>
+          <a data-nav-more><MoreHorizontal :size="17" />更多</a>
+        </span>
         <details
+          v-if="overflowItems.length"
           ref="moreMenu"
           class="portal-admin-menu portal-more-menu"
           @click="(event) => event.target.closest('a') && closeMoreMenu()"
         >
           <summary :class="{ active: moreSectionActive }"><MoreHorizontal :size="17" aria-hidden="true" />更多</summary>
           <div>
-            <RouterLink v-if="isMember" to="/profile"><UserRound :size="17" aria-hidden="true" />个人主页</RouterLink>
-            <RouterLink v-if="isMember" to="/points"><Trophy :size="17" aria-hidden="true" />积分榜</RouterLink>
-            <RouterLink v-if="isMember" to="/fund"><Wallet :size="17" aria-hidden="true" />实验室基金</RouterLink>
-            <RouterLink v-if="isMember" to="/competitions"><Medal :size="17" aria-hidden="true" />比赛管理</RouterLink>
-            <RouterLink to="/"><Home :size="17" aria-hidden="true" />公开首页</RouterLink>
+            <RouterLink v-for="item in overflowItems" :key="item.to" :to="item.to">
+              <component :is="item.icon" :size="17" aria-hidden="true" />{{ item.label }}
+            </RouterLink>
           </div>
         </details>
         <details
@@ -202,3 +285,23 @@ async function signOut() {
     </main>
   </div>
 </template>
+
+<style scoped>
+.portal-topbar .portal-navigation {
+  flex-wrap: nowrap;
+  overflow: visible;
+}
+.portal-nav-measure {
+  position: fixed;
+  top: -1000px;
+  left: -10000px;
+  display: flex;
+  width: max-content;
+  visibility: hidden;
+  pointer-events: none;
+}
+.portal-more-menu > div {
+  max-height: calc(100dvh - 160px);
+  overflow-y: auto;
+}
+</style>

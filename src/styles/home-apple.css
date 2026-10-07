@@ -5,6 +5,8 @@
  * chapters use a fixed near-black stage in both themes, like a product page.
  */
 .ah {
+  position: relative;
+  isolation: isolate;
   --ah-hero-mid: color-mix(in oklab, var(--color-accent) 40%, #7742bd);
   --ah-hero-end: #ad3b22;
   /* Stage chapters (members, awards, join) follow the theme: light surfaces in light mode, black in dark. */
@@ -25,6 +27,31 @@
   font-family: var(--font-body);
   letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
+}
+
+.ah-pointer-glow {
+  position: fixed;
+  z-index: -1;
+  top: -280px;
+  left: -280px;
+  width: 560px;
+  height: 560px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(65 117 255 / 0.1), rgb(151 96 235 / 0.06) 38%, transparent 70%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 240ms ease-out;
+}
+
+:root[data-theme='dark'] .ah-pointer-glow {
+  background: radial-gradient(circle, rgb(65 117 255 / 0.15), rgb(151 96 235 / 0.09) 38%, transparent 70%);
+}
+
+@media (max-width: 760px), (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .ah-pointer-glow {
+    display: none;
+    transition: none;
+  }
 }
 
 :root[data-theme='dark'] .ah {
@@ -194,6 +221,9 @@
   margin-inline: auto;
 }
 .ah-nav-links :is(button, a) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 44px;
   min-width: 44px;
   padding: 8px 14px;
@@ -202,6 +232,7 @@
   background: transparent;
   color: var(--color-text-secondary);
   font-size: 13px;
+  line-height: 1.4;
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -409,11 +440,23 @@
   padding-block: clamp(80px, 12vw, 140px);
 }
 .ah-chapter--soft {
-  background: var(--color-surface-soft);
+  position: relative;
 }
 .ah-chapter--dark {
-  background: var(--ah-stage);
+  position: relative;
   color: var(--ah-stage-fg);
+}
+.ah-chapter--soft::before,
+.ah-chapter--dark::before {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  background: var(--color-surface-soft);
+  content: '';
+  pointer-events: none;
+}
+.ah-chapter--dark::before {
+  background: var(--ah-stage);
 }
 .ah-chapter--flush {
   padding-top: 0;
@@ -831,7 +874,7 @@
   display: grid;
   gap: 4px;
   padding: 72px 24px 24px;
-  background: linear-gradient(180deg, transparent, rgb(0 0 0 / 0.72));
+  background: linear-gradient(180deg, transparent, rgb(0 0 0 / 0.74) 35%, rgb(0 0 0 / 0.88));
 }
 .ah-person-info small {
   color: #ffd27a;
@@ -839,9 +882,23 @@
   font-weight: 600;
 }
 .ah-person-info strong {
+  position: relative;
+  color: #fff;
   font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+.ah-person-name-outline {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  color: transparent;
+  -webkit-text-stroke: 0.5px rgb(0 0 0 / 0.75);
+}
+.ah-person-name {
+  position: relative;
+  color: #fff;
+  mix-blend-mode: difference;
 }
 .ah-person-info > span {
   color: #d2d2d7;
