@@ -1831,4 +1831,4 @@
 - HomePointerGlow 在桌面精细鼠标且无 reduce 偏好时启用，requestAnimationFrame 合并 transform/opacity 更新；手机/粗指针停用，离开、失焦、隐藏或卸载时停止与清理，装饰层不拦截点击。
 - PortalShell 用不可交互测量项与 ResizeObserver 按实际宽度显示入口，预留账号、后台菜单和必要的更多宽度；1920 完整显示全部 10 项，窄屏仅溢出项进入更多。保持权限、Escape 与返回焦点；菜单有界滚动，测量层移出视口避免横向溢出。
 - ui-ux-pro-max 查询 `text image overlay contrast --domain ux`，采纳对比度规则，更新 MASTER/首页规则；Chrome 1440/1024/768/375 明暗成员卡片、1920/1440/1024/768/375 明暗成员顶栏及桌面亮暗光晕共 20 张截图，22 项检查通过、运行时异常 0。浏览器使用深/浅/彩色/复杂测试头像，内存 H2，无生产数据写入。
-- 已通过本地 npm run check（lint、format、build），无后台接口或迁移变更；最终提交与镜像构建结果收尾记录。临时前后端/Chrome 已关停（8080/5173/9222 无监听）。
+- 已通过本地 npm run check（lint、format、build），无后台接口或迁移变更；功能提交 `d5ee9741997a06033477d4ad89df0577e4aba761` 已正常推送 origin/main；GitHub Actions `37642959097`（及同提交的 `37642923422`）overall success，测试及 yes-lab-web/yes-lab-api 镜像全部成功；未操作生产部署，待服务器更新前端镜像。临时前后端/Chrome 已关停（8080/5173/9222 无监听）。
