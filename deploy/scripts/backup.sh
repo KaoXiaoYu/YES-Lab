@@ -31,8 +31,14 @@ if [[ "$DATA_ROOT" != /* || "$DATA_ROOT" == "/" ]]; then
 fi
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-DESTINATION="$BACKUP_ROOT/$STAMP"
-install -d -m 0750 "$DESTINATION"
+[[ -d "$DATA_ROOT" ]] || { echo "业务数据目录不存在，拒绝备份。" >&2; exit 1; }
+install -d -m 0750 "$BACKUP_ROOT"
+BACKUP_ROOT="$(cd "$BACKUP_ROOT" && pwd -P)"
+DATA_ROOT="$(cd "$DATA_ROOT" && pwd -P)"
+if [[ "$BACKUP_ROOT" == "$DATA_ROOT" || "$BACKUP_ROOT" == "$DATA_ROOT/"* || "$DATA_ROOT" == "$BACKUP_ROOT/"* ]]; then
+  echo "备份目录与业务数据目录不能重合或互相嵌套，拒绝备份与清理。" >&2
+  exit 1
+fi
 
 cd "$PROJECT_ROOT"
 COMPOSE=(docker compose --env-file "$ENV_FILE")
@@ -41,9 +47,14 @@ if ! "${COMPOSE[@]}" ps --status running --services | grep -qx mysql; then
   exit 1
 fi
 
+# Failed backups stay visibly incomplete and are never candidates for retention.
+DESTINATION="$(mktemp -d "$BACKUP_ROOT/.incomplete-$STAMP-XXXXXX")"
+chmod 0750 "$DESTINATION"
+
 "${COMPOSE[@]}" exec -T mysql sh -c \
   'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump --user=root --single-transaction --quick --routines --triggers --events --set-gtid-purged=OFF yeslab' \
   > "$DESTINATION/yeslab.sql"
+[[ -s "$DESTINATION/yeslab.sql" ]] || { echo "SQL 备份为空，已停止。" >&2; exit 1; }
 
 if [[ -d "$DATA_ROOT/uploads" ]]; then
   tar -C "$DATA_ROOT" -czf "$DESTINATION/uploads.tar.gz" uploads
@@ -57,5 +68,13 @@ fi
   cd "$DESTINATION"
   sha256sum "${backup_files[@]}" > SHA256SUMS
 )
-find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -mtime "+$RETENTION_DAYS" -print -exec rm -rf -- {} +
+COMPLETED="$BACKUP_ROOT/${DESTINATION##*/.incomplete-}"
+mv "$DESTINATION" "$COMPLETED"
+DESTINATION="$COMPLETED"
+while IFS= read -r -d '' candidate; do
+  if [[ -f "$candidate/SHA256SUMS" && -s "$candidate/yeslab.sql" ]]; then
+    echo "清理过期备份：$candidate"
+    rm -rf -- "$candidate"
+  fi
+done < <(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -name '????????T??????Z*' -mtime "+$RETENTION_DAYS" -print0)
 echo "备份完成：$DESTINATION"

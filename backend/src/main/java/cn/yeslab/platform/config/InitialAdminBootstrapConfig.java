@@ -77,8 +77,8 @@ public class InitialAdminBootstrapConfig implements ApplicationRunner {
         );
         profile.updateEditableFields(
                 null,
-                "YES Lab 系统管理员",
-                "<p>负责 YES Lab 平台与实验室事务管理。</p>"
+                LabBrand.NAME + " 系统管理员",
+                "<p>负责 " + LabBrand.NAME + " 平台与实验室事务管理。</p>"
         );
         profiles.save(profile);
     }

@@ -6,8 +6,9 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ENV_FILE="$PROJECT_ROOT/deploy/.env.production"
 SITE_ADDRESS=""
 ADMIN_USERNAME="teacher"
-ADMIN_DISPLAY_NAME="汤洪大王"
+ADMIN_DISPLAY_NAME="系统管理员"
 ADMIN_MEMBER_CODE="T-001"
+IMAGE_NAMESPACE="kaoxiaoyu"
 
 usage() {
   cat <<'EOF'
@@ -17,8 +18,9 @@ usage() {
 选项：
   --domain DOMAIN        正式域名，不含 http:// 或路径（必填）
   --admin-user USER      首个管理员登录名，默认 teacher
-  --admin-name NAME      首个管理员显示名，默认 汤洪大王
+  --admin-name NAME      首个管理员显示名，默认 系统管理员
   --admin-code CODE      首个管理员内部编号，默认 T-001
+  --image-namespace NAME GHCR 命名空间，默认 kaoxiaoyu；Fork 填自己的小写组织/用户名
   --help                 显示帮助
 
 脚本只支持 Ubuntu 24.04 LTS。重复执行不会覆盖生产环境配置、数据库或上传文件。
@@ -59,6 +61,11 @@ while [[ $# -gt 0 ]]; do
       ADMIN_MEMBER_CODE="$2"
       shift 2
       ;;
+    --image-namespace)
+      [[ $# -ge 2 ]] || fail "--image-namespace 缺少值"
+      IMAGE_NAMESPACE="$2"
+      shift 2
+      ;;
     --help|-h)
       usage
       exit 0
@@ -77,7 +84,7 @@ source /etc/os-release
   || fail "此脚本仅支持 Ubuntu 24.04 LTS，当前为 ${PRETTY_NAME:-未知系统}"
 [[ "$PROJECT_ROOT" != *[[:space:]]* ]] || fail "服务器项目路径不能包含空格：$PROJECT_ROOT"
 [[ -d "$PROJECT_ROOT/.git" && -f "$PROJECT_ROOT/compose.yaml" ]] \
-  || fail "请先将 YES-Lab 仓库克隆到服务器，再从仓库内运行脚本"
+  || fail "请先将 YES Lab 仓库克隆到服务器，再从仓库内运行脚本"
 
 if [[ -z "$SITE_ADDRESS" && ! -f "$ENV_FILE" && -t 0 ]]; then
   read -r -p "请输入已解析到本服务器的域名（不含 https://）：" SITE_ADDRESS
@@ -95,6 +102,7 @@ fi
   || fail "管理员内部编号仅允许字母、数字、点、下划线和连字符"
 
 export DEBIAN_FRONTEND=noninteractive
+[[ "$IMAGE_NAMESPACE" =~ ^[a-z0-9][a-z0-9-]*$ ]] || fail "镜像命名空间必须为小写 GitHub 用户/组织名"
 apt-get update
 apt-get install -y ca-certificates curl git openssl
 
@@ -152,8 +160,8 @@ if [[ ! -f "$ENV_FILE" ]]; then
 YESLAB_SITE_ADDRESS=$SITE_ADDRESS
 YESLAB_CORS_ALLOWED_ORIGINS=https://$SITE_ADDRESS
 YESLAB_IMAGE_TAG=latest
-YESLAB_API_IMAGE=ghcr.io/kaoxiaoyu/yes-lab-api
-YESLAB_WEB_IMAGE=ghcr.io/kaoxiaoyu/yes-lab-web
+YESLAB_API_IMAGE=ghcr.io/$IMAGE_NAMESPACE/yes-lab-api
+YESLAB_WEB_IMAGE=ghcr.io/$IMAGE_NAMESPACE/yes-lab-web
 YESLAB_DATA_ROOT=/srv/yeslab/data
 YESLAB_DATABASE_USERNAME=yeslab
 YESLAB_DATABASE_PASSWORD=$database_password
@@ -186,10 +194,10 @@ COMPOSE=(docker compose --env-file "$ENV_FILE")
 if ! "${COMPOSE[@]}" pull; then
   cat >&2 <<'EOF'
 无法拉取私有 GHCR 镜像。请在执行本脚本的同一个 Linux 用户下，使用
-GitHub 用户名 KaoXiaoYu 和具有 read:packages 权限的 classic PAT 执行
+具有镜像读取权限的 GitHub 账号和 read:packages classic PAT 执行
 docker login ghcr.io，然后原样重跑本脚本。
 
-不要删除 /opt/yes-lab 或 deploy/.env.production；本次停止不会删除数据库
+不要删除 /opt/yeslab 或 deploy/.env.production；本次停止不会删除数据库
 或上传文件。完整步骤见 docs/production-deployment.md 的首次安装章节。
 EOF
   exit 1

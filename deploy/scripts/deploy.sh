@@ -11,6 +11,10 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 cd "$PROJECT_ROOT"
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "缺少 Git 历史；请使用正式仓库克隆目录执行部署。" >&2
+  exit 1
+fi
 if ! git diff --quiet || ! git diff --cached --quiet; then
   echo "服务器仓库存在未提交修改，已停止部署。" >&2
   exit 1
@@ -31,25 +35,14 @@ git fetch origin main
 git merge --ff-only origin/main
 "${COMPOSE[@]}" config --quiet
 "${COMPOSE[@]}" pull
-"${COMPOSE[@]}" up -d mysql
+"${COMPOSE[@]}" up -d --wait --wait-timeout 180 mysql
 
-for _ in {1..30}; do
-  [[ "$("${COMPOSE[@]}" ps --format json mysql | grep -c '"Health":"healthy"' || true)" -gt 0 ]] && break
-  sleep 2
-done
-
-"${COMPOSE[@]}" up -d api
-for _ in {1..40}; do
-  [[ "$("${COMPOSE[@]}" ps --format json api | grep -c '"Health":"healthy"' || true)" -gt 0 ]] && break
-  sleep 2
-done
-
-if [[ "$("${COMPOSE[@]}" ps --format json api | grep -c '"Health":"healthy"' || true)" -eq 0 ]]; then
+if ! "${COMPOSE[@]}" up -d --wait --wait-timeout 240 api; then
   "${COMPOSE[@]}" logs --tail 120 api
   echo "API 未通过健康检查，Web 未切换。请检查迁移日志后使用上一提交 SHA 回滚镜像。" >&2
   exit 1
 fi
 
-"${COMPOSE[@]}" up -d web
+"${COMPOSE[@]}" up -d --wait --wait-timeout 120 web
 "${COMPOSE[@]}" ps
 echo "部署完成。数据库与上传文件未被 Git 覆盖，升级前备份已保留。"

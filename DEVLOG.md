@@ -1718,3 +1718,61 @@
 - 1440/1024/768/375 × 明暗截图通过，无横向溢出；额外截图检查成员端、新手任务与悬赏任务，文字最低对比度 4.97:1，条高 12px，审核按钮/折叠入口 ≥44px，减少动态通过。人工复核桌面汇总条铺满行宽、手机灰色部分进度/绿色完成、成员详情与新手任务。截图 progress-*.png、无凭证报告 progress-report.json/progress-extra-report.json/progress-layout-report.json 及验收脚本均在 .codex-run/ui-review/，有界日志在 .codex-run/。
 - 自动审批曾拒绝临时验收令牌落盘，已移除该记录动作并通过安全替代继续验收，未生成凭证文件。未连接生产或启动临时 MySQL；本轮 Vite、隔离后端与 Chrome 已关停，验收内存数据随实例销毁。
 - 待办：本次未提交、未推送、未部署；此前模块的 MySQL 演练与部署验收待办保持原记录。
+
+## 2026-10-04：OpenLIMS 品牌统一与页脚仓库入口
+
+- 按用户要求更名页面、文档、后端包/入口类、配置/环境变量、存储键、默认密码和部署资源；文件与目录同步改名。真实仓库所有者路径仅作为页脚地址保留。
+- 从原生 SVG 制作全新的 OpenLIMS 开放环形标识与字标，替换全部品牌 PNG、白色/彩色变体、favicon 与分享封面；保留可编辑 SVG，同步图片宽高与暗色导航显示。
+- 首页页脚新增完整 GitHub 仓库地址，支持新窗口、可见焦点、44px 入口与手机换行；更新 MASTER/public-home 品牌规范。ui-ux-pro-max 查询 `image logo alt text`（ux），采纳替代文字和图片优化规则。
+- 验证：后端 115 项测试全部通过，Maven 离线打包成功；前端 ESLint/Prettier/生产构建通过（仅既有大包提示）；Shell 语法、JSON 与品牌图片引用校验通过。
+- 临时内存 H2 后端、Vite、Chrome 联调：375/768/1024/1440 明暗首页/登录页、管理员页，共 18 个页面检查与 26 张截图；无旧品牌界面文案、横向溢出、图片缺失或运行时错误，仓库链接目标校验通过。已人工复核手机首页、手机/桌面页脚、手机登录和管理员暗色截图。报告 `.codex-run/ui-review/brand-report.json`。
+- 已停止本轮 Vite、内存 H2 后端和浏览器，未启动 MySQL，未连接生产或推送仓库。历史 SQL 变量的更名改变校验和，README 已记录既有数据库部署的复核要求；新镜像与正式域名需由部署者配置。
+
+## 2026-10-04：基于真实项目重新完成开源适配
+
+- 用户要求保留原公开官网、主页编辑、成员/个人页、账号权限、招新面试、项目、参赛/成果/新闻、讨论/通知、三类任务与奖金履约、积分、基金及日程。核对原路由、Vue 页面、Controller/Service、Role/Permission、配置与运维脚本后实施；未采用样品管理静态预览，未新增业务模块/改流程/删预留权限。
+- 需求/技术方案为 `docs/open-source-adaptation.md`。用户明确仓库 `YESlab-UAVtech/OpenLIMS`、选择 MIT；组织名仅在真实仓库/镜像路径保留。新增 LICENSE，两 Docker 镜像携带许可，第三方模型原许可/来源不变。
+- 新增共享 `config/branding.json`，Vue、HTML 元数据、Java 默认品牌共同读取，统一 Logo/图标/分享图/名称/仓库；源码身份覆盖旧 CMS 身份字段，主页其他内容继续可编辑，实际 PUT/公开 GET 同步通过。所有页面提供页底仓库，Logo 及项目默认图引用集中；演示人名改为示例身份，去除旧机构默认奖项/伙伴声明，既有数据库不批量改写。
+- 新增 `config/appearance.json` 四预设：通用蓝灰、学术纸面、工程青蓝网格、生命科学绿色；明暗语义色、本地字体和圆角可自改，默认 general、可用 VITE_UI_PRESET/CI 变量/Docker build-arg 选择。非法配置明确报错，共用真实业务页面/权限/API。清理外部字体、旧自动生成视觉建议，保留有效页面规则；后台控件/按钮尺寸补至 44px，过滤 `.codex-run` HMR 干扰。
+- UI/UX Pro Max：读取 MASTER/首页覆盖与规则；`research administration minimal` 命中不适合的 newsletter，未采纳，重试 `dashboard clean modular` 命中 Minimalism & Swiss Style，采用层级、网格、语义色及轻反馈。Vue CSS variables theming 未命中，按项目既有 CSS 变量实现；已增量更新设计系统。文档参照现有中文需求/手册结构，未宣称检索到私人写作风格。
+- 重写 README/使用指南/生产部署，补齐逐模块用途、入口、角色、操作与真实限制；修正审核即计分、完赛必需证书、旧公开假榜/凭证、资料补全等过时描述。增量更新后端文档、贡献指南、AGENTS、任务历史覆盖说明，保留业务/权限/迁移硬约束。
+- 部署：移除与独立部署无关的 Sites 构建依赖；Maven Wrapper 恢复执行权限；CI 自动导出小写仓库所有者镜像命名空间，引导支持 Fork 参数；升级使用 Compose --wait，缺 Git 时安全停止。备份目录规范化防重合/嵌套，随机目录防同秒覆盖，失败产物标 incomplete，留存只清理旧完整备份；文档明确 SQL/上传非原子快照、维护窗口一致备份与隔离恢复。
+- 构建：JDK21 离线 package 全量 115 项、0 失败/错误/跳过；主页测试按源码集中身份规则更新且原文案/权限/链接断言保留。精选展示断言改为共享配置，选测/最终聚合仍为 115 项零失败。前端最终 npm run check（lint/全仓格式/build）通过，仅既有大 chunk 提示。Shell 语法、四 YAML 解析、非法外观、JAR 共享配置打包、无 Git 部署停止均通过。备份 mock Docker 控制流检查成功，不冒充 MySQL 实恢复。
+- 真实 Vite + 8080 内存 H2 + Chrome CDP：业务联合 344 项检查、57 全页截图，最终视觉 225 项/56 更新截图及 16 视口截图，共 73 张最终产物；四预设桌面/手机明暗首页/登录/成员管理，默认另含 768/1024。教师20入口、成员9入口、成员管理API403/路由拒绝、实际主页保存/公开同步、基金读取和游客注册通过；零横向溢出、图片缺失或页面运行时异常。专项8组语义色最低5.36:1、实际标题字型、新增44px入口、Tab焦点及减少动态通过；不宣称逐像素/每个旧组件对比度全量测量。已人工复核桌面/手机的通用管理、学术首页和工程/生命科学首屏。报告/脚本/截图位于 `.codex-run/ui-review/opensource-*` 与 `viewport-*`。
+- 本副本无 `.git`，无法运行 git diff/check 或恢复上轮已更名历史 SQL；本轮全部迁移 SHA-256 前后相同，未修改任何 SQL/历史 checksum、未执行 repair。仍须取得已部署原件与 flyway_schema_history，再做预生产 MySQL8.4 完整迁移/并发、上线新手补发及真实备份恢复。Docker CLI 缺少 Compose/服务，未容器实构、未 Ubuntu 引导/DNS/HTTPS/GHCR/远端CI，详见 `docs/open-source-verification.md`。
+- 本轮四 Vite、内存后端、隔离 Chrome 全部关停，8080/5173—5176/9222 无监听，专用 profile/上传演练目录已清理。未起临时 MySQL，未连接生产、未提交、未推送或部署。
+
+## 2026-10-04：恢复官方 Git 历史并准备 GitHub 上传
+
+- 用户明确要求上传 GitHub，目标为已确认的公开仓库 `YESlab-UAVtech/OpenLIMS`，当前账号 KaoXiaoYu 有 ADMIN 权限，main 无分支保护。取回完整远端历史，基线 `43a3b39d406b1723ed1c7a30e7a9a19cbf2bee30`；原目录无 Git 的限制已解除，不创建独立历史或强制覆盖远端。
+- 按 `git log` 确认 V20 由历史提交 `fe925ed` 引入，逐字节比对发现本地唯一迁移差异为上轮将 yeslab SQL 变量改名；已恢复远端原件，全部历史迁移与官方基线一致，未改数据库 checksum/执行 repair。历史变量名为兼容性例外，已同步更新 README、部署/适配/验证文档与协作说明；生产 history 和 MySQL 实机验收仍未完成。
+- 远端已跟踪的 C++ 练习、编译产物和旧托管配置不新增上传；`.cph` 仅本机路径调整不纳入适配提交。测试日志、截图、临时目录、依赖和环境密钥按 gitignore 排除。已核对 Java 包重命名后的业务差异，继续保留所有模块。
+- 上传前格式检查通过，历史迁移 Git diff 为空，diff --check 无问题。此前前后端验收结果沿用；本次仅恢复原 SQL 与更新审计文档，未改变业务执行代码。提交、远端推送和 GitHub CI 结果待后续记录。
+
+- GitHub 上传进度：本地提交 `d4577eb` 已完成，恢复 C++ 既有执行权限且未提交本机 `.cph` 路径变化；两次实际 HTTPS 推送均被网络 `Empty reply from server` 中断，官方 main 仍为 `43a3b39`，不能报告上传成功。HTTP/1.1 dry-run 连接与快进检查通过。
+- GitHub OAuth 响应确认当前 scopes 为 `gist, read:org, repo`，缺少修改 CI 所需 `workflow`；已请求用户执行 `gh auth refresh -h github.com -s workflow`。本次仅保存已准备的代码与审计记录，等待授权后使用有界日志、缓冲 POST 重试，再核对远端 SHA/Actions。未连接生产，未留下推送后台进程。
+
+## 2026-10-05：开源适配已上传 GitHub
+
+- 用户确认已授权，OAuth scopes 已包含 workflow。通过 HTTP/1.1 和 8 MiB 缓冲 POST 快进推送成功：官方 `YESlab-UAVtech/OpenLIMS` 的 main 从 `43a3b39` 更新到 `ab3d2cbee907cf09c589419e54ac0e6bd148a556`，包含适配代码提交 `d4577eb` 和审计记录；GitHub API 与本地 HEAD 一致，未强推、未改写远端历史。
+- 对官方基线核对全部迁移，Git diff 为空；依赖、环境密钥、截图、临时实例与测试日志未上传。本机 `.cph` 练习路径调整仍单独保留未提交；本轮未改业务代码、未连接生产、未留下后台推送进程。
+- GitHub Actions 仓库权限 enabled、工作流 `Test and publish images` active；首次查询尚无运行记录，不能宣称远端 CI 或 GHCR 镜像已验证。此前本地 115 项后端测试、前端检查与浏览器验收结果不变；MySQL 8.4 实机迁移/并发、生产环境初始化和备份恢复仍按验证文档待验。
+
+## 2026-10-07：本地与远端分叉合并检查（等待品牌与部署口径确认）
+
+- 用户要求解决本地 1 个提交与远端更新不能合并的问题，并保留全部 YES Lab 内容。工作区初始干净；本地 main 为 d2bedab，远端 origin/main 为 0fb3fe9，共同基线 43a3b39；未改写双方提交历史。
+- 已创建备份分支 backup/yeslab-before-merge-20261007 和完整 Git bundle /private/tmp/yeslab-before-merge-20261007.bundle。fetch 后使用 merge --no-commit --no-ff，唯一文本冲突为 DEVLOG.md；保留本地全文历史并追加远端 4 条新记录，双方内容均保留。本地任务进度组件、补发折叠与审核排序等业务文件逐字节保留，settings.json 仅修复格式。
+- 远端为 OpenLIMS 开源适配，改动品牌、Java 包名、配置前缀、默认内容、部署目录与镜像名。为避免误解“保留全部 YES Lab 内容”，已询问保留 YES Lab 品牌/内容/部署，还是采用 OpenLIMS 适配并保留业务；尚未收到确认，不提交或推送最终合并。原 YES Lab Logo 资产与 design-system/yes-lab 原路径已恢复，远端 OpenLIMS 资产/设计规范同时保留。
+- 验证：当前合并候选 npm run check（ESLint、Prettier、生产构建）通过，仅既有大 chunk 提示；JDK21 离线后端全量测试 115 项，0 失败/错误/跳过；历史 Flyway SQL 与本地 main 无差异。日志位于 /private/tmp/yeslab-merge-frontend-check.log 和 /private/tmp/yeslab-merge-backend-test.log；仅合并兼容性验证，未新增界面设计或做视觉验收。
+- 待办：用户确认品牌/部署口径后完成必要的保留调整、验证与合并提交；当前处于 merge 暂存状态，尚未提交、推送或部署。未连接生产、未改数据库数据、未启动 MySQL/Vite/Chrome/常驻后端，测试进程已正常退出。
+
+## 2026-10-07：合并远端更新并保留 YES Lab（完成）
+
+- 用户确认保留 YES Lab 名称。以本地 d2bedab 与远端 0fb3fe9 做正常 merge，保留双方完整历史；未 rebase/reset/强推。DEVLOG 保留原有全部条目并追加远端记录，恢复 YES Lab 资产和 design-system/yes-lab 原路径。
+- 保留原名称、Yichun Embodied Science 全称、Logo、无人机/空地协同/具身智能主页文案、CUAV 内容、演示内容、全部业务与后台主页编辑能力。原有 Vue/CSS 界面源码与本地提交逐字节一致，本地任务进度、折叠补发与审核排序全部保留；原跟踪文件缺失为 0。
+- 继续使用 cn.yeslab 包、YesLabApplication、yes-lab-api 制品、YESLAB 环境变量、登录/主题/刷新存储键、原 Compose/CI 镜像名、/srv/yeslab 数据路径及全部原 Flyway SQL。未改迁移、生产数据或上传文件；settings.json 仅调整格式。
+- 合入远端可独立构建的配置资源与许可证、备份目录安全和失败产物处理、部署健康等待/Fork 镜像命名空间及 Vite 忽略验收目录等改进。OpenLIMS 名称替换、通用默认内容和整体视觉改版未应用；远端外观/页脚/资产/设计方案保留为参考，新增参考文档已注明实际启用范围，当前运行依据原 YES Lab 文档。
+- 验证：最终 npm run check（ESLint/Prettier/build）通过，仅既有大 chunk 提示；JDK21 离线 package 全量 115 项，0 失败/错误/跳过，JAR 内品牌与 Java 包核对通过。离线 clean 缺少缓存插件，改为仅删除生成的 classes/test-classes 后重新完整编译打包，无需下载插件。部署/备份/临时 MySQL 脚本 bash -n 通过，未执行生产部署或真实 MySQL 备份恢复。
+- 新 JAR + 隔离内存 H2 + Vite + Chrome CDP 完成首页 1440/1024/768/375 × 明暗、登录页 1440/375 × 明暗共 12 组真实截图验收；品牌及原 Logo 正确，无横向溢出、缺图或运行时异常，减少动态环境与 74×44px 主题按钮/3px 可见键盘焦点通过。人工复核桌面和手机首页、手机登录明暗；原界面颜色/字型/动效源码未改变，沿用此前已验收的对比度。仅修正验收脚本对大写品牌和手机仅显示 Logo 的识别，未因此改产品代码。
+- 使用 ui-ux-pro-max，读取既有 MASTER/public-home/pro-rules；consistent brand identity 与 brand logo assets 两次查询未命中品牌专用规则，采用 pro-rules 的 Correct Brand Logos 与既有页面规范，未覆盖设计存档或新增视觉规则。截图及报告在 .codex-run/ui-review/merge-yeslab-_，检查日志在 /private/tmp/yeslab-final-_.log。
+- 本轮隔离后端、Vite、Chrome 已关停，8080/5173/9222 无监听，专用 profile/上传目录已清理，未启动 MySQL或留下后台进程。最终合并在本地 main 提交，不推送或部署；既有 MySQL 实机演练、生产部署与备份恢复待办不变。恢复点为 backup/yeslab-before-merge-20261007 与 /private/tmp/yeslab-before-merge-20261007.bundle。

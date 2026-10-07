@@ -1,0 +1,11 @@
+{
+  "name": "YES Lab",
+  "displayName": "YES Lab 实验室",
+  "fullName": "Yichun Embodied Science",
+  "description": "YES Lab 聚焦无人机、空地协同与具身智能研究，以真实项目培养未来工程人才。",
+  "logo": "/yes-lab-logo.png",
+  "logoOnDark": "/logo-variants/yes-lab-white.png",
+  "favicon": "/favicon.svg",
+  "shareImage": "/og.png",
+  "repositoryUrl": "https://github.com/KaoXiaoYu/YES-Lab"
+}
