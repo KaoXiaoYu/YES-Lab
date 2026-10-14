@@ -1868,3 +1868,4 @@
 - 隔离内存 H2 + 真 Chrome：主验收 19 组、补验 8 组、42 张有效截图，运行时异常 0；1440/1024/768/375 明暗及1920导航、宽度溢出、单次请求、旧路由参数、三类脏状态取消/放弃/返回、保存中切换、正文懒加载、局部失败、成员/游客管理拒绝、匿名公开热力图/字段白名单通过。新增文字对比度最低 6.70:1，键盘焦点/reduce/无横向溢出通过。报告 `.codex-run/ui-review/batch1-navigation-profile-report.json`、`batch1-extra-report.json`。
 - 脚本适配了实际热力图/后台 CSS 选择器、隐藏测量元素和默认模板空 ID；热更新后以页面实际挂载的 router 验收，避免动态导入第二实例造成假故障。首轮 Chrome TTL 到期后重起有界实例补验；实例关停与推送/Actions 结果在收尾补记。保留任务开始前用户两份视频文档和 DEVLOG 原有改动，不纳入本批提交；未操作生产部署或业务数据。
 - 收尾关停：本轮前后端与 Chrome 已全部关停，8080/5173/9222 无监听；未启动 MySQL，无本轮遗留服务。后续报名表方案已获批准，下一批为基础配置/版本/权限与新增迁移演练，无需重复询问相同方案。
+- 发布核对：应用提交 `f82b35d7ef369bf980348f0cbfb1f570061771e5` 已正常推送 origin/main，GitHub API SHA 一致；Actions https://github.com/KaoXiaoYu/YES-Lab/actions/runs/38614493856 overall、test、yes-lab-web、yes-lab-api 均 success。仅追加本条审计并以 [skip ci] 提交，不重新发布镜像；应用/镜像对应 f82b35d，未操作生产部署。用户原有 DEVLOG 15 行及两份视频文档继续保留为未提交内容。
