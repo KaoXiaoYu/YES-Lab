@@ -25,8 +25,7 @@ const pages = computed(() => {
   const list = [{ title: '公开首页', to: '/', keywords: 'home 首页 主页' }]
   if (isMember.value) {
     list.push(
-      { title: '今日', to: '/today', keywords: 'today 待办 截止 dashboard' },
-      { title: '个人主页', to: '/profile', keywords: 'profile 资料 名片' },
+      { title: '个人主页', to: '/profile', keywords: 'profile today 今日 待办 截止 资料 名片' },
       { title: '编辑个人资料', to: '/profile/edit', keywords: 'edit 资料 头像' },
       { title: '我的任务', to: '/tasks', keywords: 'tasks 任务' },
       { title: '悬赏榜', to: '/bounties', keywords: 'bounty 悬赏 奖金' },
@@ -45,7 +44,7 @@ const pages = computed(() => {
       { title: '成员管理', to: '/admin/members', keywords: 'admin members 成员' },
       { title: '招新管理', to: '/admin/recruitment', keywords: 'admin recruitment 招新 面试' },
       { title: '任务管理', to: '/admin/tasks', keywords: 'admin tasks 任务 发放' },
-      { title: '悬赏管理', to: '/admin/bounties', keywords: 'admin bounty 悬赏' },
+      { title: '任务管理 · 悬赏任务', to: '/admin/tasks?type=bounty', keywords: 'admin bounty 悬赏' },
       { title: '积分管理', to: '/admin/points', keywords: 'admin points 积分 发放' },
       { title: '成果管理', to: '/admin/achievements', keywords: 'admin achievements 成果 新闻 审核' },
       { title: '主页编辑', to: '/admin/homepage', keywords: 'admin homepage 主页 编辑' },

@@ -5,7 +5,8 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import MemberProfileDisplay from '../components/MemberProfileDisplay.vue'
 import PointsHeatmap from '../components/PointsHeatmap.vue'
-import DeadlinePanel from '../components/DeadlinePanel.vue'
+import ProfileTodayPanel from '../components/ProfileTodayPanel.vue'
+import { authState } from '../services/authApi'
 import PortalShell from '../components/PortalShell.vue'
 import { changeOwnPassword, getOwnPoints, getOwnProfile, logout } from '../services/authApi'
 import { showSubmissionFeedback } from '../services/submissionFeedback'
@@ -13,6 +14,13 @@ import { showSubmissionFeedback } from '../services/submissionFeedback'
 const router = useRouter()
 const profile = ref(null)
 const pointsSummary = ref(null)
+const pointsError = ref('')
+const pointsLoading = ref(true)
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  return hour < 5 ? '夜深了' : hour < 11 ? '早上好' : hour < 14 ? '中午好' : hour < 18 ? '下午好' : '晚上好'
+})
+const name = computed(() => authState.account?.displayName || authState.account?.username || '')
 const loading = ref(true)
 const errorMessage = ref('')
 const passwordError = ref('')
@@ -29,12 +37,23 @@ const canChangePassword = computed(() =>
   ),
 )
 
+onMounted(loadPoints)
+
+async function loadPoints() {
+  pointsLoading.value = true
+  pointsError.value = ''
+  try {
+    pointsSummary.value = await getOwnPoints()
+  } catch (error) {
+    pointsError.value = error.message
+  } finally {
+    pointsLoading.value = false
+  }
+}
+
 onMounted(async () => {
   try {
-    const [loadedProfile, loadedPoints] = await Promise.all([getOwnProfile(), getOwnPoints()])
-    loadedProfile.currentRank = loadedPoints.totalRank
-    profile.value = loadedProfile
-    pointsSummary.value = loadedPoints
+    profile.value = await getOwnProfile()
   } catch (error) {
     errorMessage.value = error.message
   } finally {
@@ -82,13 +101,24 @@ async function submitPasswordChange() {
 </script>
 
 <template>
-  <PortalShell title="个人主页" description="查看你的成员档案与公开主页；需要修改时再进入独立编辑页面。">
-    <LoadingSkeleton v-if="loading" variant="detail" :rows="3" label="正在读取成员资料" />
-    <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
-    <template v-else-if="profile">
-      <DeadlinePanel personal />
-      <MemberProfileDisplay :profile="profile" private-view editable />
-      <PointsHeatmap :daily-points="pointsSummary?.dailyPoints || []" :total-points="pointsSummary?.totalPoints || 0" />
+  <PortalShell title="个人主页" :description="`${greeting}，${name}。查看今日待办、成员档案与积分记录。`">
+    <ProfileTodayPanel :points-summary="pointsSummary">
+      <LoadingSkeleton v-if="loading" variant="detail" :rows="3" label="正在读取成员资料" />
+      <div v-else-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</div>
+      <template v-else-if="profile">
+        <MemberProfileDisplay :profile="{ ...profile, currentRank: pointsSummary?.totalRank }" private-view editable />
+      </template>
+      <LoadingSkeleton v-if="pointsLoading" variant="detail" :rows="1" label="正在读取积分" />
+      <div v-else-if="pointsError" class="portal-state error" role="alert">
+        {{ pointsError }} <button class="portal-secondary" type="button" @click="loadPoints">重试</button>
+      </div>
+      <PointsHeatmap
+        v-else-if="pointsSummary"
+        :daily-points="pointsSummary.dailyPoints"
+        :total-points="pointsSummary.totalPoints"
+      />
+    </ProfileTodayPanel>
+    <template v-if="profile">
       <section class="password-settings-card profile-password-card" aria-labelledby="profile-password-title">
         <header>
           <div>

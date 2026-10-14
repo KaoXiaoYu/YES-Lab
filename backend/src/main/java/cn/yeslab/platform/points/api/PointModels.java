@@ -143,6 +143,13 @@ public final class PointModels {
     ) {
     }
 
+    public record PublicPointSummary(
+            int totalPoints,
+            LocalDate serverDate,
+            List<DailyPointView> dailyPoints
+    ) {
+    }
+
     public enum LeaderboardPeriod {
         TOTAL,
         DAY,

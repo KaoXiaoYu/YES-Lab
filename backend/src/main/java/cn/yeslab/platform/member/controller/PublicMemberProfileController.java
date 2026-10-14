@@ -3,6 +3,8 @@ package cn.yeslab.platform.member.controller;
 import cn.yeslab.platform.common.api.ApiResponse;
 import cn.yeslab.platform.member.api.MemberManagementModels;
 import cn.yeslab.platform.member.service.MemberProfileService;
+import cn.yeslab.platform.points.api.PointModels;
+import cn.yeslab.platform.points.service.PointService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,9 +27,11 @@ import java.util.UUID;
 public class PublicMemberProfileController {
 
     private final MemberProfileService service;
+    private final PointService points;
 
-    public PublicMemberProfileController(MemberProfileService service) {
+    public PublicMemberProfileController(MemberProfileService service, PointService points) {
         this.service = service;
+        this.points = points;
     }
 
     @GetMapping
@@ -38,6 +42,12 @@ public class PublicMemberProfileController {
     @GetMapping("/{profileId}")
     public ApiResponse<MemberManagementModels.PublicProfileView> profile(@PathVariable UUID profileId) {
         return ApiResponse.ok(service.getPublicProfile(profileId));
+    }
+
+    @GetMapping("/{profileId}/points")
+    public ApiResponse<PointModels.PublicPointSummary> points(@PathVariable UUID profileId) {
+        service.getPublicProfile(profileId);
+        return ApiResponse.ok(points.publicSummary(profileId));
     }
 
     @GetMapping("/{profileId}/avatar")

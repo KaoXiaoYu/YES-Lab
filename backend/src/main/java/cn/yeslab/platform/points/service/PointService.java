@@ -451,11 +451,7 @@ public class PointService {
                 .findTop200ByMember_IdOrderByGrant_OccurredOnDescCreatedAtDesc(profile.getId())
                 .stream().map(this::toEntryView).toList();
         LocalDate today = LocalDate.now(LAB_TIME_ZONE);
-        List<PointModels.DailyPointView> dailyPoints = entries
-                .sumDailyForMember(profile.getId(), today.minusDays(HEATMAP_DAYS - 1L), today.plusDays(1))
-                .stream()
-                .map(total -> new PointModels.DailyPointView(total.getDate(), Math.toIntExact(total.getPoints())))
-                .toList();
+        List<PointModels.DailyPointView> dailyPoints = dailyPoints(profile.getId(), today);
         List<MemberProfileEntity> participants = rankingParticipants();
         Integer totalRank = profile.getAccount().getRole() == Role.TEACHER
                 || profile.getStatus() != MemberStatus.OFFICIAL
@@ -472,6 +468,24 @@ public class PointService {
                 recent,
                 dailyPoints
         );
+    }
+
+    @Transactional(readOnly = true)
+    public PointModels.PublicPointSummary publicSummary(UUID profileId) {
+        MemberProfileEntity profile = profiles.findById(profileId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "成员资料不存在"));
+        if (profile.getStatus() != MemberStatus.OFFICIAL) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "该成员主页暂未公开");
+        }
+        LocalDate today = LocalDate.now(LAB_TIME_ZONE);
+        return new PointModels.PublicPointSummary(profile.getTotalPoints(), today, dailyPoints(profileId, today));
+    }
+
+    private List<PointModels.DailyPointView> dailyPoints(UUID profileId, LocalDate today) {
+        return entries.sumDailyForMember(profileId, today.minusDays(HEATMAP_DAYS - 1L), today.plusDays(1))
+                .stream()
+                .map(total -> new PointModels.DailyPointView(total.getDate(), Math.toIntExact(total.getPoints())))
+                .toList();
     }
 
     @PreAuthorize("hasAnyRole('TEACHER', 'CORE_STUDENT', 'MEMBER')")

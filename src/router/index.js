@@ -16,7 +16,7 @@ const routes = [
   {
     path: '/today',
     name: 'today',
-    component: () => import('../views/TodayView.vue'),
+    redirect: (to) => ({ path: '/profile', query: to.query, hash: to.hash }),
     meta: { roles: ['TEACHER', 'CORE_STUDENT', 'MEMBER'] },
   },
   {
@@ -144,18 +144,22 @@ const routes = [
       { path: 'members', name: 'admin-members', component: () => import('../views/AdminMembersView.vue') },
       { path: 'points', name: 'admin-points', component: () => import('../views/AdminPointsView.vue') },
       { path: 'recruitment', name: 'admin-recruitment', component: () => import('../views/AdminRecruitmentView.vue') },
-      { path: 'tasks', name: 'admin-tasks', component: () => import('../views/AdminTasksView.vue') },
+      { path: 'tasks', name: 'admin-tasks', component: () => import('../views/AdminTaskManagementView.vue') },
       {
         path: 'tasks/onboarding',
         name: 'admin-onboarding-task',
-        component: () => import('../views/AdminOnboardingTaskView.vue'),
+        redirect: (to) => ({ path: '/admin/tasks', query: { ...to.query, type: 'onboarding' }, hash: to.hash }),
       },
       {
         path: 'tasks/:taskId/progress',
         name: 'admin-task-progress',
         component: () => import('../views/AdminTaskProgressView.vue'),
       },
-      { path: 'bounties', name: 'admin-bounties', component: () => import('../views/AdminBountiesView.vue') },
+      {
+        path: 'bounties',
+        name: 'admin-bounties',
+        redirect: (to) => ({ path: '/admin/tasks', query: { ...to.query, type: 'bounty' }, hash: to.hash }),
+      },
       {
         path: 'bounties/:taskId/claims',
         name: 'admin-bounty-claims',
@@ -186,9 +190,9 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   await restoreSession()
   const role = authState.account?.role
-  if (to.meta.guest && authState.account) return role === 'VISITOR' ? '/application' : '/today'
+  if (to.meta.guest && authState.account) return role === 'VISITOR' ? '/application' : '/profile'
   if (to.meta.roles && !authState.account) return { path: '/login', query: { redirect: to.fullPath } }
-  if (to.meta.roles && !to.meta.roles.includes(role)) return role === 'VISITOR' ? '/application' : '/today'
+  if (to.meta.roles && !to.meta.roles.includes(role)) return role === 'VISITOR' ? '/application' : '/profile'
 
   if (role === 'MEMBER' && to.meta.roles?.includes('MEMBER')) {
     if (authState.memberQualificationComplete !== true && to.name !== 'complete-profile') {
@@ -202,7 +206,7 @@ router.beforeEach(async (to) => {
       }
     }
     if (to.name === 'complete-profile' && authState.memberQualificationComplete === true) {
-      return safeMemberRedirect(to.query.redirect) || '/today'
+      return safeMemberRedirect(to.query.redirect) || '/profile'
     }
   }
   return true

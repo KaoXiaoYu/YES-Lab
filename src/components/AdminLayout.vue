@@ -39,7 +39,6 @@ const modules = [
   { to: '/admin/points', label: '积分管理', icon: BadgePlus },
   { to: '/admin/recruitment', label: '招新管理', icon: ShieldCheck },
   { to: '/admin/tasks', label: '任务管理', icon: ClipboardCheck },
-  { to: '/admin/bounties', label: '悬赏管理', icon: Gift },
   { to: '/admin/achievements', label: '成果管理', icon: Newspaper },
   { to: '/admin/homepage', label: '主页编辑', icon: LayoutTemplate },
 ]
@@ -60,7 +59,9 @@ const page = reactive({ title: '' })
 provide('adminLayout', page)
 
 const currentModule = computed(() =>
-  modules.find((item) => route.path === item.to || (!item.exact && route.path.startsWith(`${item.to}/`))),
+  route.path.startsWith('/admin/bounties/')
+    ? modules.find((item) => item.to === '/admin/tasks')
+    : modules.find((item) => route.path === item.to || (!item.exact && route.path.startsWith(`${item.to}/`))),
 )
 const pageTitle = computed(() => page.title || currentModule.value?.label || '管理工作台')
 const accountName = computed(() => authState.account?.displayName || authState.account?.username || '')

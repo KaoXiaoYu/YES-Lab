@@ -264,3 +264,9 @@ Before delivering any UI code, verify:
 - 光晕按用户追加需求改为弹簧滞后/超调回弹与速度拉伸（最多 12%），移动时循环变色，静止停止更新；该装饰层额外更新 hue-rotate filter，其余内容颜色不变。`spring animation excessive motion reduced motion --domain ux` 查询采纳减少动态与节制动效规则。
 - 成员顶栏按实际容器、入口、账号和后台菜单宽度显示入口；全部可放下时没有“更多”，否则仅溢出项折叠，菜单高度有界并可滚动。保留各入口权限和键盘行为。
 - ui-ux-pro-max 查询 `text image overlay contrast --domain ux`，采纳 4.5:1 对比度规则；Chrome 1440/1024/768/375 明暗首页及 1920 至 375 成员顶栏验收，见 `.codex-run/ui-review/home-polish-*`。
+
+## 导航与页面整合（2026-10-15，用户批准）
+
+- 成员顶栏统一“个人主页”，Logo 返回公开首页；后台管理为直接链接，参与相同的宽度测量。全部导航能放下时不显示更多，仅溢出项进入菜单；不改变公开首页的光晕、成员展示与已有内容。
+- 个人主页与公开积分规则见 pages/member-profile.md；任务三类同级标签规则见 pages/task-management.md。沿用现有 tokens、组件、44px、可见焦点、明暗对比和减少动态规则。
+- ui-ux-pro-max 的 navigation overflow keyboard focus 查询命中键盘导航/焦点规则；route query unsaved form 未命中，按契约收窄为 router navigation guards 后命中路由守卫规则。采用语义链接、可见焦点及路由状态保护，具体标签守卫由项目逻辑实现。

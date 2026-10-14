@@ -335,6 +335,59 @@ class PointApiTests {
                 .andExpect(jsonPath("$.data[*].rank", org.hamcrest.Matchers.everyItem(org.hamcrest.Matchers.is(1))));
     }
 
+    @Test
+    void publicHeatmapMatchesOwnDailyTotalsWithoutPrivateLedger() throws Exception {
+        String teacher = login("teacher", "YesLab-Teacher-2026!");
+        String memberToken = login("member", "YesLab-Member-2026!");
+        String member = profileId(memberToken);
+        for (int amount : List.of(10, 15)) {
+            mvc.perform(post("/api/v1/admin/points/grants")
+                            .header("Authorization", bearer(teacher)).contentType(MediaType.APPLICATION_JSON)
+                            .content(singleGrant("MEDIA_CONTENT", amount, "heatmap-" + amount, member, labToday.toString())))
+                    .andExpect(status().isOk());
+        }
+        String own = mvc.perform(get("/api/v1/member/points").header("Authorization", bearer(memberToken)))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String visible = mvc.perform(get("/api/v1/public/member-profiles/{id}/points", member))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalPoints").value(25))
+                .andExpect(jsonPath("$.data.serverDate").value(labToday.toString()))
+                .andExpect(jsonPath("$.data.dailyPoints[0].points").value(25))
+                .andExpect(jsonPath("$.data.entries").doesNotExist())
+                .andExpect(jsonPath("$.data.categoryTotals").doesNotExist())
+                .andExpect(jsonPath("$.data.internalContact").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+        List<?> ownDays = JsonPath.read(own, "$.data.dailyPoints");
+        List<?> publicDays = JsonPath.read(visible, "$.data.dailyPoints");
+        org.junit.jupiter.api.Assertions.assertEquals(ownDays, publicDays);
+        java.util.Map<String, Object> data = JsonPath.read(visible, "$.data");
+        org.junit.jupiter.api.Assertions.assertEquals(java.util.Set.of("totalPoints", "serverDate", "dailyPoints"), data.keySet());
+    }
+
+    @Test
+    void publicHeatmapRejectsUnavailableProfiles() throws Exception {
+        var member = profiles.findAll().stream()
+                .filter(p -> p.getAccount().getUsername().equals("member")).findFirst().orElseThrow();
+        member.updateManagedFields(member.getName(), member.getMemberCode(), member.getMajor(), member.getClassName(),
+                member.getGrade(), member.getInternalContact(), cn.yeslab.platform.identity.model.MemberStatus.TRIAL,
+                member.getSkillTags());
+        profiles.saveAndFlush(member);
+        mvc.perform(get("/api/v1/public/member-profiles/{id}/points", member.getId()))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/public/member-profiles/{id}/points", UUID.randomUUID()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void publicHeatmapHasAnEmptyDailySeriesBeforeAnyPointsAreGranted() throws Exception {
+        var member = profiles.findAll().stream()
+                .filter(p -> p.getAccount().getUsername().equals("member")).findFirst().orElseThrow();
+        mvc.perform(get("/api/v1/public/member-profiles/{id}/points", member.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalPoints").value(0))
+                .andExpect(jsonPath("$.data.dailyPoints.length()").value(0));
+    }
+
     private String linkedGrant(String category, String sourceField, String sourceId, String memberId, String key) {
         return """
                 {"title":"事项测试","subcategory":"%s","occurredOn":"%s","itemTotalPoints":25,

@@ -49,7 +49,7 @@ async function submit() {
       ? await register({ username: normalizedUsername.value, password: form.password })
       : await login({ username: form.username.trim(), password: form.password, rememberMe: form.rememberMe })
     const requestedPath = typeof route.query.redirect === 'string' ? route.query.redirect : null
-    await router.push(requestedPath || (account.role === 'VISITOR' ? '/application' : '/today'))
+    await router.push(requestedPath || (account.role === 'VISITOR' ? '/application' : '/profile'))
     if (registering) {
       celebrate({
         title: '报名账号已创建',

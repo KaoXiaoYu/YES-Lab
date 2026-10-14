@@ -62,6 +62,10 @@ export async function fetchPublicMemberDiscussions(profileId) {
   return fetchPublicData(`/api/v1/discussions/authors/${encodeURIComponent(profileId)}`)
 }
 
+export async function fetchPublicMemberPoints(profileId) {
+  return fetchPublicData(`/api/v1/public/member-profiles/${encodeURIComponent(profileId)}/points`)
+}
+
 async function fetchPublicData(path) {
   const response = await fetch(`${apiBaseUrl}${path}`, { headers: { Accept: 'application/json' } })
   if (!response.ok) throw new Error(`Public API responded with ${response.status}`)

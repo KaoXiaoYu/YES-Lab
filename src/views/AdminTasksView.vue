@@ -2,7 +2,6 @@
 import { ClipboardCheck, Eye, Pencil, Plus, Search, Send, Square, Trash2, Users } from '@lucide/vue'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
-import PortalShell from '../components/PortalShell.vue'
 import AdminDrawer from '../components/AdminDrawer.vue'
 import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import { confirmAction } from '../services/confirm'
@@ -109,7 +108,7 @@ watch(
 )
 onMounted(() => Promise.all([loadTasks(), loadMembers()]))
 onBeforeRouteLeave(() => !working.value)
-useUnsavedGuard(dirty)
+useUnsavedGuard(dirty, { busy: working })
 
 function clearFeedback() {
   errorMessage.value = ''
@@ -364,13 +363,8 @@ const fieldTargets = {
 </script>
 
 <template>
-  <PortalShell title="任务管理" description="发布任务、查看进度与处理审核。">
+  <section class="task-category" aria-label="普通任务">
     <div class="tm">
-      <nav class="tm-modules" aria-label="任务模块">
-        <RouterLink to="/admin/tasks" aria-current="page">普通任务</RouterLink>
-        <RouterLink to="/admin/tasks/onboarding">新手任务</RouterLink>
-        <RouterLink to="/admin/bounties">悬赏任务</RouterLink>
-      </nav>
       <section>
         <header class="tm-heading">
           <div>
@@ -716,7 +710,7 @@ const fieldTargets = {
         </button>
       </template>
     </AdminDrawer>
-  </PortalShell>
+  </section>
 </template>
 
 <style scoped>

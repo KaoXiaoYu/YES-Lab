@@ -324,7 +324,7 @@ const visibleNewsItems = computed(() => newsItems.value.slice(0, displayOptions.
 const visibleCompetitionResults = computed(() =>
   competitionResults.value.slice(0, displayOptions.value.competitionLimit),
 )
-const accountDestination = computed(() => (authState.account?.role === 'VISITOR' ? '/application' : '/today'))
+const accountDestination = computed(() => (authState.account?.role === 'VISITOR' ? '/application' : '/profile'))
 const accountName = computed(() => authState.account?.displayName || authState.account?.username || '')
 const enabledExternalLinks = computed(() =>
   (homepageContent.value.externalLinks || []).filter((link) => link.enabled && link.url),

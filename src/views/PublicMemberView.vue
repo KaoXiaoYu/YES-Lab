@@ -3,33 +3,78 @@ import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import { brand } from '../config/site'
 import ThemeToggle from '../components/ThemeToggle.vue'
 import { ArrowLeft, ArrowRight, MessageSquareText, Menu, Reply, X } from '@lucide/vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import DiscussionCollapsibleContent from '../components/DiscussionCollapsibleContent.vue'
 import MemberProfileDisplay from '../components/MemberProfileDisplay.vue'
+import PointsHeatmap from '../components/PointsHeatmap.vue'
 import { authState } from '../services/authApi'
-import { fetchPublicMemberDiscussions, fetchPublicMemberProfile } from '../services/publicApi'
+import { fetchPublicMemberDiscussions, fetchPublicMemberProfile, fetchPublicMemberPoints } from '../services/publicApi'
 
 const route = useRoute()
 const profile = ref(null)
 const discussionActivity = ref([])
+const points = ref(null)
+const pointsError = ref('')
+const pointsLoading = ref(false)
+let pointsVersion = 0
 const loading = ref(true)
 const errorMessage = ref('')
 const menuOpen = ref(false)
-const accountDestination = computed(() => (authState.account?.role === 'VISITOR' ? '/application' : '/today'))
+const accountDestination = computed(() => (authState.account?.role === 'VISITOR' ? '/application' : '/profile'))
 const accountName = computed(() => authState.account?.displayName || authState.account?.username || '')
 
-onMounted(async () => {
+async function loadPoints() {
+  const ticket = ++pointsVersion
+  const id = route.params.profileId
+  pointsLoading.value = true
+  pointsError.value = ''
   try {
-    profile.value = await fetchPublicMemberProfile(route.params.profileId)
-    if (!profile.value) errorMessage.value = '该成员主页不存在、尚未公开，或后端服务未启动。'
-    else discussionActivity.value = await fetchPublicMemberDiscussions(route.params.profileId).catch(() => [])
-  } catch (error) {
-    errorMessage.value = error.message
+    const data = await fetchPublicMemberPoints(id)
+    if (ticket === pointsVersion) points.value = data
+  } catch {
+    if (ticket === pointsVersion) pointsError.value = '积分总览暂时无法读取。'
   } finally {
-    loading.value = false
+    if (ticket === pointsVersion) pointsLoading.value = false
   }
-})
+}
+
+watch(
+  () => route.params.profileId,
+  async (id, previous, onCleanup) => {
+    let cancelled = false
+    onCleanup(() => {
+      cancelled = true
+    })
+    ++pointsVersion
+    pointsLoading.value = false
+    loading.value = true
+    profile.value = null
+    discussionActivity.value = []
+    points.value = null
+    pointsError.value = ''
+    errorMessage.value = ''
+    try {
+      const loaded = await fetchPublicMemberProfile(id)
+      if (cancelled) return
+      profile.value = loaded
+      if (!profile.value) errorMessage.value = '该成员主页不存在、尚未公开，或后端服务未启动。'
+      else {
+        loadPoints()
+        fetchPublicMemberDiscussions(id)
+          .then((data) => {
+            if (!cancelled) discussionActivity.value = data
+          })
+          .catch(() => {})
+      }
+    } catch (error) {
+      if (!cancelled) errorMessage.value = error.message
+    } finally {
+      if (!cancelled) loading.value = false
+    }
+  },
+  { immediate: true },
+)
 
 function contentNumber(value) {
   return `#D${String(value).padStart(6, '0')}`
@@ -84,6 +129,18 @@ function formatTime(value) {
       </div>
       <template v-else-if="profile">
         <MemberProfileDisplay :profile="profile" />
+        <LoadingSkeleton v-if="pointsLoading" variant="detail" :rows="1" label="正在读取积分总览" />
+        <div v-else-if="pointsError" class="portal-state error" role="alert">
+          {{ pointsError }} <button class="portal-secondary" type="button" @click="loadPoints">重试</button>
+        </div>
+        <PointsHeatmap
+          v-else-if="points"
+          :key="route.params.profileId"
+          :daily-points="points.dailyPoints"
+          :total-points="points.totalPoints"
+          :server-date="points.serverDate"
+          public-view
+        />
         <section class="profile-discussion-card" aria-labelledby="profile-discussion-title">
           <header>
             <div>

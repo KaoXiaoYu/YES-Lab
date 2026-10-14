@@ -776,7 +776,7 @@ function splitTags(value) {
           </p>
           <p class="task-locked-note" role="status">
             新手任务的完成情况与审核（通过即自动转正）在
-            <RouterLink to="/admin/tasks/onboarding">任务管理 · 新手任务</RouterLink>
+            <RouterLink to="/admin/tasks?type=onboarding">任务管理 · 新手任务</RouterLink>
             中处理；此处用于在没有新手任务或需要豁免时手动转正。
           </p>
           <dl class="qualification-readonly">

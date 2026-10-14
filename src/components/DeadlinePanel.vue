@@ -4,7 +4,8 @@ import { computed, onBeforeUnmount, onMounted, ref, watch, useId } from 'vue'
 import { useRouter } from 'vue-router'
 import { authState, getDeadlines } from '../services/authApi'
 import { labTime } from '../services/fundFormat'
-const props = defineProps({ personal: Boolean })
+const props = defineProps({ personal: Boolean, initialData: { type: Object, default: null } })
+let initialDataUsed = false
 const router = useRouter()
 const disclosureId = useId()
 const kinds = {
@@ -87,7 +88,11 @@ async function load() {
   try {
     const query = { page: page.value, pageSize: pageSize.value }
     if (type.value !== 'ALL') query.type = type.value
-    const data = await getDeadlines(props.personal, query)
+    const seed = !initialDataUsed && props.initialData && page.value === 0 && type.value === 'ALL' && !expanded.value
+    initialDataUsed = true
+    const data = seed
+      ? { ...props.initialData, entries: props.initialData.entries.slice(0, pageSize.value) }
+      : await getDeadlines(props.personal, query)
     if (ticket !== version || unmounted) return
     entries.value = data.entries
     total.value = data.totalCount

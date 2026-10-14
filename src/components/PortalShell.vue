@@ -3,26 +3,18 @@ import { brand } from '../config/site'
 import ThemeToggle from './ThemeToggle.vue'
 import NotificationCenter from './NotificationCenter.vue'
 import {
-  BadgePlus,
-  ClipboardCheck,
   Gift,
   ClipboardList,
   FolderKanban,
-  Home,
   LayoutDashboard,
-  LayoutTemplate,
   ListChecks,
   LogOut,
   Medal,
   MoreHorizontal,
   Search,
-  Sun,
   MessageSquareText,
-  Newspaper,
-  ShieldCheck,
   Trophy,
   UserRound,
-  UsersRound,
   Wallet,
 } from '@lucide/vue'
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
@@ -55,7 +47,6 @@ const roleLabels = {
 }
 const accountLabel = computed(() => roleLabels[authState.account?.role] || authState.account?.role)
 const accountName = computed(() => authState.account?.displayName || authState.account?.username || '')
-const adminSectionActive = computed(() => route.path.startsWith('/admin'))
 const isMember = computed(() => Boolean(authState.account && authState.account.role !== 'VISITOR'))
 const navigation = ref(null)
 const navigationMeasure = ref(null)
@@ -63,7 +54,7 @@ const visibleCount = ref(0)
 const navigationItems = computed(() => [
   ...(isMember.value
     ? [
-        { to: '/today', label: '今日', icon: Sun },
+        { to: '/profile', label: '个人主页', icon: UserRound },
         { to: '/tasks', label: '任务', icon: ListChecks },
         { to: '/bounties', label: '悬赏', icon: Gift },
         { to: '/projects', label: '项目', icon: FolderKanban },
@@ -73,13 +64,12 @@ const navigationItems = computed(() => [
   { to: '/discussions', label: '讨论', icon: MessageSquareText },
   ...(isMember.value
     ? [
-        { to: '/profile', label: '个人主页', icon: UserRound },
         { to: '/points', label: '积分榜', icon: Trophy },
         { to: '/fund', label: '实验室基金', icon: Wallet },
         { to: '/competitions', label: '比赛管理', icon: Medal },
       ]
     : []),
-  { to: '/', label: '公开首页', icon: Home },
+  ...(authState.account?.systemAdmin ? [{ to: '/admin', label: '后台管理', icon: LayoutDashboard }] : []),
 ])
 const visibleItems = computed(() => navigationItems.value.slice(0, visibleCount.value))
 const overflowItems = computed(() => navigationItems.value.slice(visibleCount.value))
@@ -97,8 +87,7 @@ function measureNavigation() {
   const widths = [...navigationMeasure.value.querySelectorAll('[data-nav-item]')].map(
     (item) => item.getBoundingClientRect().width,
   )
-  const adminWidth = adminMenu.value?.querySelector('summary')?.getBoundingClientRect().width || 0
-  const available = navigation.value.clientWidth - (adminWidth ? adminWidth + gap : 0)
+  const available = navigation.value.clientWidth
   const total = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(0, widths.length - 1)
   let count = widths.length
   if (total > available + 0.5) {
@@ -144,22 +133,11 @@ onBeforeUnmount(() => {
   navigationObserver?.disconnect()
   cancelAnimationFrame(navigationFrame)
 })
-const adminMenu = ref(null)
 const moreMenu = ref(null)
-
-function closeAdminMenu() {
-  if (adminMenu.value) adminMenu.value.open = false
-}
 
 function closeMoreMenu() {
   if (moreMenu.value) moreMenu.value.open = false
 }
-
-useDismissibleLayer(adminMenu, {
-  isOpen: () => Boolean(adminMenu.value?.open),
-  close: closeAdminMenu,
-  focusTarget: () => adminMenu.value?.querySelector('summary'),
-})
 
 useDismissibleLayer(moreMenu, {
   isOpen: () => Boolean(moreMenu.value?.open),
@@ -170,7 +148,6 @@ useDismissibleLayer(moreMenu, {
 watch(
   () => route.fullPath,
   () => {
-    closeAdminMenu()
     closeMoreMenu()
   },
 )
@@ -216,28 +193,6 @@ async function signOut() {
             <RouterLink v-for="item in overflowItems" :key="item.to" :to="item.to">
               <component :is="item.icon" :size="17" aria-hidden="true" />{{ item.label }}
             </RouterLink>
-          </div>
-        </details>
-        <details
-          v-if="authState.account?.systemAdmin"
-          ref="adminMenu"
-          class="portal-admin-menu"
-          @click="(event) => event.target.closest('a') && closeAdminMenu()"
-        >
-          <summary :class="{ active: adminSectionActive }">
-            <LayoutDashboard :size="17" aria-hidden="true" />后台管理
-          </summary>
-          <div>
-            <RouterLink to="/admin" exact-active-class="router-link-exact-active"
-              ><LayoutDashboard :size="17" aria-hidden="true" />待处理总览</RouterLink
-            >
-            <RouterLink to="/admin/members"><UsersRound :size="17" aria-hidden="true" />成员管理</RouterLink>
-            <RouterLink to="/admin/points"><BadgePlus :size="17" aria-hidden="true" />积分管理</RouterLink>
-            <RouterLink to="/admin/recruitment"><ShieldCheck :size="17" aria-hidden="true" />招新管理</RouterLink>
-            <RouterLink to="/admin/tasks"><ClipboardCheck :size="17" aria-hidden="true" />任务管理</RouterLink>
-            <RouterLink to="/admin/bounties"><Gift :size="17" aria-hidden="true" />悬赏管理</RouterLink>
-            <RouterLink to="/admin/achievements"><Newspaper :size="17" aria-hidden="true" />成果管理</RouterLink>
-            <RouterLink to="/admin/homepage"><LayoutTemplate :size="17" aria-hidden="true" />主页编辑</RouterLink>
           </div>
         </details>
       </nav>
@@ -303,5 +258,9 @@ async function signOut() {
 .portal-more-menu > div {
   max-height: calc(100dvh - 160px);
   overflow-y: auto;
+}
+.portal-navigation :is(a, summary):focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
 }
 </style>

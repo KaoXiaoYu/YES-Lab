@@ -5,12 +5,20 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 const props = defineProps({
   dailyPoints: { type: Array, default: () => [] },
   totalPoints: { type: Number, default: 0 },
+  publicView: { type: Boolean, default: false },
+  serverDate: { type: String, default: '' },
 })
 
 const grid = ref(null)
 const scroll = ref(null)
 const tooltip = ref({ visible: false, x: 0, y: 0, pointerOffset: 0, text: '' })
-const today = startOfDay(new Date())
+const labDate = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(new Date())
+const today = startOfDay(new Date(`${props.serverDate || labDate}T12:00:00`))
 const todayKey = dateKey(today)
 const selectedDate = ref(todayKey)
 const pointMap = computed(() => new Map(props.dailyPoints.map((item) => [item.date, Number(item.points) || 0])))
@@ -200,7 +208,7 @@ function handleKeydown(event, index) {
       </div>
 
       <footer>
-        <RouterLink to="/points">查看积分榜<ArrowRight :size="15" aria-hidden="true" /></RouterLink>
+        <RouterLink v-if="!publicView" to="/points">查看积分榜<ArrowRight :size="15" aria-hidden="true" /></RouterLink>
         <div class="points-heatmap-legend" aria-label="颜色深浅图例：颜色越深，积分越高">
           <span>少</span><i v-for="level in [0, 1, 2, 3, 4]" :key="level" :data-level="level"></i><span>多</span>
         </div>

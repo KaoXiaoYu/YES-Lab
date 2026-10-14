@@ -1,8 +1,8 @@
 <script setup>
 import TaskSubmissionProgress from '../components/TaskSubmissionProgress.vue'
-import { ArrowLeft, CalendarClock, CheckCheck, ListChecks, RefreshCw, Save, X } from '@lucide/vue'
+import { CalendarClock, CheckCheck, ListChecks, RefreshCw, Save, X } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
-import PortalShell from '../components/PortalShell.vue'
+import { useUnsavedGuard } from '../composables/useUnsavedGuard'
 import LoadingSkeleton from '../components/LoadingSkeleton.vue'
 import { useToastFeedback } from '../composables/useToastFeedback'
 import DiscussionRichTextEditor from '../components/DiscussionRichTextEditor.vue'
@@ -42,7 +42,17 @@ const task = reactive({
   durationDays: 7,
   subtasks: [],
 })
+const taskSnapshot = ref('')
 const review = reactive({ decision: 'APPROVED', comment: '', exemptionReason: '' })
+const extendSnapshot = ref('')
+const dirty = computed(
+  () =>
+    (Boolean(taskSnapshot.value) && JSON.stringify(task) !== taskSnapshot.value) ||
+    (Boolean(activeAssignmentId.value) &&
+      (review.decision !== 'APPROVED' || Boolean(review.comment || review.exemptionReason))) ||
+    (Boolean(extendAssignmentId.value) && JSON.stringify(extendForm) !== extendSnapshot.value),
+)
+useUnsavedGuard(dirty, { busy: working })
 
 const statusLabels = {
   PENDING: '待完成',
@@ -86,8 +96,18 @@ const filteredRows = computed(() => {
 const sharedTask = computed(() => overview.value?.task || task)
 const validSubtasks = computed(() => task.subtasks.filter((item) => item.title.trim()))
 
-function loadSubtaskContent(subtaskId) {
-  return getAdminSubtask(task.taskId, subtaskId)
+async function loadSubtaskContent(subtaskId) {
+  const detail = await getAdminSubtask(task.taskId, subtaskId)
+  // Reading an unchanged lazy body must not count as an unsaved edit.
+  if (taskSnapshot.value) {
+    const saved = JSON.parse(taskSnapshot.value)
+    const item = saved.subtasks.find((entry) => entry.id === subtaskId)
+    if (item && item.contentHtml === undefined) {
+      item.contentHtml = detail?.contentHtml ?? null
+      taskSnapshot.value = JSON.stringify(saved)
+    }
+  }
+  return detail
 }
 
 let hasLoaded = false
@@ -105,6 +125,7 @@ async function load() {
       title: item.title,
       hasContent: item.hasContent,
     }))
+    taskSnapshot.value = JSON.stringify(task)
     overview.value = data
   } catch (error) {
     errorMessage.value = error.message
@@ -150,6 +171,7 @@ async function save() {
       })),
     })
     const notes = []
+    taskSnapshot.value = JSON.stringify(task)
     if (result.reopenedCount > 0) notes.push(`${result.reopenedCount} 位已提交的报名者被退回「待完成」`)
     if (result.rescheduledCount > 0) notes.push(`${result.rescheduledCount} 位的截止日期已按新时长重算`)
     successMessage.value = notes.length
@@ -192,6 +214,7 @@ function openExtend(row) {
   base.setDate(base.getDate() + 14)
   extendForm.dueDate = base.toISOString().slice(0, 10)
   extendForm.reason = ''
+  extendSnapshot.value = JSON.stringify(extendForm)
 }
 
 async function submitExtend(row) {
@@ -239,9 +262,7 @@ async function submitReview(row) {
 </script>
 
 <template>
-  <PortalShell title="新手任务" description="维护共享子任务，并审核技能测试结果。">
-    <RouterLink class="task-back" to="/admin/tasks"><ArrowLeft :size="16" aria-hidden="true" />返回任务管理</RouterLink>
-
+  <section class="task-category" aria-label="新手任务">
     <p v-if="errorMessage" class="portal-state error" role="alert">{{ errorMessage }}</p>
 
     <LoadingSkeleton v-if="loading" variant="detail" :rows="3" label="正在读取新手任务" />
@@ -494,5 +515,5 @@ async function submitReview(row) {
         </TransitionGroup>
       </section>
     </template>
-  </PortalShell>
+  </section>
 </template>

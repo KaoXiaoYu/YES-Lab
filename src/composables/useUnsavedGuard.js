@@ -1,5 +1,5 @@
 import { onBeforeUnmount, onMounted, unref } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import { confirmAction } from '../services/confirm'
 
 const discardOptions = {
@@ -17,20 +17,24 @@ const discardOptions = {
  */
 export function useUnsavedGuard(isDirty, options = {}) {
   const dirty = () => Boolean(typeof isDirty === 'function' ? isDirty() : unref(isDirty))
-  const settings = { ...discardOptions, ...options }
+  const { busy, ...dialogOptions } = options
+  const isBusy = () => Boolean(typeof busy === 'function' ? busy() : unref(busy))
+  const settings = { ...discardOptions, ...dialogOptions }
 
   async function confirmDiscard(overrides) {
+    if (isBusy()) return false
     if (!dirty()) return true
     return confirmAction({ ...settings, ...overrides })
   }
 
   function beforeUnload(event) {
-    if (!dirty()) return
+    if (!dirty() && !isBusy()) return
     event.preventDefault()
     event.returnValue = ''
   }
 
   onBeforeRouteLeave(() => confirmDiscard())
+  onBeforeRouteUpdate((to, from) => (to.query.type !== from.query.type ? confirmDiscard() : true))
   onMounted(() => window.addEventListener('beforeunload', beforeUnload))
   onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 

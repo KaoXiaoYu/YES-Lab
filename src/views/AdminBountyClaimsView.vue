@@ -177,7 +177,7 @@ function prizeSummary() {
 
 <template>
   <PortalShell title="悬赏接取名单" description="查看接取、完成与奖金履约记录。">
-    <RouterLink class="task-back" to="/admin/bounties"
+    <RouterLink class="task-back" to="/admin/tasks?type=bounty"
       ><ArrowLeft :size="16" aria-hidden="true" />返回悬赏管理</RouterLink
     >
 
