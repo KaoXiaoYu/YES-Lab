@@ -1881,3 +1881,4 @@
 - Java 21 新增 19 项测试、全量 142 项测试及打包通过；完整 npm run check（lint/format/build）通过，仅既有大 chunk 等提示。全量发现旧 TaskApiTests 写死 2026-10-15 截止日而在今天被正确冻结，仅改该测试使用实验室日期相对窗口，未改任务业务规则。测试脚本按真实 25 条迁移历史比较，未假定 V22 等于 22 行。
 - 本机仅有 MySQL 9.5，Docker daemon 不可用，未擅自安装软件；MySQL 8.4 预生产副本与生产历史核对/部署后验收仍待执行，不以 9.5/H2/CI 冒充。临时实例严格经 scripts/temp-mysql.sh、专用 /private/tmp 目录、45 分钟 TTL/20MB 日志上限；后端日志有界。实例关停与推送/Actions 在收尾补记；保留其他并行任务的 DEVLOG/视频文档改动，不纳入本批提交。
 - 收尾：本轮临时 MySQL 已通过 temp-mysql.sh stop 关停并清理专用目录，后端也已关停，3399/8080 无监听；没有本轮跨会话实例或遗留业务文件删除动作。下一批为动态提交、技术题快照、幂等/阶段并发与私有附件，方案已获批准。
+- 发布核对：应用提交 `a4dc6625212ff8cc025067d5208da8eca76ca225` 已同步 main。Git HTTPS fetch/push 超时后，通过 GitHub Git API 上传相同树与提交 SHA、校验远端父提交并非强制快进；Actions https://github.com/KaoXiaoYu/YES-Lab/actions/runs/38835360966 overall/test/yes-lab-web/yes-lab-api 均 success。仅补充本条审计以 [skip ci] 提交，应用/镜像仍对应 a4dc662；未操作生产部署，MySQL 8.4 预生产/生产历史核对仍待执行。
