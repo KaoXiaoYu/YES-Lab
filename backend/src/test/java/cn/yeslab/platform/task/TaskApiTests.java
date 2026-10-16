@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
 import java.util.List;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -122,18 +124,22 @@ class TaskApiTests {
     void publishingSnapshotsAudienceAndLocksPoints() throws Exception {
         String teacherToken = login("teacher", "YesLab-Teacher-2026!");
         String memberToken = login("member", "YesLab-Member-2026!");
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
+        String startDate = today.minusDays(1).toString();
+        String endDate = today.plusDays(7).toString();
+        String extendedEndDate = today.plusDays(14).toString();
 
         String created = mvc.perform(post("/api/v1/admin/tasks")
                         .header("Authorization", bearer(teacherToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"title":"整理仿真数据","contentHtml":"<p>请在截止日期前整理并提交。</p>",
-                                 "startDate":"2026-09-01","endDate":"2026-09-30","points":30,
+                                 "startDate":"%s","endDate":"%s","points":30,
                                  "subtasks":[{"title":"导出原始数据"},{"title":"整理为表格"}],
                                  "rules":[{"dimension":"ROLE","value":"MEMBER"},
                                           {"dimension":"MEMBER_STATUS","value":"OFFICIAL"}],
                                  "memberProfileIds":[]}
-                                """))
+                                """.formatted(startDate, endDate)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("DRAFT"))
                 .andExpect(jsonPath("$.data.taskType").value("STANDARD"))
@@ -177,11 +183,11 @@ class TaskApiTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"title":"整理仿真数据（改）","contentHtml":"<p>更新后的正文</p>",
-                                 "startDate":"2026-09-01","endDate":"2026-10-15","points":999,
+                                 "startDate":"%s","endDate":"%s","points":999,
                                  "subtasks":[{"title":"导出原始数据"},{"title":"整理为表格"}],
                                  "rules":[{"dimension":"ROLE","value":"TEACHER"}],
                                  "memberProfileIds":[]}
-                                """))
+                                """.formatted(startDate, extendedEndDate)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.points").value(30))
                 .andExpect(jsonPath("$.data.title").value("整理仿真数据（改）"))

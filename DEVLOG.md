@@ -1869,3 +1869,15 @@
 - 脚本适配了实际热力图/后台 CSS 选择器、隐藏测量元素和默认模板空 ID；热更新后以页面实际挂载的 router 验收，避免动态导入第二实例造成假故障。首轮 Chrome TTL 到期后重起有界实例补验；实例关停与推送/Actions 结果在收尾补记。保留任务开始前用户两份视频文档和 DEVLOG 原有改动，不纳入本批提交；未操作生产部署或业务数据。
 - 收尾关停：本轮前后端与 Chrome 已全部关停，8080/5173/9222 无监听；未启动 MySQL，无本轮遗留服务。后续报名表方案已获批准，下一批为基础配置/版本/权限与新增迁移演练，无需重复询问相同方案。
 - 发布核对：应用提交 `f82b35d7ef369bf980348f0cbfb1f570061771e5` 已正常推送 origin/main，GitHub API SHA 一致；Actions https://github.com/KaoXiaoYu/YES-Lab/actions/runs/38614493856 overall、test、yes-lab-web、yes-lab-api 均 success。仅追加本条审计并以 [skip ci] 提交，不重新发布镜像；应用/镜像对应 f82b35d，未操作生产部署。用户原有 DEVLOG 15 行及两份视频文档继续保留为未提交内容。
+
+## 2026-10-16：第二批报名表基础配置与版本管理（本地验收完成）
+
+- 用户要求继续实施，沿用已批准需求/设计，本批只交付基础层。新增受控 schema/默认十模块、服务端配置校验、全局草稿 revision、不可变发布快照、独立初始化器及四张新表实体；姓名/邮箱/专业/班级核心必填，技术模块可启停，模块/选项可组合排序，配置上限有界。
+- 提供管理 GET /api/v1/admin/recruitment/form、PUT /draft、POST /publish、GET /versions/{versionId}，沿用 RECRUITMENT_MANAGE；本人 GET /api/v1/recruitment/me/form 沿用 RECRUITMENT_SELF_VIEW，返回当前/原绑定版本或 legacy，申请者不含发布人信息。保存草稿不改发布，过期 revision 冲突、重复发布不增版本；ApiException 新增可选 fields，旧响应保持空字段映射。
+- 报名新增可空版本/答案字段及默认零 revision，不绑定或重写历史报名。附件/提交去重只建模，动态写入、存储下载、实际题目快照/开关、动态审核及三端编辑器仍待第三/四批；现有固定报名、招新阶段和界面继续原逻辑，第一批导航等源码未变。本批为纯后端，未改界面或重复截图。
+- 新增 V23__recruitment_form.sql，V1—V22（包含三个 7.1 小版本）未改。新增脚本预检引擎/ID/已存在列和同名约束，明确拒绝不兼容结构；缺列补齐、结束核对完整结构，成功清理临时断言过程。文档新增 docs/recruitment-form-foundation-validation-20261016.md，包含备份、8.4 预生产和部署后核对步骤；尚未连接或审计生产 flyway_schema_history，不操作部署或 repair。
+- 真实 MySQL 9.5 实机：上一批应用 e293a03 在专用旧库执行至 V22，经原接口创建含技术回答/私有作品的旧报名，备份库/上传目录后由新版 Flyway 升级 V23，Hibernate validate 通过。原 25 条历史及校验和、旧报名完整内容/阶段/技术回答、文件摘要与鉴权读取、47 张业务表行数保持（排除验收登录新增 refresh_tokens）。重复 SQL、错误列/错误唯一键拒绝、兼容部分新列补缺、空库全链、默认唯一版本及重启保留未发布草稿均通过。
+- 实机复现并修正上游并发缺陷：MySQL REPEATABLE READ 中若账号读取先于配置锁，会建立旧快照而查不到刚发布版本并返回 500；改为先锁配置再读账号/版本。五轮真实双请求并发发布全部成功且各轮共用一个快照；H2 的通过不能替代此证据。日志/报告在 .codex-run/batch2/，包括 mysql-before-lock-fix.log、mysql-report.json、ddl-guards-report.json、empty-restart-report.json。
+- Java 21 新增 19 项测试、全量 142 项测试及打包通过；完整 npm run check（lint/format/build）通过，仅既有大 chunk 等提示。全量发现旧 TaskApiTests 写死 2026-10-15 截止日而在今天被正确冻结，仅改该测试使用实验室日期相对窗口，未改任务业务规则。测试脚本按真实 25 条迁移历史比较，未假定 V22 等于 22 行。
+- 本机仅有 MySQL 9.5，Docker daemon 不可用，未擅自安装软件；MySQL 8.4 预生产副本与生产历史核对/部署后验收仍待执行，不以 9.5/H2/CI 冒充。临时实例严格经 scripts/temp-mysql.sh、专用 /private/tmp 目录、45 分钟 TTL/20MB 日志上限；后端日志有界。实例关停与推送/Actions 在收尾补记；保留其他并行任务的 DEVLOG/视频文档改动，不纳入本批提交。
+- 收尾：本轮临时 MySQL 已通过 temp-mysql.sh stop 关停并清理专用目录，后端也已关停，3399/8080 无监听；没有本轮跨会话实例或遗留业务文件删除动作。下一批为动态提交、技术题快照、幂等/阶段并发与私有附件，方案已获批准。

@@ -101,6 +101,16 @@ public class RecruitmentApplicationEntity {
     @Column(name = "technical_answers_json", columnDefinition = "LONGTEXT")
     private String technicalAnswersJson;
 
+    // Null on historical applications; these keep the legacy form and attachments.
+    private UUID formVersionId;
+
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
+    private String formAnswersJson;
+
+    @Column(nullable = false, columnDefinition = "BIGINT DEFAULT 0")
+    private long formAnswersRevision;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private RecruitmentStage stage = RecruitmentStage.SIGNUP;
@@ -314,4 +324,8 @@ public class RecruitmentApplicationEntity {
         this.convertedMemberId = memberId;
         this.updatedAt = Instant.now();
     }
+
+    public UUID getFormVersionId() { return formVersionId; }
+    public String getFormAnswersJson() { return formAnswersJson; }
+    public long getFormAnswersRevision() { return formAnswersRevision; }
 }

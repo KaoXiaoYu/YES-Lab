@@ -1,6 +1,6 @@
 # 导航整合与模块化报名表技术设计
 
-日期：2026-10-15。状态：用户于 2026-10-15 批准实施；第一批已完成；报名表后续三批待施工。需求以 `docs/navigation-recruitment-requirements-20261015.md` 为准；上游固定版本与差异见 `docs/openlims-diff-20261015.md`。
+日期：2026-10-15。状态：用户于 2026-10-15 批准实施；第一、二批已完成；动态提交/附件与三端界面后续两批待施工。需求以 `docs/navigation-recruitment-requirements-20261015.md` 为准；上游固定版本与差异见 `docs/openlims-diff-20261015.md`。
 
 ## 1. 增量适配策略
 
@@ -133,3 +133,15 @@ flowchart LR
 推送后确认远端为同一实现 SHA，核对该 SHA 的 Actions test 与 yes-lab-web/yes-lab-api 镜像 success；失败修复后重新核对，不把旧成功运行或文档 skip-ci 当作新源码验收。不操作生产部署，除非另有授权。
 
 设计阶段只核对文档格式和源码证据。第一批已完成应用测试、完整 npm check 和实际界面验收，详情见 DEVLOG 2026-10-15 施工记录；报名表与 MySQL 演练仍留待后续相应施工批执行。
+
+## 10. 第二批基础能力与后续交接（2026-10-16）
+
+- 新增 `recruitment/form` 包的 schema/默认十模块、配置校验、四类实体、配置/版本仓储、初始化器及基础控制器；命名空间为 `cn.yeslab`，默认 ID 使用 YES Lab 稳定命名空间。BASIC_INFO 核心字段、模块/选项/绑定/顺序唯一、启停、类型与上限由服务端检查。
+- 已提供 GET `/admin/recruitment/form`、PUT `/form/draft`、POST `/form/publish`、GET `/form/versions/{versionId}`，权限均为 RECRUITMENT_MANAGE。草稿请求为 `{expectedRevision,schema}`，发布请求为 `{expectedRevision}`，revision 必须明确提供且非负；草稿更新增长 revision，发布仅推进 publishedDraftRevision。相同已发布内容/相同发布重试不制造新快照。
+- GET `/recruitment/me/form` 需要 RECRUITMENT_SELF_VIEW，本批只返回 `{legacy,form}`；申请者版本仅包含 id/versionNumber/schema。无版本旧报名返回 `{legacy:true,form:null}`；已绑定报名读取原版本。答案/revision/文件/实际题目上下文及管理员动态审核读取在第三批扩展，现有固定报名接口及界面继续原逻辑。
+- 报名增加可空 formVersionId/formAnswersJson 与默认零 formAnswersRevision；没有批量绑定、改写旧答案或移动旧文件。附件和幂等提交仅有实体/表，业务仓储、存储、下载及动态写入尚未实现。ApiException 增加可选字段错误，旧构造继续返回空 fields。
+- 新增 V23，保留 V1—V22（含 7.1/7.1.1/7.1.2）全部字节。V23 在 DDL 前检查既有引擎、ID、新字段类型和同名约束，在结束时核对完整结构；不兼容明确 SIGNAL 拒绝，兼容缺列才补齐。成功后清理临时元数据表与专用断言过程。部署账户需有该库 CREATE ROUTINE 权限；不修改 Flyway 历史或 repair。
+- MySQL 默认 REPEATABLE READ 下，并发发布前必须先锁定配置再读取账号/版本，避免锁等待之前建立旧快照而看不到前一发布者刚提交的版本。该问题已在实机复现；H2 的并发测试不能单独证明此处正确。
+- 第三批仍需完成：动态 multipart 提交、字段投影、服务器技术题快照/开关、报名与阶段写入锁协调、requestKey 去重、附件事务与私有下载、动态审核读取。文件和答案仍按原版本校验；不能把上述基础接口标为完整报名表交付。
+
+本机实机环境为 MySQL 9.5；过程与结果见 `docs/recruitment-form-foundation-validation-20261016.md`。MySQL 8.4 预生产副本、生产历史核对及部署后验收仍是上线门槛，不以本机结果替代。
